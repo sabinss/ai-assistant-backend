@@ -12,21 +12,21 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
 
 app.use(express.json());
-// const corsOptions = {
-//   origin: "*",
-//   credentials: true,
-// };
 const corsOptions = {
-  origin: 'http://ec2-3-140-197-64.us-east-2.compute.amazonaws.com', // Your Next.js frontend URL
-  credentials: true, // Allow credentials (cookies, authorization headers)
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  allowedHeaders: 'Content-Type, Authorization',
+  origin: '*',
+  credentials: true,
 };
+// const corsOptions = {
+//   origin: 'http://ec2-3-140-197-64.us-east-2.compute.amazonaws.com', // Your Next.js frontend URL
+//   credentials: true, // Allow credentials (cookies, authorization headers)
+//   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+//   allowedHeaders: 'Content-Type, Authorization',
+// };
 
 app.use(cors(corsOptions));
 app.use(bodyParser.urlencoded({extended: false}));
 
-app.options('*', cors(corsOptions)); // Preflight request support
+// app.options('*', cors(corsOptions)); // Preflight request support
 
 http: db.connect();
 app.get('/health-check', async (req, res) => {

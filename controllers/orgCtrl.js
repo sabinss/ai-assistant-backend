@@ -1,16 +1,24 @@
-const Organization = require("../models/Organization");
-const User = require("../models/User");
+const Organization = require('../models/Organization');
+const User = require('../models/User');
 
 exports.create = async (req, res) => {
-  const { name, assistant_name, temperature, model = "gpt-3.5-turbo", api, prompt, greeting } = req.body;
+  const {
+    name,
+    assistant_name,
+    temperature,
+    model = 'gpt-3.5-turbo',
+    api,
+    prompt,
+    greeting,
+  } = req.body;
 
   if (!name) {
-    return res.status(404).json({ message: "Name is required" });
+    return res.status(404).json({message: 'Name is required'});
   }
 
   try {
-    const org = await Organization.findOne({ name });
-    if (org) return res.json({ message: "Name already taken." });
+    const org = await Organization.findOne({name});
+    if (org) return res.json({message: 'Name already taken.'});
 
     const org_data = new Organization({
       name,
@@ -24,22 +32,22 @@ exports.create = async (req, res) => {
     const new_org = await org_data.save();
     const item = await User.findByIdAndUpdate(
       req.user._id,
-      { $set: { organization: new_org._id } },
-      { new: true }
+      {$set: {organization: new_org._id}},
+      {new: true}
     );
 
     if (!item) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({message: 'User not found'});
     }
 
-    res.json({ message: `Organization created` });
+    res.json({message: `Organization created`});
   } catch (error) {
     res.status(500).json(error);
   }
 };
 
 exports.createUser = async (req, res) => {
-  const { org_id, email, first_name, last_name, password, role, status } =
+  const {org_id, email, first_name, last_name, password, role, status} =
     req.body;
 
   try {
@@ -54,43 +62,43 @@ exports.createUser = async (req, res) => {
     });
 
     await user_data.save();
-    res.json({ message: `User created` });
+    res.json({message: `User created`});
   } catch (error) {
-    res.json({ message: "Internal server error", error });
+    res.json({message: 'Internal server error', error});
   }
 };
 
 exports.findUsers = async (req, res) => {
-  const { org_id } = req.body;
+  const {org_id} = req.body;
 
   try {
-    const users = await User.find({ organization: org_id }).select([
-      "-password",
-      "-organization",
+    const users = await User.find({organization: org_id}).select([
+      '-password',
+      '-organization',
     ]);
-    res.status(200).json({ users });
+    res.status(200).json({users});
   } catch (error) {
-    res.json({ message: "Internal server error", error });
+    res.json({message: 'Internal server error', error});
   }
 };
 
 exports.editUser = async (req, res) => {
   try {
     const user_id = req.params.user_id;
-    const { first_name, last_name, role, status } = req.body;
+    const {first_name, last_name, role, status} = req.body;
     const item = await User.findByIdAndUpdate(
       user_id,
-      { $set: { first_name, last_name, role, status } },
-      { new: true }
+      {$set: {first_name, last_name, role, status}},
+      {new: true}
     );
 
     if (!item) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({message: 'User not found'});
     }
 
-    res.status(200).json({ message: "User updated" });
+    res.status(200).json({message: 'User updated'});
   } catch (error) {
-    res.status(500).json({ message: "Internal Server Error", error });
+    res.status(500).json({message: 'Internal Server Error', error});
   }
 };
 
@@ -98,11 +106,11 @@ exports.deleteUser = async (req, res) => {
   const user_id = req.params.user_id;
   try {
     const user = await User.findByIdAndDelete(user_id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({message: 'User not found'});
 
-    res.status(201).json({ message: "User deleted" });
+    res.status(201).json({message: 'User deleted'});
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error });
+    res.status(500).json({message: 'Internal server error', error});
   }
 };
 
@@ -111,11 +119,11 @@ exports.getOrg = async (req, res) => {
     const id = req?.user?.organization;
     const org = await Organization.findById(id);
     if (!org) {
-      return res.status(404).json({ message: "Organization not found" });
+      return res.status(404).json({message: 'Organization not found'});
     }
-    return res.json({ org });
+    return res.json({org});
   } catch (error) {
-    res.status(500).json({ error });
+    res.status(500).json({error});
   }
 };
 
@@ -124,17 +132,27 @@ exports.getOrgDetailByPublicApi = async (req, res) => {
     const org_id = req.params.org_id;
     const org = await Organization.findById(org_id);
     if (!org) {
-      return res.status(404).json({ message: "Organization not found" });
+      return res.status(404).json({message: 'Organization not found'});
     }
-    return res.json({ org });
+    return res.json({org});
   } catch (error) {
-    res.status(500).json({ error });
+    res.status(500).json({error});
   }
 };
 
 exports.editOrg = async (req, res) => {
   try {
-    const { name, assistant_name, temperature, selectedModel, apiKey, prompt, greeting } = req.body;
+    const {
+      name,
+      assistant_name,
+      temperature,
+      selectedModel,
+      apiKey,
+      prompt,
+      greeting,
+      workflowFlag,
+      mockData,
+    } = req.body;
     const org = await Organization.findByIdAndUpdate(
       req?.user?.organization,
       {
@@ -145,12 +163,14 @@ exports.editOrg = async (req, res) => {
         api: apiKey,
         greeting,
         prompt,
+        workflow_engine_enabled: workflowFlag,
+        mock_data: mockData,
       },
-      { new: true }
+      {new: true}
     );
     return res.json(org);
   } catch (error) {
-    res.status(500).json({ error });
+    res.status(500).json({error});
   }
 };
 
@@ -159,10 +179,14 @@ exports.getGreeting_botName = async (req, res) => {
     const id = req.query.org_id;
     const org = await Organization.findById(id);
     if (org) {
-      return res.json({ greeting: org.greeting, assistant_name: org.assistant_name, org_id: id });
+      return res.json({
+        greeting: org.greeting,
+        assistant_name: org.assistant_name,
+        org_id: id,
+      });
     }
-    return res.status(404).json({ message: "Organization not found" });
+    return res.status(404).json({message: 'Organization not found'});
   } catch (error) {
-    res.status(500).json({ error });
+    res.status(500).json({error});
   }
 };

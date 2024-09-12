@@ -34,7 +34,7 @@ app.get('/health-check', async (req, res) => {
   if (!check) {
     res.status(500).send('Not OK');
   }
-  res.status(200).send('OK');
+  res.status(200).send('OK..');
 });
 //seeding line is this
 //require("./seeders/allseeder.js")()

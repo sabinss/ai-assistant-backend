@@ -1,4 +1,5 @@
 const Conversation = require('../models/UserConversation');
+const User = require('../models/User');
 const http = require('../helper/http');
 const axios = require('axios');
 // Add conversation
@@ -9,7 +10,7 @@ exports.addConversation = async (req, res) => {
     if (workflowFlag) {
       const url = `http://ec2-18-188-31-176.us-east-2.compute.amazonaws.com:8000/ask?query=${encodeURIComponent(
         question
-      )}`;
+      )}&email=${req.user.email}`;
       const response = await axios.get(url);
       ans = {
         results: {

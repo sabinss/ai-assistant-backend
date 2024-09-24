@@ -8,8 +8,9 @@ const cors = require('cors');
 const app = express();
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
-
 const db = require('./helper/db');
+// const seedPromptInAllOrganization = require('./seeders/promptSeed');
+// seedPromptInAllOrganization();
 
 app.use(express.json());
 const corsOptions = {

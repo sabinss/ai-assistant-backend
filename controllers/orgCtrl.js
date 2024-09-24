@@ -152,6 +152,7 @@ exports.editOrg = async (req, res) => {
       greeting,
       workflowFlag,
       mockData,
+      additionalPrompt,
     } = req.body;
     const org = await Organization.findByIdAndUpdate(
       req?.user?.organization,
@@ -165,6 +166,7 @@ exports.editOrg = async (req, res) => {
         prompt,
         workflow_engine_enabled: workflowFlag,
         mock_data: mockData,
+        ...additionalPrompt,
       },
       {new: true}
     );

@@ -6,11 +6,12 @@ const axios = require('axios');
 exports.addConversation = async (req, res) => {
   try {
     let ans;
+    console.log('req.user', req.user);
     const {question, chatSession, workflowFlag} = req.body;
     if (workflowFlag) {
       const url = `http://ec2-18-188-31-176.us-east-2.compute.amazonaws.com:8000/ask?query=${encodeURIComponent(
         question
-      )}&user_email=${req.user.email}`;
+      )}&user_email=${req.user.email}&org_id=${req.user.organization}`;
       const response = await axios.get(url);
       ans = {
         results: {

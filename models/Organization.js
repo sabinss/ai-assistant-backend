@@ -16,6 +16,13 @@ const orgSchema = new mongoose.Schema(
     prompt: {type: String, default: ''},
     workflow_engine_enabled: {type: Boolean, default: false}, // Workflow engine flag
     mock_data: {type: String, default: ''}, // Large text field (can store long text)
+    primary_assistant_prompt: {type: String, default: ''},
+    investigation_prompt: {type: String, default: ''},
+    recommendation_prompt: {type: String, default: ''},
+    upsell_prompt: {type: String, default: ''},
+    survey_prompt: {type: String, default: ''},
+    solution_prompt: {type: String, default: ''},
+    log_prompt: {type: String, default: ''},
   },
   {
     timestamps: true,

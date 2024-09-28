@@ -6,16 +6,21 @@ const axios = require('axios');
 exports.addConversation = async (req, res) => {
   try {
     let ans;
-    console.log('req.user', req.user);
     const {question, chatSession, workflowFlag} = req.body;
+    let session_id = req.body?.sessionId ? req.body?.sessionId : null;
     if (workflowFlag) {
-      const url = `http://ec2-18-188-31-176.us-east-2.compute.amazonaws.com:8000/ask?query=${encodeURIComponent(
+      let url = `http://ec2-18-188-31-176.us-east-2.compute.amazonaws.com:8000/ask?query=${encodeURIComponent(
         question
       )}&user_email=${req.user.email}&org_id=${req.user.organization}`;
+      if (session_id) {
+        // Append session_id to the URL if it exists
+        url += `&session_id=${encodeURIComponent(session_id)}`;
+      }
       const response = await axios.get(url);
       ans = {
         results: {
           answer: response.data.message,
+          sessionId: response.data.session_id,
         },
       };
     } else {
@@ -26,7 +31,9 @@ exports.addConversation = async (req, res) => {
       );
     }
 
-    console.log('ans', ans);
+    if (!session_id && ans.results?.sessionId) {
+      session_id = ans.results.sessionId;
+    }
     const answer = ans.results.answer;
 
     const newConversation = new Conversation({
@@ -35,9 +42,12 @@ exports.addConversation = async (req, res) => {
       answer,
       organization: req.user.organization,
       chatSession,
+      session_id,
     });
 
     const savedConversation = await newConversation.save();
+    console.log('session_id', savedConversation);
+
     res.json(savedConversation);
   } catch (err) {
     console.log(err);

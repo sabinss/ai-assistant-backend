@@ -13,27 +13,27 @@ const db = require('./helper/db');
 // seedPromptInAllOrganization();
 
 app.use(express.json());
-const allowedOrigins = [
-  'https://ai-assistant-frontend-bcwhzveyo-sabins-projects-06b468fc.vercel.app',
-  'http://18.191.201.61',
-];
+// const allowedOrigins = [
+//   'https://ai-assistant-frontend-16miex02f-sabins-projects-06b468fc.vercel.app/',
+//   'http://18.191.201.61',
+// ];
 
-// const corsOptions = {
-//   origin: '*',
-//   credentials: true,
-// };
-// Set up CORS options
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true, // Allow cookies to be sent with requests
+  origin: '*',
+  credentials: true,
 };
+// Set up CORS options
+// const corsOptions = {
+//   origin: function (origin, callback) {
+//     // Allow requests with no origin (like mobile apps or curl requests)
+//     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+//       callback(null, true);
+//     } else {
+//       callback(new Error('Not allowed by CORS'));
+//     }
+//   },
+//   credentials: true, // Allow cookies to be sent with requests
+// };
 
 app.use(cors(corsOptions));
 app.use(bodyParser.urlencoded({extended: false}));

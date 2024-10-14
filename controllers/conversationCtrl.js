@@ -2,21 +2,26 @@ const Conversation = require('../models/UserConversation');
 const User = require('../models/User');
 const http = require('../helper/http');
 const axios = require('axios');
+
 // Add conversation
 exports.addConversation = async (req, res) => {
   try {
     let ans;
+    const defaultCustomerId = '0000';
     const {question, chatSession, workflowFlag} = req.body;
     let session_id = req.body?.sessionId ? req.body?.sessionId : null;
     if (workflowFlag) {
       let url = `http://ec2-18-188-31-176.us-east-2.compute.amazonaws.com:8000/ask?query=${encodeURIComponent(
         question
-      )}&user_email=${req.user.email}&org_id=${req.user.organization}`;
+      )}&user_email=${req.user.email}&org_id=${
+        req.user.organization
+      }&customerId=${defaultCustomerId}`;
       if (session_id) {
         // Append session_id to the URL if it exists
         url += `&session_id=${encodeURIComponent(session_id)}`;
       }
       const response = await axios.get(url);
+      console.log('chat response==', response.data);
       ans = {
         results: {
           answer: response.data.message,

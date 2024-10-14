@@ -23,7 +23,6 @@ const UserConversation = new mongoose.Schema(
       type: String,
       eum: ['liked', 'disliked'],
     },
-
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',
@@ -32,6 +31,10 @@ const UserConversation = new mongoose.Schema(
     session_id: {
       type: String,
       required: false,
+    },
+    customer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Customer',
     },
   },
   {

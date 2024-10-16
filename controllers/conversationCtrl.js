@@ -10,12 +10,14 @@ exports.addConversation = async (req, res) => {
     const defaultCustomerId = '0000';
     const {question, chatSession, workflowFlag} = req.body;
     let session_id = req.body?.sessionId ? req.body?.sessionId : null;
+
     if (workflowFlag) {
       let url = `http://ec2-18-188-31-176.us-east-2.compute.amazonaws.com:8000/ask?query=${encodeURIComponent(
         question
       )}&user_email=${req.user.email}&org_id=${
         req.user.organization
-      }&customerId=${defaultCustomerId}`;
+      }&customer_id=${defaultCustomerId}`;
+      console.log('url', url);
       if (session_id) {
         // Append session_id to the URL if it exists
         url += `&session_id=${encodeURIComponent(session_id)}`;
@@ -26,6 +28,7 @@ exports.addConversation = async (req, res) => {
         results: {
           answer: response.data.message,
           sessionId: response.data.session_id,
+          customer_id: response.data?.customer_id ?? null,
         },
       };
     } else {
@@ -40,7 +43,15 @@ exports.addConversation = async (req, res) => {
       session_id = ans.results.sessionId;
     }
     const answer = ans.results.answer;
-
+    console.log('CUstomer object', {
+      user_id: req.user._id,
+      question,
+      answer,
+      organization: req.user.organization,
+      chatSession,
+      session_id,
+      customer: ans.results?.customer_id,
+    });
     const newConversation = new Conversation({
       user_id: req.user._id,
       question,
@@ -48,10 +59,12 @@ exports.addConversation = async (req, res) => {
       organization: req.user.organization,
       chatSession,
       session_id,
+      customer: ans.results?.customer_id,
     });
 
     const savedConversation = await newConversation.save();
-    console.log('session_id', savedConversation);
+
+    console.log('savedConversation', savedConversation);
 
     res.json(savedConversation);
   } catch (err) {
@@ -213,10 +226,18 @@ exports.addPublicConversation = async (req, res) => {
 };
 
 exports.getWholeOrgConvo = async (req, res) => {
-  const {startDate, endDate} = req.query;
-  let searchCondition = {
-    organization: req.user.organization,
-  };
+  const {startDate, endDate, customer_id} = req.query;
+  let searchCondition = {};
+  console.log('11', customer_id);
+  if (customer_id) {
+    searchCondition = {
+      customer: customer_id,
+    };
+  } else {
+    searchCondition = {
+      organization: req.user.organization,
+    };
+  }
 
   if (startDate && endDate) {
     searchCondition.createdAt = {
@@ -224,7 +245,7 @@ exports.getWholeOrgConvo = async (req, res) => {
       $lte: new Date(endDate),
     };
   }
-
+  console.log('22', searchCondition);
   try {
     const conversation = await Conversation.find(searchCondition);
     res.json(conversation);

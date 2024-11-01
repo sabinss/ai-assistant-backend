@@ -1,3 +1,4 @@
+const Customer = require('../models/Customer');
 const Organization = require('../models/Organization');
 const User = require('../models/User');
 
@@ -190,5 +191,18 @@ exports.getGreeting_botName = async (req, res) => {
     return res.status(404).json({message: 'Organization not found'});
   } catch (error) {
     res.status(500).json({error});
+  }
+};
+
+exports.getCustomerList = async (req, res) => {
+  const org_id = req.params.org_id;
+  try {
+    const orgCustomers = await Customer.find({organization: org_id});
+    if (!orgCustomers)
+      return res.status(404).json({message: 'Customer not found'});
+
+    res.status(200).json({organization: org_id, customers: orgCustomers});
+  } catch (error) {
+    res.status(500).json({message: 'Internal server error', error});
   }
 };

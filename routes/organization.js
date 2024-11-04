@@ -5,6 +5,7 @@ const checkPermissions = require('../middleware/rolePermit');
 const permissonCheck = checkPermissions('organization');
 
 module.exports = (app) => {
+  app.get(`${process.env.APP_URL}/customers/`, ctl.getCustomerDetail);
   app.get(
     `${process.env.APP_URL}/organization/`,
     authUser,

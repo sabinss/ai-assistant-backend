@@ -206,3 +206,40 @@ exports.getCustomerList = async (req, res) => {
     res.status(500).json({message: 'Internal server error', error});
   }
 };
+
+exports.getCustomerDetail = async (req, res) => {
+  const customerName = req.query.customer_name;
+  try {
+    if (!customerName)
+      return res.status(404).json({message: 'Please provide customer name'});
+    const customer = await Customer.findOne({
+      name: {$regex: customerName, $options: 'i'},
+    });
+    if (!customer) {
+      return res.status(404).json({message: 'Customer not found'});
+    }
+
+    const {
+      _id,
+      name,
+      email,
+      crm_cust_id,
+      csm_cust_id,
+      accounting_cust_id,
+      help_desk_cust_id,
+    } = customer;
+    res.status(200).json({
+      data: {
+        _id,
+        name,
+        email,
+        crm_cust_id: crm_cust_id ?? null,
+        csm_cust_id: csm_cust_id ?? null,
+        accounting_cust_id: accounting_cust_id ?? null,
+        help_desk_cust_id: help_desk_cust_id ?? null,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({message: 'Internal server error', error});
+  }
+};

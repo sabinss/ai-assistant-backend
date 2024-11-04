@@ -21,6 +21,10 @@ const customerSchema = new mongoose.Schema(
     open_ticket_count: {type: Number},
     escalated_ticket: {type: Number},
     closed_ticket_count: {type: Number},
+    crm_cust_id: {type: Number},
+    help_desk_cust_id: {type: Number},
+    csm_cust_id: {type: Number},
+    accounting_cust_id: {type: Number},
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',

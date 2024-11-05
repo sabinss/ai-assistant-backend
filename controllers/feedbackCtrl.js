@@ -202,13 +202,23 @@ exports.createPublicFeedback = async (req, res) => {
 
 exports.createFeedbackSurvey = async (req, res) => {
   try {
-    const {query, rating, feedback, user_email, organization_id} = req.body;
+    const {
+      query,
+      rating,
+      feedback,
+      user_email,
+      organization_id,
+      customer_id,
+      user_id,
+    } = req.body;
     const newFeedback = await FeedbackSurvey.create({
       query,
       rating,
       feedback,
       user_email,
       organization: organization_id,
+      customer: customer_id,
+      user: user_id,
     });
     res
       .status(200)
@@ -216,5 +226,40 @@ exports.createFeedbackSurvey = async (req, res) => {
   } catch (error) {
     console.error('Error creating feedback:', error);
     res.status(500).json({message: 'Bad Request', error});
+  }
+};
+
+exports.getFeedbackSurveys = async (req, res) => {
+  try {
+    // Extract query parameters
+    const {organization_id, customer_id, user_id} = req.query;
+    console.log('organization_id', organization_id);
+    // Build the filter object
+    const filter = {};
+    if (organization_id) {
+      filter.organization = organization_id;
+    }
+    if (customer_id) {
+      filter.customer = customer_id;
+    }
+    if (user_id) {
+      filter.user = user_id;
+    }
+
+    // Fetch the feedback surveys based on the filter
+    const feedbackSurveys = await FeedbackSurvey.find(filter);
+
+    // Check if any surveys were found
+    if (feedbackSurveys.length === 0) {
+      return res.status(404).json({message: 'No feedback surveys found'});
+    }
+
+    res.status(200).json({
+      message: 'Feedback surveys retrieved successfully',
+      feedbackSurveys,
+    });
+  } catch (error) {
+    console.error('Error retrieving feedback surveys:', error);
+    res.status(500).json({message: 'Internal Server Error', error});
   }
 };

@@ -245,7 +245,6 @@ exports.getFeedbackSurveys = async (req, res) => {
     if (user_id) {
       filter.user = user_id;
     }
-
     // Fetch the feedback surveys based on the filter
     const feedbackSurveys = await FeedbackSurvey.find(filter);
 

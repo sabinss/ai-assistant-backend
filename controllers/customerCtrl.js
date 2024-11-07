@@ -1,5 +1,6 @@
 const Customer = require('../models/Customer');
 const CustomerFeature = require('../models/CustomerFeature');
+
 exports.getCustomerDetail = async (req, res) => {
   try {
     const {customer_id} = req.query;

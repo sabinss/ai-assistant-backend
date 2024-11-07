@@ -39,8 +39,12 @@ module.exports = (app) => {
   );
   app.get(
     `${process.env.APP_URL}/conversations`,
-    // authUser,
-    // permissonCheck,
+    authUser,
+    permissonCheck,
+    ctl.getConversationByUserId
+  );
+  app.get(
+    `${process.env.APP_URL}/conversations/customer`,
     (req, res, next) => {
       console.log('req.query', req.query);
       if (req.query.token) {
@@ -55,8 +59,9 @@ module.exports = (app) => {
         return res.status(403).json({message: 'Authentication failed'});
       }
     },
-    ctl.getConversationByUserId
+    ctl.getConversationByCustomerId
   );
+
   app.get(
     `${process.env.APP_URL}/conversations/count`,
     authUser,

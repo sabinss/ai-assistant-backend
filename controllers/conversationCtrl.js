@@ -10,7 +10,7 @@ exports.addConversation = async (req, res) => {
     const defaultCustomerId = '0000';
     const {question, chatSession, workflowFlag, apiType} = req.body;
     let session_id = req.body?.sessionId ? req.body?.sessionId : null;
-
+    let customerId = null;
     if (apiType === 'Customer Information') {
       apiTypeValue = 'insights';
     } else if (apiType === 'Product Knowledge') {
@@ -149,6 +149,59 @@ exports.getConversationByUserId = async (req, res) => {
   }
 };
 
+exports.getConversationByCustomerId = async (req, res) => {
+  try {
+    const {user_id, chatSession, startDate, endDate, customer_id} = req.query;
+
+    // Check if user_id is provided
+    if (!user_id && !customer_id) {
+      return res
+        .status(400)
+        .json({error: 'user_id or customer_id is required'});
+    }
+
+    let searchCondition = {};
+    if (user_id) {
+      searchCondition = {
+        user_id: user_id,
+      };
+    }
+
+    if (customer_id) {
+      searchCondition = {
+        customer: customer_id,
+      };
+    }
+
+    // Add additional search conditions based on provided parameters
+    if (chatSession) {
+      searchCondition.chatSession = chatSession;
+    }
+
+    if (startDate && endDate) {
+      searchCondition.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    const conversation = await Conversation.find(searchCondition).sort({
+      createdAt: -1,
+    });
+
+    if (!conversation || conversation.length === 0) {
+      return res.status(404).json({
+        error: `Conversation not found for the provided ${
+          customer_id ? 'customer_id' : 'user_id'
+        }`,
+      });
+    }
+
+    res.json(conversation);
+  } catch (err) {
+    res.status(500).json({error: err.message});
+  }
+};
 exports.updateLikeDislike = async (req, res) => {
   try {
     const {id, liked_disliked} = req.body;

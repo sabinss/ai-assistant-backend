@@ -29,3 +29,17 @@ exports.getCustomerLoginDetail = async (req, res) => {
     res.status(500).json({message: 'Internal Server Error', error});
   }
 };
+
+exports.getCustomerFeatures = async (req, res) => {
+  try {
+    const {customer_id} = req.query;
+    let filter = {feature: {$not: {$regex: /^login$/i}}};
+    if (customer_id) {
+      filter.customer = customer_id;
+    }
+    const customerLoginDetails = await CustomerFeature.find(filter);
+    res.status(200).json({data: customerLoginDetails});
+  } catch (error) {
+    res.status(500).json({message: 'Internal Server Error', error});
+  }
+};

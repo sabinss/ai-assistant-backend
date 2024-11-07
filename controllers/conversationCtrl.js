@@ -100,16 +100,27 @@ exports.deleteConversation = async (req, res) => {
 // Get conversation by user id
 exports.getConversationByUserId = async (req, res) => {
   try {
-    const {user_id, chatSession, startDate, endDate} = req.query;
+    const {user_id, chatSession, startDate, endDate, customer_id} = req.query;
 
     // Check if user_id is provided
-    if (!user_id) {
-      return res.status(400).json({error: 'user_id is required'});
+    if (!user_id && !customer_id) {
+      return res
+        .status(400)
+        .json({error: 'user_id or customer_id is required'});
     }
 
-    let searchCondition = {
-      user_id: user_id,
-    };
+    let searchCondition = {};
+    if (user_id) {
+      searchCondition = {
+        user_id: user_id,
+      };
+    }
+
+    if (customer_id) {
+      searchCondition = {
+        customer: customer_id,
+      };
+    }
 
     // Add additional search conditions based on provided parameters
     if (chatSession) {
@@ -130,7 +141,11 @@ exports.getConversationByUserId = async (req, res) => {
     if (!conversation || conversation.length === 0) {
       return res
         .status(404)
-        .json({error: 'Conversation not found for the provided user_id'});
+        .json({
+          error: `Conversation not found for the provided ${
+            customer_id ? 'customer_id' : 'user_id'
+          }`,
+        });
     }
 
     res.json(conversation);

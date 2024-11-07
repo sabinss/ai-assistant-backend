@@ -23,7 +23,6 @@ exports.addConversation = async (req, res) => {
       )}&user_email=${req.user.email}&org_id=${
         req.user.organization
       }&customer_id=${defaultCustomerId}&api_type=${apiTypeValue}`;
-      console.log('url', url);
 
       if (session_id) {
         // Append session_id to the URL if it exists
@@ -71,8 +70,6 @@ exports.addConversation = async (req, res) => {
     });
 
     const savedConversation = await newConversation.save();
-
-    console.log('savedConversation', savedConversation);
 
     res.json(savedConversation);
   } catch (err) {
@@ -139,13 +136,11 @@ exports.getConversationByUserId = async (req, res) => {
     });
 
     if (!conversation || conversation.length === 0) {
-      return res
-        .status(404)
-        .json({
-          error: `Conversation not found for the provided ${
-            customer_id ? 'customer_id' : 'user_id'
-          }`,
-        });
+      return res.status(404).json({
+        error: `Conversation not found for the provided ${
+          customer_id ? 'customer_id' : 'user_id'
+        }`,
+      });
     }
 
     res.json(conversation);

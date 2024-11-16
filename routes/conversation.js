@@ -3,6 +3,7 @@ const publicChat = require('../middleware/publicChat');
 const authUser = require('../middleware/authUser')['authenticate'];
 const checkPermissions = require('../middleware/rolePermit');
 const permissonCheck = checkPermissions('chat');
+
 module.exports = (app) => {
   app.get(
     `${process.env.APP_URL}/conversations/whole_organization`,
@@ -42,6 +43,25 @@ module.exports = (app) => {
     permissonCheck,
     ctl.getConversationByUserId
   );
+  app.get(
+    `${process.env.APP_URL}/conversations/customer`,
+    (req, res, next) => {
+      console.log('req.query', req.query);
+      if (req.query.token) {
+        const tokerParts = req.query.token.split('_');
+        console.log('tokerParts', tokerParts);
+        if (tokerParts.length > 0) {
+          next();
+        } else {
+          return res.status(403).json({message: 'Authentication failed'});
+        }
+      } else {
+        return res.status(403).json({message: 'Authentication failed'});
+      }
+    },
+    ctl.getConversationByCustomerId
+  );
+
   app.get(
     `${process.env.APP_URL}/conversations/count`,
     authUser,

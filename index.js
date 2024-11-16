@@ -9,6 +9,7 @@ const app = express();
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
+const seedCustomerFeature = require('./seeders/seedCustomerFeature');
 
 app.use(express.json());
 
@@ -16,7 +17,7 @@ const corsOptions = {
   origin: '*',
   credentials: true,
 };
-
+// seedCustomerFeature();
 app.use(cors(corsOptions));
 app.use(bodyParser.urlencoded({extended: false}));
 

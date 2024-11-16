@@ -139,4 +139,55 @@ const loginData = [
   // Continue for other HolidayInn records...
 ];
 
-module.exports = loginData;
+const featureData = [
+  {
+    hotel: 'Hilton',
+    system: 'PMS',
+    email: 'bob.lee@hiltonbook.com',
+    date: '2024-09-10',
+    time: '14:03:38',
+    action: 'Checkin',
+  },
+  {
+    hotel: 'Hilton',
+    system: 'PMS',
+    email: 'bob.lee@hiltonbook.com',
+    date: '2024-09-08',
+    time: '14:03:38',
+    action: 'Reservation',
+  },
+  {
+    hotel: 'Hilton',
+    system: 'PMS',
+    email: 'alice.johnson@hiltonbook.com',
+    date: '2024-08-12',
+    time: '14:03:38',
+    action: 'Reservation',
+  },
+  {
+    hotel: 'Hilton',
+    system: 'PMS',
+    email: 'jane.smith@hiltonbook.com',
+    date: '2024-08-27',
+    time: '14:03:38',
+    action: 'Reservation',
+  },
+  {
+    hotel: 'Hilton',
+    system: 'PMS',
+    email: 'chris.evans@hiltonbook.com',
+    date: '2024-09-18',
+    time: '14:03:38',
+    action: 'Group Reservation',
+  },
+  {
+    hotel: 'Hilton',
+    system: 'PMS',
+    email: 'john.doe@hiltonbook.com',
+    date: '2024-09-04',
+    time: '14:03:38',
+    action: 'Group Reservation',
+  },
+];
+
+module.exports = featureData;

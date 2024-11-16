@@ -8,6 +8,8 @@ module.exports = (app) => {
     ctl.createPublicFeedback
   );
   app.post(`${process.env.APP_URL}/feedback/survey`, ctl.createFeedbackSurvey);
+  app.get(`${process.env.APP_URL}/feedback/survey`, ctl.getFeedbackSurveys);
+
   app.post(
     `${process.env.APP_URL}/feedback/add`,
     authUser,

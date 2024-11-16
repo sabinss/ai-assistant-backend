@@ -21,6 +21,7 @@ const seedCustomerFeature = async () => {
       finalPayload.push(payload);
     }
     const records = finalPayload.filter((x) => x.customer);
+    console.log('records', records);
     const customers = await CustomerFeature.insertMany(records);
 
     console.log('Customers successfully inserted:', customers);

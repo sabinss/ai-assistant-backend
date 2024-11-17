@@ -97,7 +97,14 @@ exports.deleteConversation = async (req, res) => {
 // Get conversation by user id
 exports.getConversationByUserId = async (req, res) => {
   try {
-    const {user_id, chatSession, startDate, endDate, customer_id} = req.query;
+    const {
+      user_id,
+      chatSession,
+      startDate,
+      endDate,
+      customer_id,
+      updated_date,
+    } = req.query;
 
     // Check if user_id is provided
     if (!user_id && !customer_id) {
@@ -118,7 +125,11 @@ exports.getConversationByUserId = async (req, res) => {
         customer: customer_id,
       };
     }
-
+    if (updated_date) {
+      const filterDate = new Date(updated_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      searchCondition['updatedAt'] = {$gt: filterDate};
+    }
     // Add additional search conditions based on provided parameters
     if (chatSession) {
       searchCondition.chatSession = chatSession;

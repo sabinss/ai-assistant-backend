@@ -232,12 +232,17 @@ exports.createFeedbackSurvey = async (req, res) => {
 exports.getFeedbackSurveys = async (req, res) => {
   try {
     // Extract query parameters
-    const {organization_id, customer_id, user_id} = req.query;
+    const {organization_id, customer_id, user_id, updated_date} = req.query;
     console.log('organization_id', organization_id);
     // Build the filter object
     const filter = {};
     if (organization_id) {
       filter.organization = organization_id;
+    }
+    if (updated_date) {
+      const filterDate = new Date(updated_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      filter['updatedAt'] = {$gt: filterDate};
     }
     if (customer_id) {
       filter.customer = customer_id;

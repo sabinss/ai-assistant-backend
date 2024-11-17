@@ -3,10 +3,15 @@ const CustomerFeature = require('../models/CustomerFeature');
 
 exports.getCustomerDetail = async (req, res) => {
   try {
-    const {customer_id} = req.query;
+    const {customer_id, updated_date} = req.query;
     let filter = {};
     if (customer_id) {
       filter._id = customer_id;
+    }
+    if (updated_date) {
+      const filterDate = new Date(updated_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      filter['updatedAt'] = {$gt: filterDate};
     }
     const customerDetail = await Customer.find(filter);
 
@@ -18,10 +23,15 @@ exports.getCustomerDetail = async (req, res) => {
 
 exports.getCustomerLoginDetail = async (req, res) => {
   try {
-    const {customer_id} = req.query;
+    const {customer_id, updated_date} = req.query;
     let filter = {feature: {$regex: /^Login$/i}};
     if (customer_id) {
       filter.customer = customer_id;
+    }
+    if (updated_date) {
+      const filterDate = new Date(updated_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      filter['updatedAt'] = {$gt: filterDate};
     }
     const customerLoginDetails = await CustomerFeature.find(filter);
     res.status(200).json({data: customerLoginDetails});
@@ -32,10 +42,15 @@ exports.getCustomerLoginDetail = async (req, res) => {
 
 exports.getCustomerFeatures = async (req, res) => {
   try {
-    const {customer_id} = req.query;
+    const {customer_id, updated_date} = req.query;
     let filter = {feature: {$not: {$regex: /^login$/i}}};
     if (customer_id) {
       filter.customer = customer_id;
+    }
+    if (updated_date) {
+      const filterDate = new Date(updated_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      filter['updatedAt'] = {$gt: filterDate};
     }
     const customerLoginDetails = await CustomerFeature.find(filter);
     res.status(200).json({data: customerLoginDetails});

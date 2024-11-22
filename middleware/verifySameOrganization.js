@@ -28,5 +28,3 @@ const verifySameOrganization = async (req, res, next) => {
 };
 
 module.exports = verifySameOrganization;
-
-bishal fork > sushi

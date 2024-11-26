@@ -1,6 +1,7 @@
 const ctl = require('../controllers/feedbackCtrl');
 const authUser = require('../middleware/authUser')['authenticate'];
 const checkPermissions = require('../middleware/rolePermit');
+const verifySameOrganization = require('../middleware/verifySameOrganization');
 const permissonCheck = checkPermissions('feedbacks');
 module.exports = (app) => {
   app.post(
@@ -8,7 +9,11 @@ module.exports = (app) => {
     ctl.createPublicFeedback
   );
   app.post(`${process.env.APP_URL}/feedback/survey`, ctl.createFeedbackSurvey);
-  app.get(`${process.env.APP_URL}/feedback/survey`, ctl.getFeedbackSurveys);
+  app.get(
+    `${process.env.APP_URL}/feedback/survey`,
+    verifySameOrganization,
+    ctl.getFeedbackSurveys
+  );
 
   app.post(
     `${process.env.APP_URL}/feedback/add`,

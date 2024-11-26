@@ -2,6 +2,7 @@ const ctl = require('../controllers/conversationCtrl');
 const publicChat = require('../middleware/publicChat');
 const authUser = require('../middleware/authUser')['authenticate'];
 const checkPermissions = require('../middleware/rolePermit');
+const verifySameOrganization = require('../middleware/verifySameOrganization');
 const permissonCheck = checkPermissions('chat');
 
 module.exports = (app) => {
@@ -41,6 +42,7 @@ module.exports = (app) => {
     `${process.env.APP_URL}/conversations`,
     authUser,
     permissonCheck,
+    verifySameOrganization,
     ctl.getConversationByUserId
   );
   app.get(

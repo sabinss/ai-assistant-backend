@@ -107,7 +107,7 @@ exports.getConversationByUserId = async (req, res) => {
     } = req.query;
 
     // Check if user_id is provided
-    if (!user_id && !customer_id) {
+    if ((!req.user._id || user_id) && !customer_id) {
       return res
         .status(400)
         .json({error: 'user_id or customer_id is required'});
@@ -116,7 +116,7 @@ exports.getConversationByUserId = async (req, res) => {
     let searchCondition = {};
     if (user_id) {
       searchCondition = {
-        user_id: user_id,
+        user_id: user_id ? user_id : req.user._id,
       };
     }
 

@@ -40,15 +40,14 @@ module.exports = (app) => {
   );
   app.get(
     `${process.env.APP_URL}/conversations`,
+    verifySameOrganization,
     authUser,
     permissonCheck,
-    verifySameOrganization,
     ctl.getConversationByUserId
   );
   app.get(
     `${process.env.APP_URL}/conversations/customer`,
     (req, res, next) => {
-      console.log('req.query', req.query);
       if (req.query.token) {
         const tokerParts = req.query.token.split('_');
         console.log('tokerParts', tokerParts);

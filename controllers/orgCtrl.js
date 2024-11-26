@@ -196,6 +196,7 @@ exports.getGreeting_botName = async (req, res) => {
 
 exports.getCustomerList = async (req, res) => {
   const org_id = req.params.org_id;
+  console.log('get customer list');
   try {
     const orgCustomers = await Customer.find({organization: org_id});
     if (!orgCustomers)

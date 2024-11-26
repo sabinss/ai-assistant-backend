@@ -18,7 +18,6 @@ http.sendMessage = async (companyId, query, sessionId) => {
     query: encodeURIComponent(query),
     session_id: sessionId,
   };
-  console.log('333', params);
   const headers = {
     accept: 'application/json',
   };

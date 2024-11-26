@@ -104,6 +104,7 @@ exports.getConversationByUserId = async (req, res) => {
       endDate,
       customer_id,
       updated_date,
+      created_date,
     } = req.query;
 
     // Check if user_id is provided
@@ -129,6 +130,11 @@ exports.getConversationByUserId = async (req, res) => {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
       searchCondition['updatedAt'] = {$gt: filterDate};
+    }
+    if (created_date) {
+      const filterDate = new Date(created_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      searchCondition['createdAt'] = {$gt: filterDate};
     }
     // Add additional search conditions based on provided parameters
     if (chatSession) {

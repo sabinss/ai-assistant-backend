@@ -13,7 +13,6 @@ module.exports = (app) => {
     `${process.env.APP_URL}/generate/token`,
     authUser,
     async (req, res) => {
-      console.log('token', req.user);
       const exist = await OrganizationToken.findOne({email: req.user.email});
       console.log('exist', exist);
       if (!exist) {

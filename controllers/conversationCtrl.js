@@ -106,14 +106,14 @@ exports.getConversationByUserId = async (req, res) => {
       updated_date,
       created_date,
     } = req.query;
-
+    console.log('22', (!req.user._id || user_id) && !customer_id);
     // Check if user_id is provided
-    if ((!req.user._id || user_id) && !customer_id) {
-      return res
-        .status(400)
-        .json({error: 'user_id or customer_id is required'});
-    }
 
+    if (!req.user._id && !user_id && !customer_id) {
+      return res.status(400).json({
+        error: 'Either user_id, or customer_id is required',
+      });
+    }
     let searchCondition = {};
     if (user_id) {
       searchCondition = {
@@ -288,9 +288,7 @@ exports.addPublicConversation = async (req, res) => {
   const {org_id, chat_session} = req.query;
   try {
     const {question} = req.body;
-    console.log('11');
     const ans = await http.sendMessage(org_id, question, chat_session);
-    console.log('22');
     const answer = ans.results.answer;
     const newConversation = new Conversation({
       user_id: req.public_user_id,
@@ -303,7 +301,6 @@ exports.addPublicConversation = async (req, res) => {
     const savedConversation = await newConversation.save();
     res.json(savedConversation);
   } catch (err) {
-    console.log('111', err.message);
     res.status(500).json({
       error:
         err.message +

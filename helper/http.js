@@ -21,12 +21,10 @@ http.sendMessage = async (companyId, query, sessionId) => {
   const headers = {
     accept: 'application/json',
   };
-  console.log('444', url);
   try {
     const response = await http.get(url, {params, headers});
     return response?.data;
   } catch (error) {
-    console.log('555');
     // console.error(error);
     throw error;
   }

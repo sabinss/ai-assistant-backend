@@ -5,7 +5,6 @@ module.exports = {
     return passport.initialize();
   },
   authenticate: function (req, res, next) {
-    console.log('req', req.headers.authorization);
     return passport.authenticate(
       'user',
       {

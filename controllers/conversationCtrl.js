@@ -106,9 +106,7 @@ exports.getConversationByUserId = async (req, res) => {
       updated_date,
       created_date,
     } = req.query;
-    console.log('22', (!req.user._id || user_id) && !customer_id);
     // Check if user_id is provided
-
     if (!req.user._id && !user_id && !customer_id) {
       return res.status(400).json({
         error: 'Either user_id, or customer_id is required',
@@ -148,10 +146,14 @@ exports.getConversationByUserId = async (req, res) => {
       };
     }
 
-    const conversation = await Conversation.find(searchCondition).sort({
-      createdAt: -1,
-    });
-
+    // const conversation = await Conversation.find(searchCondition).sort({
+    //   createdAt: -1,
+    // });
+    const conversation = await Conversation.find(searchCondition)
+      .populate('customer') // Populate the 'customer' field
+      .populate('user_id') // Populate the 'customer' field
+      .sort({createdAt: -1}) // Sort by createdAt in descending order
+      .exec(); // Execute the query
     if (!conversation || conversation.length === 0) {
       return res.status(404).json({
         error: `Conversation not found for the provided ${

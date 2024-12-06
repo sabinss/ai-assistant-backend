@@ -245,7 +245,6 @@ exports.getFeedbackSurveys = async (req, res) => {
     // Extract query parameters
     const {organization_id, customer_id, user_id, updated_date, created_date} =
       req.query;
-    console.log('organization_id', organization_id);
     // Build the filter object
     const filter = {};
     if (organization_id) {
@@ -268,7 +267,10 @@ exports.getFeedbackSurveys = async (req, res) => {
       filter.user = user_id;
     }
     // Fetch the feedback surveys based on the filter
-    const feedbackSurveys = await FeedbackSurvey.find(filter);
+
+    const feedbackSurveys = await FeedbackSurvey.find(filter)
+      .populate('customer') // Populate customer details
+      .exec(); // Execute the query
 
     // Check if any surveys were found
     if (feedbackSurveys.length === 0) {

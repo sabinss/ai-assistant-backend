@@ -16,9 +16,9 @@ exports.addConversation = async (req, res) => {
     } else if (apiType === 'Product Knowledge') {
       apiTypeValue = 'support';
     }
-
+    console.log('workflowFlag', workflowFlag);
     if (workflowFlag) {
-      let url = `http://ec2-18-188-31-176.us-east-2.compute.amazonaws.com:8000/ask?query=${encodeURIComponent(
+      let url = `http://3.17.138.140:8000/ask?query=${encodeURIComponent(
         question
       )}&user_email=${req.user.email}&org_id=${
         req.user.organization

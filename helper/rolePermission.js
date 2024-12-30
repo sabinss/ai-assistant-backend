@@ -1,5 +1,14 @@
 module.exports = {
-    user: ["admin", "chat", "help"],
-    reviewer: ["admin", "chat", "help", "feedbacks"],
-    admin: ["admin", "chat", "help", "feedbacks", "users", "source", "settings", "organization"]
-}
+  user: ['admin', 'chat', 'help', 'users'],
+  reviewer: ['admin', 'chat', 'help', 'feedbacks'],
+  admin: [
+    'admin',
+    'chat',
+    'help',
+    'feedbacks',
+    'users',
+    'source',
+    'settings',
+    'organization',
+  ],
+};

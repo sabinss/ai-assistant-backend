@@ -7,10 +7,13 @@ const port = process.env.PORT || 8000;
 const cors = require('cors');
 const app = express();
 
+//todo chat message sort by created date aila sorting milara ako chainclear
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
 // const seedCustomerFeature = require('./seeders/seedCustomerFeature');
-
+// const seedPromptInAllOrganization = require('./seeders/promptSeed');
+// seedPromptInAllOrganization();
 app.use(express.json());
 
 const corsOptions = {

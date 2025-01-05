@@ -153,11 +153,18 @@ exports.editOrg = async (req, res) => {
       greeting,
       workflowFlag,
       mockData,
+      configuration,
       additionalPrompt,
     } = req.body;
-    const org = await Organization.findByIdAndUpdate(
-      req?.user?.organization,
-      {
+
+    let payload = null;
+
+    if (configuration) {
+      payload = {
+        ...additionalPrompt,
+      };
+    } else {
+      payload = {
         name,
         assistant_name,
         temperature,
@@ -168,7 +175,11 @@ exports.editOrg = async (req, res) => {
         workflow_engine_enabled: workflowFlag,
         mock_data: mockData,
         ...additionalPrompt,
-      },
+      };
+    }
+    const org = await Organization.findByIdAndUpdate(
+      req?.user?.organization,
+      payload,
       {new: true}
     );
     return res.json(org);

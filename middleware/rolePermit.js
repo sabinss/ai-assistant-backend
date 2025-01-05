@@ -7,7 +7,9 @@ const checkPermissions = (moduleName) => {
     if (roleName === 'admin') {
       return next();
     }
-
+    if (moduleName === 'organization') {
+      return next();
+    }
     if (rolePermission[roleName].includes(moduleName)) {
       next();
     } else {

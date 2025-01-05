@@ -290,8 +290,19 @@ exports.addPublicConversation = async (req, res) => {
   const {org_id, chat_session} = req.query;
   try {
     const {question} = req.body;
-    const ans = await http.sendMessage(org_id, question, chat_session);
-    const answer = ans.results.answer;
+    let url = `http://3.17.138.140:8000/ask?query=${encodeURIComponent(
+      question
+    )}&user_email=null&org_id=${org_id}&customer_id=null`;
+    console.log('url', url);
+    // const ans = await http.sendMessage(org_id, question, chat_session);
+    if (chat_session) {
+      // Append session_id to the URL if it exists
+      url += `&session_id=${encodeURIComponent(chat_session)}`;
+    }
+    // const answer = ans.results.answer;
+    const response = await axios.get(url);
+    console.log('chat response==', response.data);
+    const answer = response.data.message;
     const newConversation = new Conversation({
       user_id: req.public_user_id,
       question,

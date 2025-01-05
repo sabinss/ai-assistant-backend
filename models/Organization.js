@@ -23,6 +23,10 @@ const orgSchema = new mongoose.Schema(
     survey_prompt: {type: String, default: ''},
     solution_prompt: {type: String, default: ''},
     log_prompt: {type: String, default: ''},
+    customer_outreach_prompt: {type: String, default: ''},
+    email_reply_prompt: {type: String, default: ''},
+    query_prompt: {type: String, default: ''},
+    data_agent_prompt: {type: String, default: ''},
   },
   {
     timestamps: true,

@@ -1,11 +1,19 @@
+// const {
+//   PRIMARY_ASSISTANT_PROMPT,
+//   INVESTIGATION_PROMPT,
+//   RECOMMENDATION_PROMPT,
+//   UPSELL_PROMPT,
+//   SURVEY_PROMPT,
+//   LOG_PROMPT,
+// } = require('../constants/prompts');
 const {
-  PRIMARY_ASSISTANT_PROMPT,
-  INVESTIGATION_PROMPT,
-  RECOMMENDATION_PROMPT,
-  UPSELL_PROMPT,
-  SURVEY_PROMPT,
-  LOG_PROMPT,
-} = require('../constants/prompts');
+  CUSTOMER_OUTREACH_PROMPT,
+  PRIMARY_AGENT_PROMPT,
+  SOLUTION_AGENT_PROMPT,
+  FOLLOWUP_AGENT_PROMPT,
+  LOG_AGENT_PROMPT,
+  DATA_AGENT_PROMPT,
+} = require('../constants/additional_prompts');
 const Organization = require('../models/Organization');
 
 const seedPromptInAllOrganization = async () => {
@@ -15,15 +23,17 @@ const seedPromptInAllOrganization = async () => {
       const result = await Organization.findByIdAndUpdate(
         org._id,
         {
-          primary_assistant_prompt: PRIMARY_ASSISTANT_PROMPT,
-          investigation_prompt: INVESTIGATION_PROMPT,
-          recommendation_prompt: RECOMMENDATION_PROMPT,
-          upsell_prompt: UPSELL_PROMPT,
-          survey_prompt: SURVEY_PROMPT,
-          log_prompt: LOG_PROMPT,
+          primary_assistant_prompt: PRIMARY_AGENT_PROMPT,
+          solution_prompt: SOLUTION_AGENT_PROMPT,
+          recommendation_prompt: FOLLOWUP_AGENT_PROMPT,
+          log_prompt: LOG_AGENT_PROMPT,
+          data_agent_prompt: DATA_AGENT_PROMPT,
+          log_prompt: LOG_AGENT_PROMPT,
+          customer_outreach_prompt: CUSTOMER_OUTREACH_PROMPT,
         },
         {new: true}
       );
+      console.log('result', result);
     }
     console.log('Seed prompt success');
   } catch (err) {

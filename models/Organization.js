@@ -27,6 +27,9 @@ const orgSchema = new mongoose.Schema(
     email_reply_prompt: {type: String, default: ''},
     query_prompt: {type: String, default: ''},
     data_agent_prompt: {type: String, default: ''},
+    schema_prompt: {type: String, default: ''},
+    abstract_refinement_prompt: {type: String, default: ''},
+    nltosql_prompt: {type: String, default: ''},
   },
   {
     timestamps: true,

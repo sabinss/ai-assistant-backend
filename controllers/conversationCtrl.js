@@ -152,7 +152,7 @@ exports.getConversationByUserId = async (req, res) => {
     const conversation = await Conversation.find(searchCondition)
       .populate('customer') // Populate the 'customer' field
       .populate('user_id') // Populate the 'customer' field
-      .sort({createdAt: -1}) // Sort by createdAt in descending order
+      .sort({createdAt: 1}) // Sort by createdAt in descending order
       .exec(); // Execute the query
     if (!conversation || conversation.length === 0) {
       return res.status(404).json({
@@ -287,12 +287,12 @@ exports.updatePublicLikeDislike = async (req, res) => {
 };
 
 exports.addPublicConversation = async (req, res) => {
-  const {org_id, chat_session} = req.query;
+  const {org_id, chat_session, user_email = null} = req.query;
   try {
     const {question} = req.body;
-    let url = `http://3.17.138.140:8000/ask?query=${encodeURIComponent(
+    let url = `http://3.17.138.140:8000/public/ask?query=${encodeURIComponent(
       question
-    )}&user_email=null&org_id=${org_id}&customer_id=null`;
+    )}&user_email=${user_email}&org_id=${org_id}&customer_id=null`;
     console.log('url', url);
     // const ans = await http.sendMessage(org_id, question, chat_session);
     if (chat_session) {

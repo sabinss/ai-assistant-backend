@@ -1,6 +1,7 @@
 const Role = require('../models/Role.js');
 const rolePermission = require('../helper/rolePermission');
-const checkPermissions = (moduleName) => {
+
+const checkPermissions = (moduleName, action) => {
   return async (req, res, next) => {
     const roleName = (await Role.findById(req.user.role))?.name || 'user';
 
@@ -10,11 +11,16 @@ const checkPermissions = (moduleName) => {
     if (moduleName === 'organization') {
       return next();
     }
-    if (rolePermission[roleName].includes(moduleName)) {
+
+    if (action === 'like-dislike') {
       next();
     } else {
-      console.log(roleName, moduleName);
-      return res.status(403).json({message: 'Not enough permission'});
+      if (rolePermission[roleName].includes(moduleName)) {
+        next();
+      } else {
+        console.log(roleName, moduleName);
+        return res.status(403).json({message: 'Not enough permission'});
+      }
     }
   };
 };

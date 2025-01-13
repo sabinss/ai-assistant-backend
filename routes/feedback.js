@@ -3,6 +3,7 @@ const authUser = require('../middleware/authUser')['authenticate'];
 const checkPermissions = require('../middleware/rolePermit');
 const verifySameOrganization = require('../middleware/verifySameOrganization');
 const permissonCheck = checkPermissions('feedbacks');
+
 module.exports = (app) => {
   app.post(
     `${process.env.APP_URL}/feedback/public/add`,
@@ -18,7 +19,7 @@ module.exports = (app) => {
   app.post(
     `${process.env.APP_URL}/feedback/add`,
     authUser,
-    permissonCheck,
+    checkPermissions('feedbacks', 'like-dislike'),
     ctl.createFeedback
   );
   app.get(

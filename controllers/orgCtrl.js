@@ -122,7 +122,37 @@ exports.getOrg = async (req, res) => {
     if (!org) {
       return res.status(404).json({message: 'Organization not found'});
     }
-    return res.json({org});
+    const {
+      _id,
+      name,
+      greeting,
+      primary_assistant_prompt: primary_prompt,
+      solution_prompt,
+      recommendation_prompt: followup_prompt,
+      prompt: internal_solution_prompt,
+      schema_prompt,
+      abstract_refinement_prompt,
+      nltosql_prompt,
+      email_outreach,
+      email_reply_prompt,
+      customer_outreach_prompt,
+    } = org;
+    const orgResponsePayload = {
+      _id,
+      name,
+      greeting,
+      primary_prompt,
+      solution_prompt,
+      followup_prompt,
+      internal_solution_prompt,
+      schema_prompt,
+      abstract_refinement_prompt,
+      nltosql_prompt,
+      email_outreach,
+      email_reply_prompt,
+      customer_outreach_prompt,
+    };
+    return res.json({org: orgResponsePayload});
   } catch (error) {
     res.status(500).json({error});
   }

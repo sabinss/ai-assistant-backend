@@ -3,6 +3,10 @@ const rolePermission = require('../helper/rolePermission');
 
 const checkPermissions = (moduleName, action) => {
   return async (req, res, next) => {
+    // if our api called from Python and if secret key is matched we have set isAuth true
+    if (req.user.isAuth) {
+      return next();
+    }
     const roleName = (await Role.findById(req.user.role))?.name || 'user';
 
     if (roleName === 'admin') {

@@ -118,7 +118,7 @@ exports.deleteUser = async (req, res) => {
 exports.getOrg = async (req, res) => {
   try {
     const id = req?.user?.organization;
-    const org = await Organization.findById(id);
+    const org = await Organization.findById('66158fe71bfe10b58cb23eea');
     if (!org) {
       return res.status(404).json({message: 'Organization not found'});
     }

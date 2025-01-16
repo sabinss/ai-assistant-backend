@@ -3,6 +3,7 @@ module.exports = (app) => {
   require('./customer')(app);
   require('./user')(app);
   require('./organization')(app);
+  require('./notifications')(app);
   require('./feedback')(app);
   require('./role')(app);
   require('./commons')(app);

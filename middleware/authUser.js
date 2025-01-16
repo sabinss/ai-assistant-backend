@@ -11,19 +11,33 @@ module.exports = {
         session: false,
       },
       (err, user, info) => {
-        const decoded = jwt.verify(
-          req.headers.authorization.split(' ')[1],
-          process.env.JWT_SECRET
-        );
-        req.user = decoded;
-        // if true called from external source
-        if (req.orgTokenAuth) {
-          next();
+        // check if this api is called from python
+        if (req.headers['x-api-secret-key']) {
+          if (
+            req.headers['x-api-secret-key'] == process.env.PYTHON_API_SECRET_KEY
+          ) {
+            req.user = req.user || {};
+            req.user.isAuth = true;
+            next();
+          } else {
+            return res.status(401).json({message: 'Authorization failed'});
+          }
         } else {
-          if (err) return next(err);
-          if (!user) return res.status(401).json({message: 'Session Expired'});
-          req.user = user;
-          next();
+          const decoded = jwt.verify(
+            req.headers.authorization.split(' ')[1],
+            process.env.JWT_SECRET
+          );
+          req.user = decoded;
+          // if true called from external source
+          if (req.orgTokenAuth) {
+            next();
+          } else {
+            if (err)
+              if (!user)
+                return res.status(401).json({message: 'Session Expired'});
+            req.user = user;
+            next();
+          }
         }
       }
     )(req, res, next);

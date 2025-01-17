@@ -30,6 +30,8 @@ const orgSchema = new mongoose.Schema(
     schema_prompt: {type: String, default: ''},
     abstract_refinement_prompt: {type: String, default: ''},
     nltosql_prompt: {type: String, default: ''},
+    outreach_email_generation_prompt: {type: String, default: ''},
+    outreach_customer_list_generation_prompt: {type: String, default: ''},
   },
   {
     timestamps: true,

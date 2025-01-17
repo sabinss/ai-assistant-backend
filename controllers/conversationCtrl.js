@@ -66,7 +66,7 @@ exports.addConversation = async (req, res) => {
       organization: req.user.organization,
       chatSession,
       session_id,
-      customer: ans.results?.customer_id,
+      // customer: ans.results?.customer_id,
     });
 
     const savedConversation = await newConversation.save();

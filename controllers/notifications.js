@@ -8,13 +8,22 @@ exports.createNotification = async (req, res) => {
       action = null,
       subject = null,
       url = null,
+      organization,
+      customer,
+      event = null,
     } = req.body;
+    const missingFields = [];
+    if (!emailFrom) missingFields.push('emailFrom');
+    if (!emailTo) missingFields.push('emailTo');
+    if (!organization) missingFields.push('organization');
+    if (!customer) missingFields.push('customer');
 
-    // Validate input
-    if (!emailFrom || !emailTo) {
-      return res
-        .status(400)
-        .json({message: 'Email(From) and Email(to) are missing'});
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: `The following fields are missing: ${missingFields.join(
+          ', '
+        )}`,
+      });
     }
 
     // Save to DB
@@ -24,6 +33,9 @@ exports.createNotification = async (req, res) => {
       action: action ?? null,
       subject: subject ?? null,
       url: url ?? null,
+      organization,
+      customer,
+      event,
     });
 
     await notification.save();

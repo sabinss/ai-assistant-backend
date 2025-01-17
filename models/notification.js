@@ -28,6 +28,9 @@ const notificationSchema = new mongoose.Schema(
     action: {
       type: String,
     },
+    event: {
+      type: String,
+    },
     subject: {
       type: String,
     },
@@ -37,6 +40,14 @@ const notificationSchema = new mongoose.Schema(
     timestamp: {
       type: Date,
       default: Date.now, // Automatically sets the current date and time
+    },
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+    },
+    customer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Customer',
     },
   },
   {

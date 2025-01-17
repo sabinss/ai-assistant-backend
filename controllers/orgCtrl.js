@@ -144,6 +144,7 @@ exports.getOrg = async (req, res) => {
       email_reply_prompt,
       customer_outreach_prompt,
       workflow_engine_enabled,
+      data_agent_prompt,
     } = org;
     const orgResponsePayload = {
       _id,
@@ -159,6 +160,7 @@ exports.getOrg = async (req, res) => {
       email_outreach,
       email_reply_prompt,
       customer_outreach_prompt,
+      data_agent_prompt,
       workflow_engine_enabled,
     };
     return res.json({org: orgResponsePayload});

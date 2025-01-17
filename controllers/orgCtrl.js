@@ -143,6 +143,7 @@ exports.getOrg = async (req, res) => {
       email_outreach,
       email_reply_prompt,
       customer_outreach_prompt,
+      workflow_engine_enabled,
     } = org;
     const orgResponsePayload = {
       _id,
@@ -158,6 +159,7 @@ exports.getOrg = async (req, res) => {
       email_outreach,
       email_reply_prompt,
       customer_outreach_prompt,
+      workflow_engine_enabled,
     };
     return res.json({org: orgResponsePayload});
   } catch (error) {
@@ -286,6 +288,33 @@ exports.getCustomerDetail = async (req, res) => {
         accounting_cust_id: accounting_cust_id ?? null,
         help_desk_cust_id: help_desk_cust_id ?? null,
       },
+    });
+  } catch (error) {
+    res.status(500).json({message: 'Internal server error', error});
+  }
+};
+
+exports.saveOrgSupportWorkflow = async (req, res) => {
+  try {
+    const {org_id, workflow_engine_enabled} = req.body;
+    if (!org_id) {
+      return res.status(400).json({message: 'Bad request'});
+    }
+    const updatedOrg = await Organization.findByIdAndUpdate(
+      org_id,
+      {
+        workflow_engine_enabled: workflow_engine_enabled
+          ? workflow_engine_enabled
+          : false,
+      },
+      {new: true, runValidators: true}
+    );
+    if (!updatedOrg) {
+      return res.status(404).json({error: 'Organization not found.'});
+    }
+    res.status(200).json({
+      message: 'Organization updated successfully.',
+      organization: updatedOrg,
     });
   } catch (error) {
     res.status(500).json({message: 'Internal server error', error});

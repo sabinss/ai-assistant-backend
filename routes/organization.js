@@ -31,6 +31,12 @@ module.exports = (app) => {
     permissonCheck,
     ctl.create
   );
+  app.patch(
+    `${process.env.APP_URL}/organization/support-workflow`,
+    authUser,
+    permissonCheck,
+    ctl.saveOrgSupportWorkflow
+  );
   app.get(
     `${process.env.APP_URL}/organization/greeting_botname`,
     ctl.getGreeting_botName

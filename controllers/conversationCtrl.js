@@ -289,7 +289,7 @@ exports.updatePublicLikeDislike = async (req, res) => {
 exports.addPublicConversation = async (req, res) => {
   const {org_id, chat_session, user_email = null} = req.query;
   try {
-    const {question} = req.body;
+    const {question, user_email, customer_id} = req.body;
     let url = `http://3.17.138.140:8000/public/ask?query=${encodeURIComponent(
       question
     )}&user_email=${user_email}&org_id=${org_id}&customer_id=null`;
@@ -312,7 +312,12 @@ exports.addPublicConversation = async (req, res) => {
     });
 
     const savedConversation = await newConversation.save();
-    res.json(savedConversation);
+    const enhancedResponse = {
+      ...savedConversation.toObject(), // Convert Mongoose document to plain JS object
+      user_email: response.data.user_email || null, // Add user_email from request (fallback to null if not provided)
+      customer_id: response.data.customer_id || null, // Add customer_id from request (fallback to null if not provided)
+    };
+    res.json(enhancedResponse);
   } catch (err) {
     res.status(500).json({
       error:

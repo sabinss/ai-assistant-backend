@@ -57,10 +57,10 @@ exports.addConversation = async (req, res) => {
       organization: req.user.organization,
       chatSession,
       session_id,
-      customer: ans.results?.customer_id,
+      // customer: ans.results?.customer_id,
     });
 
-    const customer = await Customer.findById(ans.results?.customer_id);
+    // const customer = await Customer.findById(ans.results?.customer_id);
     let payload = {
       user_id: req.user._id,
       question,
@@ -69,9 +69,10 @@ exports.addConversation = async (req, res) => {
       chatSession,
       session_id,
     };
-    if (customer) {
-      payload.customer = ans.results?.customer_id;
-    }
+    // if (customer) {
+    //   payload.customer = ans.results?.customer_id;
+    // }
+    console.log('payload', payload);
     const newConversation = new Conversation(payload);
 
     const savedConversation = await newConversation.save();

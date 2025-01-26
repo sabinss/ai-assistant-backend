@@ -146,6 +146,9 @@ exports.getOrg = async (req, res) => {
       workflow_engine_enabled,
       outreach_email_generation_prompt,
       outreach_customer_list_generation_prompt,
+      temperature,
+      api,
+      model,
     } = org;
     const orgResponsePayload = {
       _id,
@@ -164,6 +167,9 @@ exports.getOrg = async (req, res) => {
       workflow_engine_enabled,
       outreach_email_generation_prompt,
       outreach_customer_list_generation_prompt,
+      temperature,
+      api,
+      model,
     };
     return res.json({org: orgResponsePayload});
   } catch (error) {
@@ -201,8 +207,13 @@ exports.editOrg = async (req, res) => {
     } = req.body;
 
     let payload = null;
-
-    if (configuration) {
+    if (configuration == 'setting') {
+      payload = {
+        model: selectedModel,
+        temperature,
+        api: apiKey,
+      };
+    } else if (configuration == 'configuration') {
       payload = {
         ...additionalPrompt,
       };
@@ -225,6 +236,7 @@ exports.editOrg = async (req, res) => {
       payload,
       {new: true}
     );
+    console.log('update', org);
     return res.json(org);
   } catch (error) {
     res.status(500).json({error});

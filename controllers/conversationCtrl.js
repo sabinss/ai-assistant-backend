@@ -1,5 +1,5 @@
 const Conversation = require('../models/UserConversation');
-const User = require('../models/User');
+const Customer = require('../models/Customer');
 const http = require('../helper/http');
 const axios = require('axios');
 
@@ -59,15 +59,20 @@ exports.addConversation = async (req, res) => {
       session_id,
       customer: ans.results?.customer_id,
     });
-    const newConversation = new Conversation({
+
+    const customer = await Customer.findById(ans.results?.customer_id);
+    let payload = {
       user_id: req.user._id,
       question,
       answer,
       organization: req.user.organization,
       chatSession,
       session_id,
-      // customer: ans.results?.customer_id,
-    });
+    };
+    if (customer) {
+      payload.customer = ans.results?.customer_id;
+    }
+    const newConversation = new Conversation(payload);
 
     const savedConversation = await newConversation.save();
 
@@ -334,7 +339,6 @@ exports.addPublicConversation = async (req, res) => {
 exports.getWholeOrgConvo = async (req, res) => {
   const {startDate, endDate, customer_id} = req.query;
   let searchCondition = {};
-  console.log('11', customer_id);
   if (customer_id) {
     searchCondition = {
       customer: customer_id,
@@ -351,7 +355,6 @@ exports.getWholeOrgConvo = async (req, res) => {
       $lte: new Date(endDate),
     };
   }
-  console.log('22', searchCondition);
   try {
     const conversation = await Conversation.find(searchCondition);
     res.json(conversation);

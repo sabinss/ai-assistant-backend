@@ -22,22 +22,21 @@ module.exports = {
           } else {
             return res.status(401).json({message: 'Authorization failed'});
           }
+        } else if (req.orgTokenAuth) {
+          next();
         } else {
           const decoded = jwt.verify(
             req.headers.authorization.split(' ')[1],
             process.env.JWT_SECRET
           );
           req.user = decoded;
-          // if true called from external source
-          if (req.orgTokenAuth) {
-            next();
-          } else {
-            if (err)
-              if (!user)
-                return res.status(401).json({message: 'Session Expired'});
-            req.user = user;
-            next();
+          if (err) {
+            if (!user) {
+              return res.status(401).json({message: 'Session Expired'});
+            }
           }
+          req.user = user;
+          next();
         }
       }
     )(req, res, next);

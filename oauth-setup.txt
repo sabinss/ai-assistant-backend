@@ -1,0 +1,11 @@
+1. navigate to https://console.cloud.google.com/apis/dashboard?project=directed-beacon-423006-j0
+2. create new project
+3. goto oauth consent screen
+4. select user type > external
+5. complete oauth consent screen
+6. Scopes > click add or remove scopes > select /auth/userinof.email  and /auth/userinfo.profile  update and save and continue
+7. add your email for test user
+8 go back to dashboard and click on credential
+9. click on create credential and oauth client id
+10. select application type as web application  
+    - Authorized redirect URIS: backend uri > http://locahost:5001/api/sessions/oauth/google

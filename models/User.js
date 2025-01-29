@@ -10,8 +10,7 @@ const userSchema = new mongoose.Schema(
     first_name: {type: String, default: null},
     last_name: {type: String, default: null},
     email: {type: String, default: null, unique: true},
-    // googleEmail: {type: String},
-    password: {type: String, required: true, default: null},
+    password: {type: String, required: true},
     role: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Role',
@@ -26,8 +25,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '001',
     },
-    isGoogleUser: {type: Boolean, default: false}, // Field to indicate Google login
-    googleId: {type: String, default: null}, // Store Google account ID
   },
   {
     timestamps: true,

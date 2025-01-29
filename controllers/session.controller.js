@@ -1,3 +1,5 @@
+const User = require('../models/User');
+const GoogleUser = require('../models/GoogleUser');
 const {getGoogleAuthTokens, getGoogleUser} = require('../service/userService');
 const jwt = require('jsonwebtoken');
 
@@ -13,13 +15,30 @@ async function googleOauthHandler(req, res) {
 
     const googleUser = await getGoogleUser({id_token, access_token});
     console.log('googleUser', googleUser);
+    if (!googleUser || !googleUser.email) {
+      console.log('Failed to retrieve google user details');
+    }
     // upsert the user
-    //create a session
-    // create access and refresh tokens
-    // set cookies
+    const existingUser = await User.findOne({
+      email: googleUser.email,
+    });
+
+    // Update or link the logged-in user with their Google account
+    const newGoogleUser = await GoogleUser.findOneAndUpdate(
+      {email: googleUser.email},
+      {
+        googleId: googleUser.id,
+        isGoogleUser: true,
+        user: existingUser ? existingUser.id : null,
+      },
+      {new: true, upsert: true}
+    );
+    console.log('newGoogleUser', newGoogleUser);
     //redirect back to client
+    res.redirect(process.env.CLIENT_URI);
   } catch (err) {
-    return res.redirect('http://localhost:3000/mainapp/organization');
+    console.log('Error', err);
+    res.redirect(process.env.CLIENT_URI);
   }
 }
 

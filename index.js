@@ -11,6 +11,7 @@ const app = express();
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
+const {googleOauthHandler} = require('./controllers/session.controller');
 // const seedCustomerFeature = require('./seeders/seedCustomerFeature');
 // const seedPromptInAllOrganization = require('./seeders/promptSeed');
 // seedPromptInAllOrganization();
@@ -36,6 +37,8 @@ app.get('/health-check', async (req, res) => {
 });
 //seeding line is this
 //require("./seeders/allseeder.js")()
+
+app.get('/api/sessions/oauth/google', googleOauthHandler);
 
 require('./service/userAuth');
 require('./models');

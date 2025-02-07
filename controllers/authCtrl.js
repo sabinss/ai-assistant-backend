@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const ResetToken = require('../models/ResetToken');
 const ConfirmToken = require('../models/ConfirmToken');
 const rolePermission = require('../helper/rolePermission');
+const GoogleUser = require('../models/GoogleUser');
 
 exports.signup = async (req, res) => {
   const {
@@ -56,6 +57,31 @@ exports.signup = async (req, res) => {
 
     await newUser.save();
     res.status(201).json({message: 'User created successfully'});
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({message: 'Internal server error'});
+  }
+};
+
+exports.verifyGoogleLogin = async (req, res) => {
+  try {
+    const {email} = req.body;
+    const googleLoginUser = await GoogleUser.findOne({
+      email: email,
+    });
+    if (googleLoginUser) {
+      return res.status(200).json({
+        message: 'User successfully logged in as google user',
+        success: true,
+        googleEmail: googleLoginUser.googleEmail,
+      });
+    } else {
+      return res.status(200).json({
+        message: 'Google user not found',
+        success: false,
+        googleEmail: null,
+      });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({message: 'Internal server error'});

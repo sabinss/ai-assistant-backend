@@ -160,13 +160,6 @@ exports.getConversationByUserId = async (req, res) => {
       .populate('user_id') // Populate the 'customer' field
       .sort({createdAt: 1}) // Sort by createdAt in descending order
       .exec(); // Execute the query
-    if (!conversation || conversation.length === 0) {
-      return res.status(404).json({
-        error: `Conversation not found for the provided ${
-          customer_id ? 'customer_id' : 'user_id'
-        }`,
-      });
-    }
 
     res.json(conversation);
   } catch (err) {

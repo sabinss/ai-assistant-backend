@@ -2,6 +2,7 @@ const ctl = require('../controllers/orgCtrl');
 const permitUser = require('../middleware/permitUser');
 const authUser = require('../middleware/authUser')['authenticate'];
 const checkPermissions = require('../middleware/rolePermit');
+const checkSessionApiKey = require('../middleware/sessionapi');
 const permissonCheck = checkPermissions('organization');
 
 module.exports = (app) => {
@@ -17,6 +18,33 @@ module.exports = (app) => {
     authUser,
     permissonCheck,
     ctl.getCustomerList
+  );
+
+  app.get(
+    `${process.env.APP_URL}/organization/:org_id/task_agent`,
+    authUser,
+    permissonCheck,
+    ctl.getOrgTaskAgents
+  );
+
+  app.get(
+    `${process.env.APP_URL}/organization/:org_id/task_agent/public`,
+    checkSessionApiKey,
+    ctl.getOrgTaskAgents
+  );
+
+  app.post(
+    `${process.env.APP_URL}/organization/:org_id/task_agent`,
+    authUser,
+    permissonCheck,
+    ctl.createOrgTaskAgents
+  );
+
+  app.put(
+    `${process.env.APP_URL}/organization/:org_id/task_agent/:taskAgentId`,
+    authUser,
+    permissonCheck,
+    ctl.updateOrgTaskAgents
   );
 
   app.patch(

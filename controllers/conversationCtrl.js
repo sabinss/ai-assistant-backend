@@ -7,8 +7,9 @@ const axios = require('axios');
 exports.addConversation = async (req, res) => {
   try {
     let ans, apiTypeValue;
+    const workflowFlag = true; // always call suvash python api for conversation
     const defaultCustomerId = '0000';
-    const {question, chatSession, workflowFlag, apiType} = req.body;
+    const {question, chatSession, apiType} = req.body;
     let session_id = req.body?.sessionId ? req.body?.sessionId : null;
     let customerId = null;
     if (apiType === 'Customer Information') {

@@ -12,10 +12,12 @@ const app = express();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
 const {googleOauthHandler} = require('./controllers/session.controller');
+const seedTaskAgentForOrganization = require('./seeders/taskAgentSeeder');
 // const seedCustomerFeature = require('./seeders/seedCustomerFeature');
 // const seedPromptInAllOrganization = require('./seeders/promptSeed');
 // seedPromptInAllOrganization();
 app.use(express.json());
+// seedTaskAgentForOrganization();
 
 const corsOptions = {
   origin: '*',

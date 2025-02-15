@@ -1,5 +1,6 @@
 const Customer = require('../models/Customer');
 const Organization = require('../models/Organization');
+const TaskAgentModel = require('../models/TaskAgentModel');
 const User = require('../models/User');
 
 exports.create = async (req, res) => {
@@ -332,6 +333,99 @@ exports.saveOrgSupportWorkflow = async (req, res) => {
       message: 'Organization updated successfully.',
       organization: updatedOrg,
     });
+  } catch (error) {
+    res.status(500).json({message: 'Internal server error', error});
+  }
+};
+
+exports.getOrgTaskAgents = async (req, res) => {
+  try {
+    const {org_id} = req.params;
+    const {name} = req.query;
+    if (!org_id) {
+      return res.status(400).json({message: 'Bad request'});
+    }
+    const organization = await Organization.findById(org_id).select('name');
+    if (!organization) {
+      return res.status(404).json({message: 'Organization not found'});
+    }
+    let filter = {organization: org_id};
+    if (name) {
+      filter.name = {$regex: new RegExp(name, 'i')};
+    }
+    const taskAgents = await TaskAgentModel.find(filter);
+    res.status(200).json({
+      organization, // Include organization details in the response
+      taskAgents,
+    });
+  } catch (error) {
+    res.status(500).json({message: 'Internal server error', error});
+  }
+};
+
+exports.updateOrgTaskAgents = async (req, res) => {
+  try {
+    const {org_id, taskAgentId} = req.params;
+    if (!org_id) {
+      return res.status(400).json({message: 'Bad request'});
+    }
+    const updateData = req.body;
+    const updatedTaskAgent = await TaskAgentModel.findByIdAndUpdate(
+      taskAgentId,
+      updateData,
+      {new: true}
+    );
+    if (!updatedTaskAgent) {
+      return res.status(404).json({message: 'TaskAgent not found'});
+    }
+    res.status(200).json(updatedTaskAgent);
+  } catch (error) {
+    res.status(500).json({message: 'Internal server error', error});
+  }
+};
+
+exports.createOrgTaskAgents = async (req, res) => {
+  try {
+    const {org_id} = req.params;
+    if (!org_id) {
+      return res.status(400).json({message: 'Bad request'});
+    }
+    const {
+      name,
+      action,
+      objective,
+      who,
+      trigger,
+      output,
+      tools,
+      active,
+      frequency,
+    } = req.body;
+
+    if (!name) {
+      return res.status(400).json({message: 'Name is required'});
+    }
+    // Validate Organization
+    const organization = await Organization.findById(org_id);
+    if (!organization) {
+      return res.status(404).json({message: 'Organization not found'});
+    }
+    // Create a new TaskAgent
+    const newTaskAgent = new TaskAgentModel({
+      name,
+      action,
+      objective,
+      who,
+      trigger,
+      output,
+      tools,
+      active:
+        typeof active === 'boolean' ? active : active.toLowerCase() === 'Y',
+      frequency,
+      organization: org_id,
+    });
+    await newTaskAgent.save();
+    res.status(201).json(newTaskAgent);
   } catch (error) {
     res.status(500).json({message: 'Internal server error', error});
   }

@@ -16,7 +16,9 @@ const verifySameOrganization = async (req, res, next) => {
       const user = await User.findOne({email: decoded.email});
       if (decoded.email === email) {
         req.orgTokenAuth = true;
+        req.externalApiCall = true;
         req.user = user;
+        req.organization = user.organization;
 
         next();
       } else {

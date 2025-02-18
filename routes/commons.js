@@ -3,12 +3,19 @@ const authUser = require('../middleware/authUser')['authenticate'];
 const jwt = require('jsonwebtoken');
 const OrganizationToken = require('../models/OrganizationToken.js');
 const verifySameOrganization = require('../middleware/verifySameOrganization.js');
+const {SETTING_CONSTANT} = require('../constants/setting_constant.js');
 
 module.exports = (app) => {
   app.get(`${process.env.APP_URL}/status`, authUser, async (req, res) => {
     const status = await Status.find();
     res.status(200).json(status);
   });
+
+  app.get(`${process.env.APP_URL}/status`, authUser, async (req, res) => {
+    const status = await Status.find();
+    res.status(200).json(status);
+  });
+
   app.get(
     `${process.env.APP_URL}/generate/token`,
     authUser,
@@ -28,9 +35,9 @@ module.exports = (app) => {
           token: accessToken,
           email: req.user.email,
         });
-        res.status(200).json({token: accessToken});
+        res.status(200).json({token: accessToken, settings: SETTING_CONSTANT});
       } else {
-        res.status(200).json({token: exist.token});
+        res.status(200).json({token: exist.token, settings: SETTING_CONSTANT});
       }
     }
   );

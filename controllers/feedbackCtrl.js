@@ -247,8 +247,10 @@ exports.getFeedbackSurveys = async (req, res) => {
       req.query;
     // Build the filter object
     const filter = {};
-    if (organization_id) {
-      filter.organization = organization_id;
+    if (organization_id || req.organization) {
+      filter.organization = organization_id
+        ? organization_id
+        : req.organization;
     }
     if (updated_date) {
       const filterDate = new Date(updated_date);

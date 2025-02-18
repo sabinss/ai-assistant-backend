@@ -8,6 +8,9 @@ exports.getCustomerDetail = async (req, res) => {
     if (customer_id) {
       filter._id = customer_id;
     }
+    if (req.externalApiCall && req.organization) {
+      filter.organization = req.organization;
+    }
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
@@ -33,6 +36,7 @@ exports.getCustomerLoginDetail = async (req, res) => {
     if (customer_id) {
       filter.customer = customer_id;
     }
+
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
@@ -51,6 +55,9 @@ exports.getCustomerFeatures = async (req, res) => {
     let filter = {feature: {$not: {$regex: /^login$/i}}};
     if (customer_id) {
       filter.customer = customer_id;
+    }
+    if (req.externalApiCall && req.organization) {
+      filter.organization = req.organization;
     }
     if (updated_date) {
       const filterDate = new Date(updated_date);

@@ -104,6 +104,7 @@ exports.deleteConversation = async (req, res) => {
 // Get conversation by user id
 exports.getConversationByUserId = async (req, res) => {
   try {
+    const externalApiCall = req.externalApiCall;
     const {
       user_id,
       chatSession,
@@ -124,6 +125,14 @@ exports.getConversationByUserId = async (req, res) => {
       searchCondition = {
         user_id: user_id ? user_id : req.user._id,
       };
+    }
+
+    if (externalApiCall) {
+      searchCondition['customer'] = {$ne: '0000'};
+    }
+
+    if (externalApiCall && req.organization) {
+      searchCondition['organization'] = req.organization;
     }
 
     if (customer_id) {

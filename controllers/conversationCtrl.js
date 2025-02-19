@@ -127,12 +127,12 @@ exports.getConversationByUserId = async (req, res) => {
       };
     }
 
-    if (externalApiCall) {
-      searchCondition['customer'] = {$ne: '0000'};
-    }
+    // if (externalApiCall) {
+    //   searchCondition['customer'] = {$ne: '0000000'};
+    // }
 
     if (externalApiCall && req.organization) {
-      searchCondition['organization'] = req.organization;
+      searchCondition['organization'] = req.organization._id;
     }
 
     if (customer_id) {

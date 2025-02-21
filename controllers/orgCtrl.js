@@ -116,6 +116,20 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+exports.updateOrgSettings = async (req, res) => {
+  try {
+    const org = await Organization.findById(id);
+    if (!id) res.status(500).json({message: 'Organization is is required'});
+    if (!org) {
+      return res.status(404).json({message: 'Organization not found'});
+    }
+
+    return res.json({org: orgResponsePayload});
+  } catch (error) {
+    res.status(500).json({error});
+  }
+};
+
 exports.getOrg = async (req, res) => {
   try {
     let id = req?.user?.organization;
@@ -150,6 +164,9 @@ exports.getOrg = async (req, res) => {
       temperature,
       api,
       model,
+      database_name,
+      redshit_work_space,
+      redshift_db,
     } = org;
     const orgResponsePayload = {
       _id,
@@ -171,6 +188,9 @@ exports.getOrg = async (req, res) => {
       temperature,
       api,
       model,
+      database_name,
+      redshit_work_space,
+      redshift_db,
     };
     return res.json({org: orgResponsePayload});
   } catch (error) {
@@ -205,6 +225,7 @@ exports.editOrg = async (req, res) => {
       mockData,
       configuration,
       additionalPrompt,
+      orgDbSetting,
     } = req.body;
 
     let payload = null;
@@ -213,6 +234,7 @@ exports.editOrg = async (req, res) => {
         model: selectedModel,
         temperature,
         api: apiKey,
+        ...orgDbSetting,
       };
     } else if (configuration == 'configuration') {
       payload = {

@@ -13,6 +13,7 @@ module.exports = (app) => {
     permissonCheck,
     ctl.getOrg
   );
+
   app.get(
     `${process.env.APP_URL}/organization/:org_id/customers`,
     authUser,

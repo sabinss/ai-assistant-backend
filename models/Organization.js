@@ -32,6 +32,10 @@ const orgSchema = new mongoose.Schema(
     nltosql_prompt: {type: String, default: ''},
     outreach_email_generation_prompt: {type: String, default: ''},
     outreach_customer_list_generation_prompt: {type: String, default: ''},
+
+    database_name: {type: String, default: ''},
+    redshit_work_space: {type: String, default: ''},
+    redshift_db: {type: String, default: ''},
   },
   {
     timestamps: true,

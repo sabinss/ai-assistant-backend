@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 // Define the Notification schema
 const notificationSchema = new mongoose.Schema(
@@ -25,6 +25,7 @@ const notificationSchema = new mongoose.Schema(
         message: (props) => `${props.value} is not a valid email address!`,
       },
     },
+    status: { type: String },
     action: {
       type: String,
     },
@@ -43,11 +44,11 @@ const notificationSchema = new mongoose.Schema(
     },
     organization: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Organization',
+      ref: "Organization",
     },
     customer: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Customer',
+      ref: "Customer",
     },
   },
   {
@@ -56,6 +57,6 @@ const notificationSchema = new mongoose.Schema(
 );
 
 // Create the Notification model
-const NotificationModel = mongoose.model('Notification', notificationSchema);
+const NotificationModel = mongoose.model("Notification", notificationSchema);
 
 module.exports = NotificationModel;

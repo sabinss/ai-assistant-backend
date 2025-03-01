@@ -1,4 +1,5 @@
 const Customer = require('../models/Customer');
+const GoogleUser = require('../models/GoogleUser');
 const Organization = require('../models/Organization');
 const TaskAgentModel = require('../models/TaskAgentModel');
 const User = require('../models/User');
@@ -292,6 +293,19 @@ exports.getCustomerList = async (req, res) => {
 
     res.status(200).json({ organization: org_id, customers: orgCustomers });
   } catch (error) {
+    res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+
+exports.getConnectedGmailsWithOrg = async (req, res) => {
+  try {
+    if (req?.externalApiCall && req.organization) {
+      const orgGoogleUsers = await GoogleUser.find({
+        organization: req.organization._id,
+      });
+      res.status(200).json({ data: orgGoogleUsers });
+    }
+  } catch (err) {
     res.status(500).json({ message: 'Internal server error', error });
   }
 };

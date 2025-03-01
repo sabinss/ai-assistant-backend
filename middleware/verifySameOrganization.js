@@ -4,7 +4,7 @@ const User = require('../models/User');
 const verifySameOrganization = async (req, res, next) => {
   try {
     // Extract API key from request headers
-    const {token, email} = req.query;
+    const { token, email } = req.query;
 
     // Check if API key is provided
     if (!req.query.token && !req.query.email) {
@@ -13,7 +13,7 @@ const verifySameOrganization = async (req, res, next) => {
       next();
     } else {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findOne({email: decoded.email});
+      const user = await User.findOne({ email: decoded.email });
       if (decoded.email === email) {
         req.orgTokenAuth = true;
         req.externalApiCall = true;

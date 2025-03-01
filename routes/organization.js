@@ -3,6 +3,7 @@ const permitUser = require('../middleware/permitUser');
 const authUser = require('../middleware/authUser')['authenticate'];
 const checkPermissions = require('../middleware/rolePermit');
 const checkSessionApiKey = require('../middleware/sessionapi');
+const verifySameOrganization = require('../middleware/verifySameOrganization');
 const permissonCheck = checkPermissions('organization');
 
 module.exports = (app) => {
@@ -12,6 +13,12 @@ module.exports = (app) => {
     authUser,
     permissonCheck,
     ctl.getOrg
+  );
+
+  app.get(
+    `${process.env.APP_URL}/organization/google-users`,
+    verifySameOrganization,
+    ctl.getConnectedGmailsWithOrg
   );
 
   app.get(

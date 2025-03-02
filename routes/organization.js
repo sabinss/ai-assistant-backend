@@ -22,6 +22,12 @@ module.exports = (app) => {
   );
 
   app.get(
+    `${process.env.APP_URL}/organization/agent`,
+    verifySameOrganization,
+    ctl.getOrganizationAgentSetup
+  );
+
+  app.get(
     `${process.env.APP_URL}/organization/:org_id/customers`,
     authUser,
     permissonCheck,

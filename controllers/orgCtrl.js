@@ -1,3 +1,4 @@
+const AGENT_SETUP_DATA = require('../constants/agent-setup-sample-data');
 const Customer = require('../models/Customer');
 const GoogleUser = require('../models/GoogleUser');
 const Organization = require('../models/Organization');
@@ -416,6 +417,16 @@ exports.updateOrgTaskAgents = async (req, res) => {
     }
     res.status(200).json(updatedTaskAgent);
   } catch (error) {
+    res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+
+exports.getOrganizationAgentSetup = async (req, res) => {
+  try {
+    if (req.externalApiCall && req.organization) {
+      res.status(200).json(AGENT_SETUP_DATA);
+    }
+  } catch (err) {
     res.status(500).json({ message: 'Internal server error', error });
   }
 };

@@ -1,15 +1,15 @@
 const AGENT_SETUP_DATA = {
-  name: 'SupportAgent',
-  aiAssistantName: 'Gabby',
+  agent_name: 'SupportAgent',
+  routing_instruction: 'Gabby',
   greeting: 'How can I assist you today?',
   routingInstruction:
     'Customer has questions about how to use product or services',
-  routingExample: `Query: How do I add breakfast ? 
+  routing_examples: `Query: How do I add breakfast ? 
                       Agent: SupportAgent`,
   objective:
     'Provide answer relateted to product or services based on the provided knowledgebase',
-  toolsUsed: '',
-  primaryInstruction: `
+  tools_used: ['call_rag_api'],
+  primary_instruction: `
     You are the Primary Assistant, acting as the entry point and supervisor in a multi-agent customer support AI assistant. Your main task is to receive and understand user queries and route them to the appropriate specialized agents based on the current status and needs of the user.
     
     1. **Check for customers start date:**
@@ -43,9 +43,9 @@ const AGENT_SETUP_DATA = {
     
     **Notes**:
     The user is NOT AWARE of the different specialized assistants, so do not mention them; just quietly delegate through function calls.`,
-  instructions: [
+  tasks: [
     {
-      activityName: 'Solution',
+      task_name: 'Solution',
       instruction: `
         You are the Solution Agent, responsible for resolving customer issues that have been escalated to you by the Primary Assistant.
         
@@ -78,7 +78,7 @@ const AGENT_SETUP_DATA = {
         `,
     },
     {
-      activityName: 'Follow up',
+      task_name: 'Follow up',
       instruction: `You are the Follow-Up Agent, responsible for engaging with the customer after their query has been resolved. Your main goal is to understand user engagement, satisfaction, and product adoption.
         ### Your Responsibilities:
         **Do the following tasks step by step in the given order. WAIT FOR THE USER'S REPLY AFTER EACH STEP.**

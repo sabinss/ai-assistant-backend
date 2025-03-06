@@ -300,7 +300,9 @@ exports.getCustomerList = async (req, res) => {
 
 exports.getConnectedGmailsWithOrg = async (req, res) => {
   try {
-    if (req?.externalApiCall && req.organization) {
+    const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;
+    if (isVerifiedFromExternalCall) {
+      const { gmail = null } = req.query;
       const orgDetail = await Organization.findById(
         req.organization._id,
         'orgGoogleCredential'
@@ -314,6 +316,10 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
         ...x,
         orgGoogleCredential: orgDetail.orgGoogleCredential,
       }));
+
+      if (gmail) {
+        response = response.filter((x) => x.email == gmail);
+      }
       res.status(200).json({
         data: response,
       });

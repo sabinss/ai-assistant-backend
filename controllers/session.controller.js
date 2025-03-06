@@ -26,12 +26,14 @@ async function googleOauthHandler(req, res) {
     }
 
     // get id and access token with code
-    const { id_token, access_token, ...remaining } = await getGoogleAuthTokens({
+    const emailCredential = await getGoogleAuthTokens({
       code,
     });
-    console.log({ id_token, access_token, remaining });
 
-    const googleUser = await getGoogleUser({ id_token, access_token });
+    const googleUser = await getGoogleUser({
+      id_token: emailCredential.id_token,
+      access_token: emailCredential.access_token,
+    });
     console.log('googleUser', googleUser);
     if (!googleUser || !googleUser.email) {
       console.log('Failed to retrieve google user details');
@@ -46,6 +48,7 @@ async function googleOauthHandler(req, res) {
       googleId: googleUser.id,
       isGoogleUser: true,
       user: existingUser ? existingUser.id : null,
+      emailCredential,
     };
     if (orgId) {
       googleUserPayload.organization = orgId;

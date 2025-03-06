@@ -21,6 +21,12 @@ module.exports = (app) => {
     ctl.getConnectedGmailsWithOrg
   );
 
+  app.post(
+    `${process.env.APP_URL}/organization/task-agent/trigger`,
+    authUser,
+    ctl.callTaskAgentPythonApi
+  );
+
   app.get(
     `${process.env.APP_URL}/organization/agent`,
     verifySameOrganization,

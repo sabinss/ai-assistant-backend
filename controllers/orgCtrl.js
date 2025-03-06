@@ -4,6 +4,7 @@ const GoogleUser = require('../models/GoogleUser');
 const Organization = require('../models/Organization');
 const TaskAgentModel = require('../models/TaskAgentModel');
 const User = require('../models/User');
+const axios = require('axios');
 
 exports.create = async (req, res) => {
   const {
@@ -308,6 +309,16 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+
+exports.callTaskAgentPythonApi = async (req, res) => {
+  try {
+    const pythonServerUri = `http://3.17.138.140:8000/task-agent`;
+    const response = await axios.post(pythonServerUri, { ...req.body });
+    return res.json({ data: response, success: true });
+  } catch (err) {
+    res.status(500).json({ err });
   }
 };
 

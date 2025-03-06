@@ -262,7 +262,6 @@ exports.editOrg = async (req, res) => {
       payload,
       { new: true }
     );
-    console.log('update', org);
     return res.json(org);
   } catch (error) {
     res.status(500).json({ error });

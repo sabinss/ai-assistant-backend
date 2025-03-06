@@ -301,13 +301,25 @@ exports.getCustomerList = async (req, res) => {
 exports.getConnectedGmailsWithOrg = async (req, res) => {
   try {
     if (req?.externalApiCall && req.organization) {
+      const orgDetail = await Organization.findById(
+        req.organization._id,
+        'orgGoogleCredential'
+      ).lean();
+
       const orgGoogleUsers = await GoogleUser.find({
         organization: req.organization._id,
+      }).lean();
+
+      let response = orgGoogleUsers.map((x) => ({
+        ...x,
+        orgGoogleCredential: orgDetail.orgGoogleCredential,
+      }));
+      res.status(200).json({
+        data: response,
       });
-      res.status(200).json({ data: orgGoogleUsers });
     }
   } catch (err) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: 'Internal server error', err });
   }
 };
 
@@ -436,7 +448,7 @@ exports.getOrganizationAgentSetup = async (req, res) => {
     if (req.externalApiCall && req.organization) {
       res.status(200).json(AGENT_SETUP_DATA);
     }
-  } catch (err) {
+  } catch (error) {
     res.status(500).json({ message: 'Internal server error', error });
   }
 };

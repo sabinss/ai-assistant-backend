@@ -331,9 +331,17 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
 
 exports.callTaskAgentPythonApi = async (req, res) => {
   try {
-    const pythonServerUri = `http://3.17.138.140:8000/task-agent`;
-    const response = await axios.post(pythonServerUri, { ...req.body });
-    return res.json({ data: response, success: true });
+    const { task_name, org_id } = req.body;
+    if (!task_name || !org_id) {
+      res
+        .status(400)
+        .json({ success: false, message: 'TaskName | OrgId are required' });
+    }
+    const pythonServerUri = `http://3.17.138.140:8000/task-agent?task_name=${task_name}&org_id=${org_id}`;
+    const response = await axios.post(pythonServerUri);
+    return res.status(200).json({
+      data: response?.data,
+    });
   } catch (err) {
     res.status(500).json({ err });
   }

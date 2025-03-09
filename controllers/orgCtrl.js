@@ -394,7 +394,7 @@ exports.updateOrgAgentInstructions = async (req, res) => {
   try {
     console.log('req.body', req.body);
 
-    const { _id, instructions, ...agentData } = req.body;
+    const { _id, tasks, ...agentData } = req.body;
 
     // Check if the organization is present
     if (!req.user.organization) {
@@ -414,13 +414,13 @@ exports.updateOrgAgentInstructions = async (req, res) => {
     }
 
     let updatedAgentInstructions = [];
-    if (instructions && instructions.length > 0) {
+    if (tasks && tasks.length > 0) {
       // Delete the existing instructions for this agent
       await AgentInstruction.deleteMany({ agent: agent._id }, { session });
 
       // Insert new instructions
       updatedAgentInstructions = await AgentInstruction.insertMany(
-        instructions.map((inst) => ({
+        tasks.map((inst) => ({
           agent: agent._id,
           name: inst.name,
           tools: inst.tools,

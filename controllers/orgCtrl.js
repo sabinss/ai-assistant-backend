@@ -5,6 +5,9 @@ const Organization = require('../models/Organization');
 const TaskAgentModel = require('../models/TaskAgentModel');
 const User = require('../models/User');
 const axios = require('axios');
+const mongoose = require('mongoose');
+const AgentModel = require('../models/AgentModel');
+const AgentInstruction = require('../models/AgentInstruction');
 
 exports.create = async (req, res) => {
   const {
@@ -341,6 +344,150 @@ exports.callTaskAgentPythonApi = async (req, res) => {
     const response = await axios.post(pythonServerUri);
     return res.status(200).json({
       data: response?.data,
+    });
+  } catch (err) {
+    res.status(500).json({ err });
+  }
+};
+
+exports.getOrgAgentInstructions = async (req, res) => {
+  try {
+    const { organization } = req.user;
+    // Step 1: Fetch all agents for the given organization
+    const agents = await AgentModel.find({ organization });
+
+    // Step 2: Fetch all AgentInstructions for the agents in parallel
+    const agentInstructions = await AgentInstruction.find({
+      agent: { $in: agents.map((agent) => agent._id) }, // Fetch instructions for all agents in one query
+    });
+
+    // Step 3: Create a mapping of agent ID to agent instructions for easy lookup
+    const instructionsMap = agentInstructions.reduce((map, instruction) => {
+      if (!map[instruction.agent]) {
+        map[instruction.agent] = [];
+      }
+      map[instruction.agent].push(instruction);
+      return map;
+    }, {});
+
+    // Step 4: Merge agent data with their instructions
+    const agentsWithInstructions = agents.map((agent) => {
+      return {
+        ...agent.toObject(), // Convert Mongoose document to plain JavaScript object
+        tasks: instructionsMap[agent._id] || [], // Attach instructions if they exist
+      };
+    });
+
+    // Step 5: Return the response with agents and their instructions
+    return res.status(200).json({
+      data: agentsWithInstructions,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+exports.updateOrgAgentInstructions = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction(); // Begin a transaction to ensure consistency
+  try {
+    console.log('req.body', req.body);
+
+    const { _id, instructions, ...agentData } = req.body;
+
+    // Check if the organization is present
+    if (!req.user.organization) {
+      return res.status(400).json({ message: 'Organization id required' });
+    }
+
+    // Find the agent by id and update its fields
+    const agent = await AgentModel.findOneAndUpdate(
+      { _id: _id, organization: req.user.organization },
+      { ...agentData },
+      { new: true, session } // Return the updated document and use the session for the transaction
+    );
+
+    // If agent not found, return an error
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+
+    let updatedAgentInstructions = [];
+    if (instructions && instructions.length > 0) {
+      // Delete the existing instructions for this agent
+      await AgentInstruction.deleteMany({ agent: agent._id }, { session });
+
+      // Insert new instructions
+      updatedAgentInstructions = await AgentInstruction.insertMany(
+        instructions.map((inst) => ({
+          agent: agent._id,
+          name: inst.name,
+          tools: inst.tools,
+          instruction: inst.instruction,
+        })),
+        { session }
+      );
+    }
+
+    await session.commitTransaction(); // Commit transaction
+    session.endSession();
+
+    console.log('Agent and Instructions updated successfully!');
+
+    return res.status(200).json({
+      message: 'Agent and Instructions updated successfully!',
+      agent,
+      instructions: updatedAgentInstructions,
+      success: true,
+    });
+  } catch (err) {
+    await session.abortTransaction(); // Rollback transaction in case of error
+    session.endSession();
+    console.error('Error updating agent and instructions:', err);
+    res.status(500).json({ error: err.message || 'Server Error' });
+  }
+};
+
+exports.createOrgAgentInstructions = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction(); // Begin a transaction to ensure consistency
+  try {
+    console.log('req.body', req.body);
+    const { id, instructions, ...agentData } = req.body;
+    if (!req.user.organization) {
+      res.status(400).json({ message: 'Organization id required' });
+    }
+    const agent = new AgentModel({
+      ...agentData,
+      organization: req.user.organization,
+    });
+
+    await agent.save({ session });
+
+    let newAgentInstructions = [];
+    if (instructions.length > 0) {
+      // 2️⃣ Insert Multiple Agent Instructions
+      newAgentInstructions = await AgentInstruction.insertMany(
+        instructions.map((inst) => ({
+          agent: agent._id,
+          name: inst.name,
+          tools: inst.tools,
+          instruction: inst.instruction,
+        })),
+        { session }
+      );
+    }
+    await session.commitTransaction(); // Commit transaction
+    session.endSession();
+
+    console.log('Agent and Instructions inserted successfully!');
+
+    return res.status(200).json({
+      message: 'New Agent and Instructions created successfully!',
+      agent,
+      instructions: newAgentInstructions,
+      success: true,
     });
   } catch (err) {
     res.status(500).json({ err });

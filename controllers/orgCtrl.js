@@ -454,7 +454,7 @@ exports.createOrgAgentInstructions = async (req, res) => {
   session.startTransaction(); // Begin a transaction to ensure consistency
   try {
     console.log('req.body', req.body);
-    const { id, instructions, ...agentData } = req.body;
+    const { id, tasks, ...agentData } = req.body;
     if (!req.user.organization) {
       res.status(400).json({ message: 'Organization id required' });
     }
@@ -466,10 +466,10 @@ exports.createOrgAgentInstructions = async (req, res) => {
     await agent.save({ session });
 
     let newAgentInstructions = [];
-    if (instructions.length > 0) {
+    if (tasks.length > 0) {
       // 2️⃣ Insert Multiple Agent Instructions
       newAgentInstructions = await AgentInstruction.insertMany(
-        instructions.map((inst) => ({
+        tasks.map((inst) => ({
           agent: agent._id,
           name: inst.name,
           tools: inst.tools,

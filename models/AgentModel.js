@@ -21,7 +21,7 @@ const agentModel = new mongoose.Schema(
     agentInstructions: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'AgentInstruction', // Reference to AgentInstruction
+        ref: 'AgentTask', // Reference to AgentTask
       },
     ],
   },

@@ -7,7 +7,8 @@ const User = require('../models/User');
 const axios = require('axios');
 const mongoose = require('mongoose');
 const AgentModel = require('../models/AgentModel');
-const AgentInstruction = require('../models/AgentInstruction');
+const AgentTask = require('../models/AgentTask');
+const AgentTaskStatusModel = require('../models/AgentTaskStatusModel');
 
 exports.create = async (req, res) => {
   const {
@@ -357,7 +358,7 @@ exports.getOrgAgentInstructions = async (req, res) => {
     const agents = await AgentModel.find({ organization });
 
     // Step 2: Fetch all AgentInstructions for the agents in parallel
-    const agentInstructions = await AgentInstruction.find({
+    const agentInstructions = await AgentTask.find({
       agent: { $in: agents.map((agent) => agent._id) }, // Fetch instructions for all agents in one query
     });
 
@@ -416,10 +417,10 @@ exports.updateOrgAgentInstructions = async (req, res) => {
     let updatedAgentInstructions = [];
     if (tasks && tasks.length > 0) {
       // Delete the existing instructions for this agent
-      await AgentInstruction.deleteMany({ agent: agent._id }, { session });
+      await AgentTask.deleteMany({ agent: agent._id }, { session });
 
       // Insert new instructions
-      updatedAgentInstructions = await AgentInstruction.insertMany(
+      updatedAgentInstructions = await AgentTask.insertMany(
         tasks.map((inst) => ({
           agent: agent._id,
           name: inst.name,
@@ -449,11 +450,113 @@ exports.updateOrgAgentInstructions = async (req, res) => {
   }
 };
 
+exports.getAgentTaskStatus = async (req, res) => {
+  try {
+    const { organization, customer } = req.query; // Expecting orgId, agentId, and customerId as query parameters
+    const { agentId } = req.params;
+    if (!organization || !agentId || !customer) {
+      return res.status(400).json({
+        message: 'Missing required parameters: orgId, agentId, customerId',
+      });
+    }
+    const tasks = await AgentTaskStatusModel.find({
+      organization,
+      agent: agentId,
+      customer,
+    })
+      .populate('organization', 'name _id')
+      .populate('agent')
+      .populate('agentTask')
+      .populate('customer', 'name email _id');
+
+    if (tasks.length === 0) {
+      return res
+        .status(404)
+        .json({ message: 'No tasks found for this agent and customer' });
+    }
+
+    return res.status(200).json(tasks);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Server Error' });
+  }
+};
+
+exports.storeAgentTaskExecuteStatus = async (req, res) => {
+  try {
+    const { agentId, taskId } = req.params;
+    const { organizationId, customerId, status } = req.body;
+
+    // Validate required fields
+    if (!agentId || !taskId || !organizationId || !customerId) {
+      return res
+        .status(400)
+        .json({ error: 'Bad Request. Missing required fields.' });
+    }
+
+    // Define valid statuses (in lowercase)
+    const validStatuses = ['open', 'in progress', 'done'];
+
+    // Create a new AgentTaskStatus entry
+    const newTaskStatus = new AgentTaskStatusModel({
+      agent: agentId,
+      agentTask: taskId,
+      organization: organizationId,
+      customer: customerId,
+      status: status,
+    });
+
+    // Save to database
+    await newTaskStatus.save();
+
+    res.status(201).json({
+      message: 'Agent task status stored successfully',
+      data: newTaskStatus,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Server Error' });
+  }
+};
+
+exports.getAgentTasksStatus = async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { organizationId, customerId } = req.query;
+
+    // Validate required fields
+    if (!agentId || !organizationId || !customerId) {
+      return res.status(400).json({
+        error:
+          'Bad Request. Missing required parameters: organizationId, agentId, customerId',
+      });
+    }
+
+    // Find all task statuses matching the provided filters
+    const tasks = await AgentTaskStatusModel.find({
+      agent: agentId,
+      organization: organizationId,
+      customer: customerId,
+    })
+      .populate('agentTask', 'taskName') // Populating task details
+      .populate('customer', 'name') // Populating customer details
+      .populate('organization', 'name') // Populating organization details
+      .lean();
+
+    if (!tasks.length) {
+      return res
+        .status(404)
+        .json({ message: 'No tasks found for the given criteria' });
+    }
+
+    res.status(200).json({ tasks });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Server Error' });
+  }
+};
+
 exports.createOrgAgentInstructions = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction(); // Begin a transaction to ensure consistency
   try {
-    console.log('req.body', req.body);
     const { id, tasks, ...agentData } = req.body;
     if (!req.user.organization) {
       res.status(400).json({ message: 'Organization id required' });
@@ -468,7 +571,7 @@ exports.createOrgAgentInstructions = async (req, res) => {
     let newAgentInstructions = [];
     if (tasks.length > 0) {
       // 2️⃣ Insert Multiple Agent Instructions
-      newAgentInstructions = await AgentInstruction.insertMany(
+      newAgentInstructions = await AgentTask.insertMany(
         tasks.map((inst) => ({
           agent: agent._id,
           name: inst.name,

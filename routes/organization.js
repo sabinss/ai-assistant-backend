@@ -33,6 +33,18 @@ module.exports = (app) => {
     ctl.createOrgAgentInstructions
   );
 
+  app.post(
+    `${process.env.APP_URL}/organization/agent/:agentId/task/:taskId/status`,
+    authUser,
+    ctl.storeAgentTaskExecuteStatus
+  );
+
+  app.get(
+    `${process.env.APP_URL}/organization/agent/:agentId/task/:taskId/status`,
+    authUser,
+    ctl.getAgentTaskStatus
+  );
+
   app.put(
     `${process.env.APP_URL}/organization/agent`,
     authUser,

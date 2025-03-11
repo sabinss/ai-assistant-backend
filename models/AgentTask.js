@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const agentInstructionSchema = new mongoose.Schema(
+const agentTaskSchema = new mongoose.Schema(
   {
     agent: {
       type: mongoose.Schema.Types.ObjectId,
@@ -14,9 +14,6 @@ const agentInstructionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const AgentInstruction = mongoose.model(
-  'AgentInstruction',
-  agentInstructionSchema
-);
+const AgentTask = mongoose.model('AgentTask', agentTaskSchema);
 
-module.exports = AgentInstruction;
+module.exports = AgentTask;

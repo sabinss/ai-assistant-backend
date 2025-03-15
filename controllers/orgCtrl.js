@@ -354,8 +354,15 @@ exports.callTaskAgentPythonApi = async (req, res) => {
 exports.getOrgAgentInstructions = async (req, res) => {
   try {
     const { organization } = req.user;
+    // const { agent_name } = req.query;
     // Step 1: Fetch all agents for the given organization
-    const agents = await AgentModel.find({ organization });
+    let agents = await AgentModel.find({ organization });
+
+    // if (agent_name) {
+    //   agents = agents.filter(
+    //     (x) => x.name.toLowerCase() == agent_name.toLowerCase()
+    //   );
+    // }
 
     // Step 2: Fetch all AgentInstructions for the agents in parallel
     const agentInstructions = await AgentTask.find({

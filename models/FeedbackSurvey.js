@@ -2,10 +2,10 @@ const mongoose = require('mongoose');
 
 const feedbackSurvey = new mongoose.Schema(
   {
-    query: {type: String},
-    rating: {type: Number, default: null},
-    feedback: {type: String},
-    user_email: {type: String},
+    query: { type: String },
+    rating: { type: Number, default: null },
+    feedback: { type: String },
+    user_email: { type: String },
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',
@@ -18,6 +18,7 @@ const feedbackSurvey = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    agentName: { type: String },
   },
   {
     timestamps: true,

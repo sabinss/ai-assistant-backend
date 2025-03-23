@@ -1,5 +1,5 @@
-const Customer = require("../models/Customer");
-const CustomerFeature = require("../models/CustomerFeature");
+const Customer = require('../models/Customer');
+const CustomerFeature = require('../models/CustomerFeature');
 
 exports.getCustomerDetail = async (req, res) => {
   try {
@@ -14,18 +14,49 @@ exports.getCustomerDetail = async (req, res) => {
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      filter["updatedAt"] = { $gt: filterDate };
+      filter['updatedAt'] = { $gt: filterDate };
     }
     if (created_date) {
       const filterDate = new Date(created_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      searchCondition["createdAt"] = { $gt: filterDate };
+      searchCondition['createdAt'] = { $gt: filterDate };
     }
     const customerDetail = await Customer.find(filter);
 
     res.status(200).json({ data: customerDetail });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server Error", error });
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};
+
+exports.createCustomer = async (req, res) => {
+  try {
+    const { name, email, organization, ...optionalFields } = req.body;
+    if (req.externalApiCall && !req.organization) {
+      res.status(400).json({ message: 'Organization required', error });
+    }
+    // Check if required fields are provided
+    if (!name || !email || !organization) {
+      return res.status(400).json({
+        message: 'Missing required fields: name, email, organization',
+      });
+    }
+    // Create a new customer with required and optional fields
+    const customer = new Customer({
+      name,
+      email,
+      organization,
+      ...optionalFields, // Spread operator adds any additional fields dynamically
+    });
+
+    await customer.save();
+
+    res.status(201).json({
+      message: 'Customer created successfully',
+      customer,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
   }
 };
 
@@ -44,12 +75,12 @@ exports.getCustomerLoginDetail = async (req, res) => {
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      filter["updatedAt"] = { $gt: filterDate };
+      filter['updatedAt'] = { $gt: filterDate };
     }
     const customerLoginDetails = await CustomerFeature.find(filter);
     res.status(200).json({ data: customerLoginDetails });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server Error", error });
+    res.status(500).json({ message: 'Internal Server Error', error });
   }
 };
 
@@ -66,16 +97,16 @@ exports.getCustomerFeatures = async (req, res) => {
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      filter["updatedAt"] = { $gt: filterDate };
+      filter['updatedAt'] = { $gt: filterDate };
     }
     if (created_date) {
       const filterDate = new Date(created_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      searchCondition["createdAt"] = { $gt: filterDate };
+      searchCondition['createdAt'] = { $gt: filterDate };
     }
     const customerLoginDetails = await CustomerFeature.find(filter);
     res.status(200).json({ data: customerLoginDetails });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server Error", error });
+    res.status(500).json({ message: 'Internal Server Error', error });
   }
 };

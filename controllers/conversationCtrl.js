@@ -44,6 +44,7 @@ exports.addConversation = async (req, res) => {
         organization: req.user.organization,
         chatSession: req.body.chatSession,
         session_id,
+        agentName: req.body?.agentName[0],
       };
       console.log('agent payload', payload);
       const newConversation = new Conversation(payload);

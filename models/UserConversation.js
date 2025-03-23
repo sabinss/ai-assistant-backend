@@ -36,6 +36,7 @@ const UserConversation = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Customer',
     },
+    agentName: { type: String },
   },
   {
     timestamps: true,

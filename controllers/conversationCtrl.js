@@ -8,7 +8,7 @@ exports.addConversation = async (req, res) => {
   try {
     let session_id = req.body?.sessionId ? req.body?.sessionId : null;
     if (req.body?.agentName?.length > 0) {
-      let url = `http://3.17.138.140:8000/ask/agent?agent_name=${
+      let url = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${
         req.body?.agentName[0]
       }&org_id=${req.user.organization}&query=${encodeURIComponent(
         req.body.question
@@ -66,9 +66,11 @@ exports.addConversation = async (req, res) => {
       }
       console.log('workflowFlag', workflowFlag);
       if (workflowFlag) {
-        let url = `http://3.17.138.140:8000/ask?query=${encodeURIComponent(
-          question
-        )}&user_email=${req.user.email}&org_id=${
+        let url = `${
+          process.env.AI_AGENT_SERVER_URI
+        }/ask?query=${encodeURIComponent(question)}&user_email=${
+          req.user.email
+        }&org_id=${
           req.user.organization
         }&customer_id=${defaultCustomerId}&api_type=${apiTypeValue}`;
 

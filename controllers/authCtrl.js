@@ -272,8 +272,12 @@ const sendEmail = async (email, token, isReset = true) => {
     `,
   };
   console.log('mailOptions', mailOptions);
-  const mailResponse = await transporter.sendMail(mailOptions);
-  console.log('mailResponse', mailResponse);
+  try {
+    const mailResponse = await transporter.sendMail(mailOptions);
+    console.log('mailResponse', mailResponse);
+  } catch (err) {
+    console.log('Send Email error', err);
+  }
 };
 
 exports.verifyPasswordResetToken = async (req, res) => {

@@ -31,12 +31,12 @@ exports.getCustomerDetail = async (req, res) => {
 
 exports.createCustomer = async (req, res) => {
   try {
-    const { name, email, organization, ...optionalFields } = req.body;
+    const { name, organization, ...optionalFields } = req.body;
     if (req.externalApiCall && !req.organization) {
       res.status(400).json({ message: 'Organization required', error });
     }
     // Check if required fields are provided
-    if (!name || !email || !organization) {
+    if (!name || !organization) {
       return res.status(400).json({
         message: 'Missing required fields: name, email, organization',
       });

@@ -7,7 +7,7 @@ const customerSchema = new mongoose.Schema(
       type: String,
       require: true,
     },
-    email: { type: String, required: true, unique: true },
+    email: { type: String, unique: true, default: null },
     arr: { type: Number },
     licenses_purchased: { type: Number },
     licenses_used: { type: Number },

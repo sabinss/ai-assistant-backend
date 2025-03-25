@@ -44,7 +44,6 @@ exports.createCustomer = async (req, res) => {
     // Create a new customer with required and optional fields
     const customer = new Customer({
       name,
-      email,
       organization,
       ...optionalFields, // Spread operator adds any additional fields dynamically
     });

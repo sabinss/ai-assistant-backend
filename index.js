@@ -28,7 +28,6 @@ const corsOptions = {
 // seedCustomerFeature();
 app.use(cors(corsOptions));
 app.use(bodyParser.urlencoded({ extended: false }));
-
 // app.options('*', cors(corsOptions)); // Preflight request support
 
 http: db.connect();

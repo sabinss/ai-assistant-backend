@@ -38,13 +38,14 @@ exports.createCustomer = async (req, res) => {
     // Check if required fields are provided
     if (!name || !organization) {
       return res.status(400).json({
-        message: 'Missing required fields: name, email, organization',
+        message: 'Missing required fields: name,  organization',
       });
     }
     // Create a new customer with required and optional fields
     const customer = new Customer({
       name,
       organization,
+      email: optionalFields?.email || '', // Ensure email is explicitly set to null if not provided
       ...optionalFields, // Spread operator adds any additional fields dynamically
     });
 

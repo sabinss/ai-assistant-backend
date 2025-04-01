@@ -26,11 +26,12 @@ async function googleOauthHandler(req, res) {
     }
 
     // get id and access token with code
-    const { id_token, access_token, ...remaining } = await getGoogleAuthTokens({
-      code,
-    });
+    const { id_token, access_token, scope, ...remaining } =
+      await getGoogleAuthTokens({
+        code,
+      });
     console.log('-----------');
-    console.log({ id_token, access_token, remaining });
+    console.log({ id_token, access_token, scope, remaining });
     console.log('-----------');
     const googleUser = await getGoogleUser({ id_token, access_token });
     console.log('googleUser', googleUser);
@@ -47,7 +48,7 @@ async function googleOauthHandler(req, res) {
       googleId: googleUser.id,
       isGoogleUser: true,
       user: existingUser ? existingUser.id : null,
-      scope: remaining.scope,
+      scope: scope,
     };
     if (orgId) {
       googleUserPayload.organization = orgId;

@@ -6,7 +6,7 @@ const swaggerSpecs = require('./routes/swagger');
 const port = process.env.PORT || 8000;
 const cors = require('cors');
 const app = express();
-
+const updateUserRole = require('./seeders/update-role');
 //todo chat message sort by created date aila sorting milara ako chainclear
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
@@ -25,6 +25,7 @@ const corsOptions = {
   origin: '*',
   credentials: true,
 };
+
 // seedCustomerFeature();
 app.use(cors(corsOptions));
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -38,6 +39,7 @@ app.get('/health-check', async (req, res) => {
   }
   res.status(200).send('Instwise API running..');
 });
+
 //seeding line is this
 //require("./seeders/allseeder.js")()
 

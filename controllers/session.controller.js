@@ -29,8 +29,9 @@ async function googleOauthHandler(req, res) {
     const { id_token, access_token, ...remaining } = await getGoogleAuthTokens({
       code,
     });
+    console.log('-----------');
     console.log({ id_token, access_token, remaining });
-
+    console.log('-----------');
     const googleUser = await getGoogleUser({ id_token, access_token });
     console.log('googleUser', googleUser);
     if (!googleUser || !googleUser.email) {

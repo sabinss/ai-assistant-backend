@@ -15,6 +15,7 @@ const googleUserSchema = new mongoose.Schema(
       ref: 'Organization',
       default: null,
     },
+    scope: { type: String, default: '' },
   },
   {
     timestamps: true,

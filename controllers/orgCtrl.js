@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const AgentModel = require('../models/AgentModel');
 const AgentTask = require('../models/AgentTask');
 const AgentTaskStatusModel = require('../models/AgentTaskStatusModel');
+const OrganizationPrompt = require('../models/OrganizationPrompt');
 
 exports.create = async (req, res) => {
   const {
@@ -299,6 +300,36 @@ exports.getCustomerList = async (req, res) => {
     res.status(200).json({ organization: org_id, customers: orgCustomers });
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+exports.createOrganizationPrompt = async (req, res) => {
+  try {
+    const organizationPrompt = new OrganizationPrompt(organizationPromptData);
+    return await organizationPrompt.save();
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+exports.getOrganizationPrompt = async (req, res) => {
+  try {
+    if (!req?.user?.organization) {
+      res.status(500).json({ message: 'Organization is required', err });
+    }
+    const organization = req?.user?.organization;
+    const organizationPrompts = await OrganizationPrompt.find({
+      organization: organization,
+    }).lean(); // If you need to populate organization details
+    if (!organizationPrompts || organizationPrompts.length === 0) {
+      return {
+        message: 'No prompts found for the given organization.',
+        data: [],
+      };
+    }
+    res.status(200).json({ organizationPrompts });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: 'Failed to fetch organization prompts', error });
   }
 };
 

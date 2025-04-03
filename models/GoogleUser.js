@@ -16,6 +16,10 @@ const googleUserSchema = new mongoose.Schema(
       default: null,
     },
     scope: { type: String, default: '' },
+    credentials: {
+      type: Object,
+      default: {},
+    },
   },
   {
     timestamps: true,

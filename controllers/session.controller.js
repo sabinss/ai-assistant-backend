@@ -49,6 +49,12 @@ async function googleOauthHandler(req, res) {
       isGoogleUser: true,
       user: existingUser ? existingUser.id : null,
       scope: scope,
+      credentials: {
+        id_token,
+        access_token,
+        ...remaining,
+        scope,
+      },
     };
     if (orgId) {
       googleUserPayload.organization = orgId;

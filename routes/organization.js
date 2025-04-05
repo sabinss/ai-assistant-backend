@@ -1,4 +1,5 @@
 const ctl = require('../controllers/orgCtrl');
+const verifyGoogleAuthUser = require('../middleware/google-auth-verify');
 const permitUser = require('../middleware/permitUser');
 const authUser = require('../middleware/authUser')['authenticate'];
 const checkPermissions = require('../middleware/rolePermit');
@@ -17,7 +18,8 @@ module.exports = (app) => {
 
   app.get(
     `${process.env.APP_URL}/organization/google-users`,
-    verifySameOrganization,
+    // verifySameOrganization,
+    verifyGoogleAuthUser,
     ctl.getConnectedGmailsWithOrg
   );
 

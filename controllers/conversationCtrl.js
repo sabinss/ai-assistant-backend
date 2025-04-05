@@ -146,6 +146,9 @@ exports.addConversation = async (req, res) => {
       if (!session_id && ans.results?.sessionId) {
         session_id = ans.results.sessionId;
       }
+      if (!session_id && ans.results?.sessionId) {
+        session_id = ans.results.sessionId;
+      }
 
       const answer = ans.results.answer;
 
@@ -167,6 +170,7 @@ exports.addConversation = async (req, res) => {
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -182,6 +186,7 @@ exports.deleteConversation = async (req, res) => {
 
     res.json({ message: "Conversation deleted successfully" });
   } catch (err) {
+    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };
@@ -259,6 +264,7 @@ exports.getConversationByUserId = async (req, res) => {
     res.json(conversation);
   } catch (err) {
     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -313,6 +319,7 @@ exports.getConversationByCustomerId = async (req, res) => {
     res.json(conversation);
   } catch (err) {
     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 exports.updateLikeDislike = async (req, res) => {
@@ -332,6 +339,7 @@ exports.updateLikeDislike = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -342,6 +350,7 @@ exports.totalConversations = async (req, res) => {
     }).count();
     res.json(conversation);
   } catch (err) {
+    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };
@@ -356,6 +365,7 @@ exports.getPublicConversationByUserId = async (req, res) => {
     }).sort({ created_date: -1 });
     res.json(conversation);
   } catch (err) {
+    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };
@@ -377,11 +387,13 @@ exports.updatePublicLikeDislike = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
 exports.addPublicConversation = async (req, res) => {
   const { org_id, chat_session, user_email = null } = req.query;
+
   try {
     const { question, user_email, customer_id } = req.body;
     let url = `http://3.17.138.140:8000/public/ask?query=${encodeURIComponent(
@@ -428,6 +440,7 @@ exports.addPublicConversation = async (req, res) => {
 exports.getWholeOrgConvo = async (req, res) => {
   const { startDate, endDate, customer_id } = req.query;
   let searchCondition = {};
+
   if (customer_id) {
     searchCondition = {
       customer: customer_id,
@@ -448,6 +461,7 @@ exports.getWholeOrgConvo = async (req, res) => {
     const conversation = await Conversation.find(searchCondition);
     res.json(conversation);
   } catch (err) {
+    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };

@@ -27,10 +27,40 @@ module.exports = (app) => {
     ctl.callTaskAgentPythonApi
   );
 
+  app.post(
+    `${process.env.APP_URL}/organization/agent`,
+    authUser,
+    ctl.createOrgAgentInstructions
+  );
+
+  app.post(
+    `${process.env.APP_URL}/organization/agent/:agentId/task/:taskId/status`,
+    authUser,
+    ctl.storeAgentTaskExecuteStatus
+  );
+
+  app.get(
+    `${process.env.APP_URL}/organization/agent/:agentId/task/:taskId/status`,
+    authUser,
+    ctl.getAgentTaskStatus
+  );
+
+  app.put(
+    `${process.env.APP_URL}/organization/agent`,
+    authUser,
+    ctl.updateOrgAgentInstructions
+  );
+  app.get(
+    `${process.env.APP_URL}/organization/agent/instruction`,
+    authUser,
+    ctl.getOrgAgentInstructions
+  );
+
   app.get(
     `${process.env.APP_URL}/organization/agent`,
     verifySameOrganization,
-    ctl.getOrganizationAgentSetup
+    // ctl.getOrganizationAgentSetup
+    ctl.getOrgAgentInstructions
   );
 
   app.get(

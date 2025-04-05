@@ -302,31 +302,60 @@ exports.getCustomerList = async (req, res) => {
   }
 };
 
+// exports.getConnectedGmailsWithOrg = async (req, res) => {
+//   try {
+//     const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;
+//     if (isVerifiedFromExternalCall) {
+//       const { gmail = null } = req.query;
+//       const orgDetail = await Organization.findById(
+//         req.organization._id,
+//         'orgGoogleCredential'
+//       ).lean();
+
+//       const orgGoogleUsers = await GoogleUser.find({
+//         organization: req.organization._id,
+//       }).lean();
+
+//       let response = orgGoogleUsers.map((x) => ({
+//         ...x,
+//         orgGoogleCredential: orgDetail.orgGoogleCredential,
+//       }));
+
+//       if (gmail) {
+//         response = response.filter((x) => x.email == gmail);
+//       }
+//       res.status(200).json({
+//         data: response,
+//       });
+//     }
+//   } catch (err) {
+//     res.status(500).json({ message: 'Internal server error', err });
+//   }
+// };
 exports.getConnectedGmailsWithOrg = async (req, res) => {
   try {
     const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;
     if (isVerifiedFromExternalCall) {
-      const { gmail = null } = req.query;
+      // this is logged in user
+      const user_email = req.user.email;
       const orgDetail = await Organization.findById(
         req.organization._id,
         'orgGoogleCredential'
       ).lean();
-
-      const orgGoogleUsers = await GoogleUser.find({
+      const connectedGmailUsers = await GoogleUser.find({
         organization: req.organization._id,
       }).lean();
 
-      let response = orgGoogleUsers.map((x) => ({
-        ...x,
+      const responsePayload = {
+        user_email,
         orgGoogleCredential: orgDetail.orgGoogleCredential,
-      }));
-
-      if (gmail) {
-        response = response.filter((x) => x.email == gmail);
-      }
+        connectedEmails: connectedGmailUsers,
+      };
       res.status(200).json({
-        data: response,
+        data: responsePayload,
       });
+    } else {
+      res.status(500).json({ message: 'Internal server error', err });
     }
   } catch (err) {
     res.status(500).json({ message: 'Internal server error', err });

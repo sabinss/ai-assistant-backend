@@ -5,7 +5,7 @@ async function connect() {
     await mongoose.connect(process.env.DB_URL, {
       autoIndex: true,
     });
-    console.log('MongoDB is connected...');
+    console.log('MongoDB is connected successfully...');
     return true;
   } catch (err) {
     console.log('Failed to connect to MongoDB', err);
@@ -13,4 +13,4 @@ async function connect() {
   }
 }
 
-module.exports = {connect};
+module.exports = { connect };

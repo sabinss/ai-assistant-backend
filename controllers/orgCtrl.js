@@ -338,12 +338,17 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
     if (isVerifiedFromExternalCall) {
       // this is logged in user
       const user_email = req.user.email;
+      const orgDetail = await Organization.findById(
+        req.organization._id,
+        'orgGoogleCredential'
+      ).lean();
       const connectedGmailUsers = await GoogleUser.find({
         organization: req.organization._id,
       }).lean();
 
       const responsePayload = {
         user_email,
+        orgGoogleCredential: orgDetail.orgGoogleCredential,
         connectedEmails: connectedGmailUsers,
       };
       res.status(200).json({

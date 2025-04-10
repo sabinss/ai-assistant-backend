@@ -13,6 +13,7 @@ const db = require('./helper/db');
 const { googleOauthHandler } = require('./controllers/session.controller');
 const seedTaskAgentForOrganization = require('./seeders/taskAgentSeeder');
 const updateOrganizationForAll = require('./seeders/customerLoginDetailUpdateOrgId');
+const seedOrganizationPrompt = require('./seeders/saveOrganizationPrompt');
 // const seedCustomerFeature = require('./seeders/seedCustomerFeature');
 // const seedPromptInAllOrganization = require('./seeders/promptSeed');
 // const bulkInsertNotifications = require("./seeders/seedNotificationData");

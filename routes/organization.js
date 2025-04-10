@@ -24,6 +24,17 @@ module.exports = (app) => {
   );
 
   app.post(
+    `${process.env.APP_URL}/organization/prompts`,
+    authUser,
+    ctl.createOrganizationPrompt
+  );
+  app.get(
+    `${process.env.APP_URL}/organization/prompts`,
+    authUser,
+    ctl.getOrganizationPrompt
+  );
+
+  app.post(
     `${process.env.APP_URL}/organization/task-agent/trigger`,
     authUser,
     ctl.callTaskAgentPythonApi

@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 
-const promptSchema = new mongoose.Schema({
+const PromptSchema = new mongoose.Schema({
   text: { type: String, required: true },
 });
 const organizationPrompt = new mongoose.Schema({
   category: { type: String, required: true },
-  prompts: [promptSchema],
+  prompts: [PromptSchema],
   organization: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Organization',

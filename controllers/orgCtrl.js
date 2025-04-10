@@ -9,6 +9,8 @@ const mongoose = require('mongoose');
 const AgentModel = require('../models/AgentModel');
 const AgentTask = require('../models/AgentTask');
 const AgentTaskStatusModel = require('../models/AgentTaskStatusModel');
+const OrganizationPrompt = require('../models/OrganizationPrompt');
+const PromptSchema = require('../models/PromptSchema');
 
 exports.create = async (req, res) => {
   const {
@@ -299,6 +301,87 @@ exports.getCustomerList = async (req, res) => {
     res.status(200).json({ organization: org_id, customers: orgCustomers });
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+exports.createOrganizationPrompt = async (req, res) => {
+  try {
+    console.log('body', req.body);
+    const { organizationPrompts = [], deletePromptIds = [] } = req.body;
+    if (organizationPrompts?.length == 0) {
+      res.status(400).json({ message: 'Payload is empty', success: false });
+    }
+    const isDirtyRecords = organizationPrompts.filter((x) => x.isDirty);
+
+    console.log('isDirtyRecords', isDirtyRecords);
+
+    if (isDirtyRecords.length == 0 && deletePromptIds?.length == 0) {
+      res.status(200).json({ message: 'Updated successfully', success: true });
+      return;
+    }
+
+    if (deletePromptIds?.length > 0) {
+      for (const orgPrompt of deletePromptIds) {
+        const { orgPromptId, promptId } = orgPrompt;
+
+        await OrganizationPrompt.findByIdAndUpdate(
+          orgPromptId, // ID of the OrganizationPrompt document
+          { $pull: { prompts: { _id: promptId } } }, // Remove the prompt with the specified text
+          { new: true } // Return the updated document
+        );
+      }
+    }
+
+    if (isDirtyRecords?.length > 0) {
+      for (const orgPrompt of isDirtyRecords) {
+        const { _id: orgPromptId, prompts } = orgPrompt;
+        for (const prompt of prompts) {
+          if (prompt._id.startsWith('temp-')) {
+            // This is a new prompt — add it
+            await OrganizationPrompt.findByIdAndUpdate(
+              orgPromptId,
+              {
+                $push: {
+                  prompts: { text: prompt.text }, // Only include fields needed
+                },
+              },
+              { new: true }
+            );
+          } else {
+            await OrganizationPrompt.updateOne(
+              { _id: orgPromptId, 'prompts._id': prompt._id },
+              { $set: { 'prompts.$.text': prompt.text } }
+            );
+          }
+        }
+        res.status(200).json({ message: 'Updated successfully' });
+        return;
+      }
+    }
+    res.status(200).json({ message: 'Updated successfully', success: true });
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+exports.getOrganizationPrompt = async (req, res) => {
+  try {
+    if (!req?.user?.organization) {
+      res.status(500).json({ message: 'Organization is required', err });
+    }
+    const organization = req?.user?.organization;
+    const organizationPrompts = await OrganizationPrompt.find({
+      organization: organization,
+    }).lean(); // If you need to populate organization details
+    if (!organizationPrompts || organizationPrompts.length === 0) {
+      return {
+        message: 'No prompts found for the given organization.',
+        data: [],
+      };
+    }
+    res.status(200).json({ organizationPrompts });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: 'Failed to fetch organization prompts', error });
   }
 };
 

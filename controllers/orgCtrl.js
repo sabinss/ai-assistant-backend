@@ -10,6 +10,7 @@ const AgentModel = require('../models/AgentModel');
 const AgentTask = require('../models/AgentTask');
 const AgentTaskStatusModel = require('../models/AgentTaskStatusModel');
 const OrganizationPrompt = require('../models/OrganizationPrompt');
+const PromptSchema = require('../models/PromptSchema');
 
 exports.create = async (req, res) => {
   const {
@@ -304,8 +305,59 @@ exports.getCustomerList = async (req, res) => {
 };
 exports.createOrganizationPrompt = async (req, res) => {
   try {
-    const organizationPrompt = new OrganizationPrompt(organizationPromptData);
-    return await organizationPrompt.save();
+    console.log('body', req.body);
+    const { organizationPrompts = [], deletePromptIds = [] } = req.body;
+    if (organizationPrompts?.length == 0) {
+      res.status(400).json({ message: 'Payload is empty', success: false });
+    }
+    const isDirtyRecords = organizationPrompts.filter((x) => x.isDirty);
+
+    console.log('isDirtyRecords', isDirtyRecords);
+
+    if (isDirtyRecords.length == 0 && deletePromptIds?.length == 0) {
+      res.status(200).json({ message: 'Updated successfully', success: true });
+      return;
+    }
+
+    if (deletePromptIds?.length > 0) {
+      for (const orgPrompt of deletePromptIds) {
+        const { orgPromptId, promptId } = orgPrompt;
+
+        await OrganizationPrompt.findByIdAndUpdate(
+          orgPromptId, // ID of the OrganizationPrompt document
+          { $pull: { prompts: { _id: promptId } } }, // Remove the prompt with the specified text
+          { new: true } // Return the updated document
+        );
+      }
+    }
+
+    if (isDirtyRecords?.length > 0) {
+      for (const orgPrompt of isDirtyRecords) {
+        const { _id: orgPromptId, prompts } = orgPrompt;
+        for (const prompt of prompts) {
+          if (prompt._id.startsWith('temp-')) {
+            // This is a new prompt — add it
+            await OrganizationPrompt.findByIdAndUpdate(
+              orgPromptId,
+              {
+                $push: {
+                  prompts: { text: prompt.text }, // Only include fields needed
+                },
+              },
+              { new: true }
+            );
+          } else {
+            await OrganizationPrompt.updateOne(
+              { _id: orgPromptId, 'prompts._id': prompt._id },
+              { $set: { 'prompts.$.text': prompt.text } }
+            );
+          }
+        }
+        res.status(200).json({ message: 'Updated successfully' });
+        return;
+      }
+    }
+    res.status(200).json({ message: 'Updated successfully', success: true });
   } catch (error) {
     throw new Error(error.message);
   }

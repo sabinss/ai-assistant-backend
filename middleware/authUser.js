@@ -20,7 +20,7 @@ module.exports = {
             req.user.isAuth = true;
             next();
           } else {
-            return res.status(401).json({message: 'Authorization failed'});
+            return res.status(401).json({ message: 'Authorization failed' });
           }
         } else if (req.orgTokenAuth) {
           next();
@@ -32,7 +32,7 @@ module.exports = {
           req.user = decoded;
           if (err) {
             if (!user) {
-              return res.status(401).json({message: 'Session Expired'});
+              return res.status(401).json({ message: 'Session Expired' });
             }
           }
           req.user = user;

@@ -10,7 +10,9 @@ const AgentModel = require('../models/AgentModel');
 const AgentTask = require('../models/AgentTask');
 const AgentTaskStatusModel = require('../models/AgentTaskStatusModel');
 const OrganizationPrompt = require('../models/OrganizationPrompt');
-const PromptSchema = require('../models/PromptSchema');
+const path = require('path');
+const fs = require('fs');
+const FormData = require('form-data');
 
 exports.create = async (req, res) => {
   const {
@@ -250,6 +252,10 @@ exports.editOrg = async (req, res) => {
         ...additionalPrompt,
       };
     } else {
+      const updatePrompt = {
+        ...additionalPrompt,
+        prompt: additionalPrompt.internal_solution_prompt,
+      };
       payload = {
         name,
         assistant_name,
@@ -260,7 +266,7 @@ exports.editOrg = async (req, res) => {
         prompt,
         workflow_engine_enabled: workflowFlag,
         mock_data: mockData,
-        ...additionalPrompt,
+        ...updatePrompt,
       };
     }
     const org = await Organization.findByIdAndUpdate(
@@ -305,7 +311,6 @@ exports.getCustomerList = async (req, res) => {
 };
 exports.createOrganizationPrompt = async (req, res) => {
   try {
-    console.log('body', req.body);
     const { organizationPrompts = [], deletePromptIds = [] } = req.body;
     if (organizationPrompts?.length == 0) {
       res.status(400).json({ message: 'Payload is empty', success: false });
@@ -359,7 +364,31 @@ exports.createOrganizationPrompt = async (req, res) => {
     }
     res.status(200).json({ message: 'Updated successfully', success: true });
   } catch (error) {
-    throw new Error(error.message);
+    res
+      .status(500)
+      .json({ message: 'Failed to save organization prompts', error });
+  }
+};
+
+exports.updateOrganizationPromptCategory = async (req, res) => {
+  try {
+    const { orgPromptId, category } = req.body;
+
+    if (!orgPromptId || !category) {
+      res
+        .status(400)
+        .json({ message: 'OrgPromptId | category is missing', error });
+    }
+
+    await OrganizationPrompt.updateOne(
+      { _id: orgPromptId },
+      { $set: { category: category } }
+    );
+    res.status(200).json({ message: 'Updated successfully', success: true });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: 'Failed to update organization prompt category', err });
   }
 };
 exports.getOrganizationPrompt = async (req, res) => {
@@ -880,5 +909,59 @@ exports.createOrgTaskAgents = async (req, res) => {
     res.status(201).json(newTaskAgent);
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+
+exports.uploadOrganizationSourceUpload = async (req, res) => {
+  try {
+    const url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant/upload-pdfs`;
+    const formData = new FormData();
+    const files = req.files;
+    if (!files || files.length == 0) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    for (const file of files) {
+      formData.append(
+        'files',
+        fs.createReadStream(file.path),
+        file.originalname
+      );
+    }
+    const headers = {
+      ...formData.getHeaders(), // Required to set correct `Content-Type` with boundary
+      accept: 'application/json',
+      'X-API-KEY': process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
+      'Content-Type': 'multipart/form-data',
+    };
+    const params = {
+      company_id: req.user.organization,
+    };
+    const response = await axios.post(url, formData, { headers, params });
+    res.status(201).json(response.data);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to upload file', err });
+  }
+};
+
+exports.fetchSourceFileList = async (req, res) => {
+  try {
+    const headers = {
+      accept: 'application/json',
+      'X-API-KEY': process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
+    };
+    // companyId = organizationId
+    const params = req.query;
+    const url = `${
+      process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT
+    }/assistant/get-pdfs-list?company_id=${params.company_id}&page=${
+      params.page
+    }&search=${params.search ?? null}&sortField=${
+      params.sortField ?? null
+    }&sortDirection=${params.sortDirection ?? null}&limit=${params.limit}`;
+    console.log('url', url);
+    const response = await axios.get(url, { headers });
+    res.status(200).json(response.data);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetc files', err });
   }
 };

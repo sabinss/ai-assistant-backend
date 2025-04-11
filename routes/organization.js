@@ -31,6 +31,11 @@ module.exports = (app) => {
     authUser,
     ctl.getOrganizationPrompt
   );
+  app.post(
+    `${process.env.APP_URL}/organization/prompts/category`,
+    authUser,
+    ctl.updateOrganizationPromptCategory
+  );
 
   app.post(
     `${process.env.APP_URL}/organization/task-agent/trigger`,

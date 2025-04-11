@@ -250,6 +250,10 @@ exports.editOrg = async (req, res) => {
         ...additionalPrompt,
       };
     } else {
+      const updatePrompt = {
+        ...additionalPrompt,
+        prompt: additionalPrompt.internal_solution_prompt,
+      };
       payload = {
         name,
         assistant_name,
@@ -260,7 +264,7 @@ exports.editOrg = async (req, res) => {
         prompt,
         workflow_engine_enabled: workflowFlag,
         mock_data: mockData,
-        ...additionalPrompt,
+        ...updatePrompt,
       };
     }
     const org = await Organization.findByIdAndUpdate(
@@ -305,7 +309,6 @@ exports.getCustomerList = async (req, res) => {
 };
 exports.createOrganizationPrompt = async (req, res) => {
   try {
-    console.log('body', req.body);
     const { organizationPrompts = [], deletePromptIds = [] } = req.body;
     if (organizationPrompts?.length == 0) {
       res.status(400).json({ message: 'Payload is empty', success: false });
@@ -359,7 +362,31 @@ exports.createOrganizationPrompt = async (req, res) => {
     }
     res.status(200).json({ message: 'Updated successfully', success: true });
   } catch (error) {
-    throw new Error(error.message);
+    res
+      .status(500)
+      .json({ message: 'Failed to save organization prompts', error });
+  }
+};
+
+exports.updateOrganizationPromptCategory = async (req, res) => {
+  try {
+    const { orgPromptId, category } = req.body;
+
+    if (!orgPromptId || !category) {
+      res
+        .status(400)
+        .json({ message: 'OrgPromptId | category is missing', error });
+    }
+
+    await OrganizationPrompt.updateOne(
+      { _id: orgPromptId },
+      { $set: { category: category } }
+    );
+    res.status(200).json({ message: 'Updated successfully', success: true });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: 'Failed to update organization prompt category', err });
   }
 };
 exports.getOrganizationPrompt = async (req, res) => {

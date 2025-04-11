@@ -259,12 +259,12 @@ const sendEmail = async (email, token, isReset = true) => {
           <p> ${
             isReset
               ? ' You have requested to reset your password Please use the following token to proceed:'
-              : 'Thank you for singing up for Instwise! To complete your registration, please use the following token .'
+              : 'Thank you for singing up for CoWrkr! To complete your registration, please use the following token .'
           }. </p>
           <div class="token">${token}</div>
           <p>Note: This token is only valid for 5 minutes.</p>
           <p>If you did not request this, please ignore this email.</p>
-          <p>Best regards,<br>Instwise Team <br< Agilemove Inc.</p>
+          <p>Best regards,<br>CoWrkr Team <br< Agilemove Inc.</p>
 
         </div>
       </body>

@@ -63,17 +63,38 @@ exports.signup = async (req, res) => {
   }
 };
 
+exports.disconnectOrgGoogleUser = async (req, res) => {
+  try {
+    const organization = req.user?.organization;
+    if (!organization) {
+      res.status(500).json({ message: 'Organization is required', err });
+    }
+    await GoogleUser.updateOne(
+      { organizationId: organization },
+      { $set: { isActive: false } }
+    );
+    return res.status(200).json({
+      message: 'Disconnected google user successfully',
+      success: true,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error', err });
+  }
+};
+
 exports.verifyGoogleLogin = async (req, res) => {
   try {
     const { email } = req.body;
     const googleLoginUser = await GoogleUser.findOne({
-      email: email,
+      // email: email,
+      organization: req.user.organization,
+      isActive: true,
     });
     if (googleLoginUser) {
       return res.status(200).json({
         message: 'User successfully logged in as google user',
         success: true,
-        googleEmail: googleLoginUser.googleEmail,
+        data: googleLoginUser,
       });
     } else {
       return res.status(200).json({

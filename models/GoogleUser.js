@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const googleUserSchema = new mongoose.Schema(
   {
@@ -7,19 +7,20 @@ const googleUserSchema = new mongoose.Schema(
     googleId: { type: String, default: null }, // Store Google account ID
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       default: null,
     },
     organization: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Organization",
+      ref: 'Organization',
       default: null,
     },
     emailCredential: { type: Object, default: {} },
+    isActive: { type: Boolean, default: true },
   },
   {
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model("GoogleUser", googleUserSchema);
+module.exports = mongoose.model('GoogleUser', googleUserSchema);

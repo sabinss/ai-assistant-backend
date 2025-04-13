@@ -29,7 +29,7 @@ app.get('/health-check', async (req, res) => {
   if (!check) {
     res.status(500).send('Not OK');
   }
-  res.status(200).send('Instwise API running..');
+  res.status(200).send('CoWrkr API running..');
 });
 
 app.get('/api/sessions/oauth/google', googleOauthHandler);

@@ -11,8 +11,9 @@ module.exports = {
         session: false,
       },
       (err, user, info) => {
-        // check if this api is called from python
-        if (req.headers['x-api-secret-key']) {
+        if (req?.externalApiCall) {
+          next();
+        } else if (req.headers['x-api-secret-key']) {
           if (
             req.headers['x-api-secret-key'] == process.env.PYTHON_API_SECRET_KEY
           ) {

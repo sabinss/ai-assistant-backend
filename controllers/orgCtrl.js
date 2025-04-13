@@ -444,6 +444,7 @@ exports.getOrganizationPrompt = async (req, res) => {
 //     res.status(500).json({ message: 'Internal server error', err });
 //   }
 // };
+
 exports.getConnectedGmailsWithOrg = async (req, res) => {
   try {
     const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;

@@ -1,21 +1,21 @@
-const Conversation = require("../models/UserConversation");
-const http = require("../helper/http");
-const axios = require("axios");
+const Conversation = require('../models/UserConversation');
+const http = require('../helper/http');
+const axios = require('axios');
 
 // Add conversation
 exports.addConversation = async (req, res) => {
   try {
     let ans, apiTypeValue;
 
-    const defaultCustomerId = "0000";
+    const defaultCustomerId = '0000';
     const { question, chatSession, apiType } = req.body;
 
     let session_id = req.body?.sessionId ? req.body?.sessionId : null;
 
-    if (apiType === "Customer Information") {
-      apiTypeValue = "insights";
-    } else if (apiType === "Product Knowledge") {
-      apiTypeValue = "support";
+    if (apiType === 'Customer Information') {
+      apiTypeValue = 'insights';
+    } else if (apiType === 'Product Knowledge') {
+      apiTypeValue = 'support';
     }
 
     // Base URL for Python API
@@ -32,37 +32,37 @@ exports.addConversation = async (req, res) => {
     }
 
     // Use streaming only for "insights" API type
-    if (apiTypeValue === "insights") {
+    if (apiTypeValue === 'insights') {
       // Set proper headers for SSE
       res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no", // Disable buffering for Nginx
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no', // Disable buffering for Nginx
       });
 
       // Make streaming request to Python API
       const pythonResponse = await axios({
-        method: "get",
+        method: 'get',
         url: url,
-        responseType: "stream",
+        responseType: 'stream',
       });
 
-      let completeMessage = "";
+      let completeMessage = '';
 
       // Forward the stream from Python API to client
-      pythonResponse.data.on("data", (chunk) => {
+      pythonResponse.data.on('data', (chunk) => {
         const chunkStr = chunk.toString();
 
         // Clean up the string and try to parse JSON
         try {
           // Handle multiple SSE messages that might be in a single chunk
-          const messages = chunkStr.split("\n\n").filter((m) => m.trim());
+          const messages = chunkStr.split('\n\n').filter((m) => m.trim());
 
           for (const msgText of messages) {
-            if (msgText.startsWith("data: ")) {
+            if (msgText.startsWith('data: ')) {
               try {
-                const data = JSON.parse(msgText.replace("data: ", ""));
+                const data = JSON.parse(msgText.replace('data: ', ''));
 
                 // Extract session_id if it exists in the response
                 if (data.session_id && !session_id) {
@@ -92,7 +92,7 @@ exports.addConversation = async (req, res) => {
       });
 
       // When the stream ends, update the conversation with the complete answer
-      pythonResponse.data.on("end", async () => {
+      pythonResponse.data.on('end', async () => {
         try {
           // Send end even
           res.write(
@@ -111,24 +111,24 @@ exports.addConversation = async (req, res) => {
             chatSession,
             session_id,
           };
-          console.log("payload", payload);
+          console.log('payload', payload);
 
           const newConversation = new Conversation(payload);
           await newConversation.save();
 
           res.end();
         } catch (error) {
-          console.error("Error updating conversation:", error);
+          console.error('Error updating conversation:', error);
           res.end();
         }
       });
 
       // Handle errors in the Python API response
-      pythonResponse.data.on("error", (err) => {
-        console.error("Error in Python API stream:", err);
+      pythonResponse.data.on('error', (err) => {
+        console.error('Error in Python API stream:', err);
         res.write(
           `data: ${JSON.stringify({
-            error: "Error in streaming response",
+            error: 'Error in streaming response',
           })}\n\n`
         );
         res.end();
@@ -162,7 +162,7 @@ exports.addConversation = async (req, res) => {
         chatSession,
         session_id,
       };
-      console.log("payload", payload);
+      console.log('payload', payload);
 
       const newConversation = new Conversation(payload);
       const savedConversation = await newConversation.save();
@@ -183,10 +183,10 @@ exports.deleteConversation = async (req, res) => {
     const deletedConversation = await Conversation.findByIdAndDelete(id);
 
     if (!deletedConversation) {
-      return res.status(404).json({ error: "Conversation not found" });
+      return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    res.json({ message: "Conversation deleted successfully" });
+    res.json({ message: 'Conversation deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
@@ -209,7 +209,7 @@ exports.getConversationByUserId = async (req, res) => {
     // Check if user_id is provided
     if (!req.user._id && !user_id && !customer_id) {
       return res.status(400).json({
-        error: "Either user_id, or customer_id is required",
+        error: 'Either user_id, or customer_id is required',
       });
     }
     let searchCondition = {};
@@ -224,7 +224,7 @@ exports.getConversationByUserId = async (req, res) => {
     // }
 
     if (externalApiCall && req.organization) {
-      searchCondition["organization"] = req.organization._id;
+      searchCondition['organization'] = req.organization._id;
     }
 
     if (customer_id) {
@@ -235,12 +235,12 @@ exports.getConversationByUserId = async (req, res) => {
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      searchCondition["updatedAt"] = { $gt: filterDate };
+      searchCondition['updatedAt'] = { $gt: filterDate };
     }
     if (created_date) {
       const filterDate = new Date(created_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      searchCondition["createdAt"] = { $gt: filterDate };
+      searchCondition['createdAt'] = { $gt: filterDate };
     }
     // Add additional search conditions based on provided parameters
     if (chatSession) {
@@ -258,8 +258,8 @@ exports.getConversationByUserId = async (req, res) => {
     //   createdAt: -1,
     // });
     const conversation = await Conversation.find(searchCondition)
-      .populate("customer") // Populate the 'customer' field
-      .populate("user_id") // Populate the 'customer' field
+      .populate('customer') // Populate the 'customer' field
+      .populate('user_id') // Populate the 'customer' field
       .sort({ createdAt: 1 }) // Sort by createdAt in descending order
       .exec(); // Execute the query
 
@@ -278,7 +278,7 @@ exports.getConversationByCustomerId = async (req, res) => {
     if (!user_id && !customer_id) {
       return res
         .status(400)
-        .json({ error: "user_id or customer_id is required" });
+        .json({ error: 'user_id or customer_id is required' });
     }
 
     let searchCondition = {};
@@ -313,7 +313,7 @@ exports.getConversationByCustomerId = async (req, res) => {
     if (!conversation || conversation.length === 0) {
       return res.status(404).json({
         error: `Conversation not found for the provided ${
-          customer_id ? "customer_id" : "user_id"
+          customer_id ? 'customer_id' : 'user_id'
         }`,
       });
     }
@@ -331,13 +331,13 @@ exports.updateLikeDislike = async (req, res) => {
     const conversation = await Conversation.findById(id);
 
     if (!conversation) {
-      return res.status(404).json({ error: "Conversation not found" });
+      return res.status(404).json({ error: 'Conversation not found' });
     }
 
     conversation.liked_disliked = liked_disliked;
     const updatedConversation = await conversation.save();
     res.json({
-      message: "Conversation updated successfully",
+      message: 'Conversation updated successfully',
       updatedConversation,
     });
   } catch (err) {
@@ -379,13 +379,13 @@ exports.updatePublicLikeDislike = async (req, res) => {
     const conversation = await Conversation.findById(id);
 
     if (!conversation) {
-      return res.status(404).json({ error: "Conversation not found" });
+      return res.status(404).json({ error: 'Conversation not found' });
     }
 
     conversation.liked_disliked = liked_disliked;
     const updatedConversation = await conversation.save();
     res.json({
-      message: "Conversation updated successfully",
+      message: 'Conversation updated successfully',
       updatedConversation,
     });
   } catch (err) {
@@ -559,9 +559,12 @@ exports.getWholeOrgConvo = async (req, res) => {
   const { startDate, endDate, customer_id } = req.query;
 
   let searchCondition = {};
-  if (customer_id) {
+  const customerId =
+    customer_id === 'null' || customer_id === 'undefined' ? null : customer_id;
+
+  if (customerId) {
     searchCondition = {
-      customer: customer_id,
+      customer: customerId,
     };
   } else {
     searchCondition = {
@@ -579,7 +582,6 @@ exports.getWholeOrgConvo = async (req, res) => {
     const conversation = await Conversation.find(searchCondition);
     res.json(conversation);
   } catch (err) {
-    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };

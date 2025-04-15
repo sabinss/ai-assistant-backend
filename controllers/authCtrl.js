@@ -63,17 +63,40 @@ exports.signup = async (req, res) => {
   }
 };
 
+exports.disconnectOrgGoogleUser = async (req, res) => {
+  try {
+    const organization = req.user?.organization;
+    if (!organization) {
+      res.status(500).json({ message: 'Organization is required', err });
+    }
+    await GoogleUser.updateOne(
+      { organizationId: organization },
+      { $set: { isActive: false } }
+    );
+    return res.status(200).json({
+      message: 'Disconnected google user successfully',
+      success: true,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error', err });
+  }
+};
+
 exports.verifyGoogleLogin = async (req, res) => {
   try {
     const { email } = req.body;
-    const googleLoginUser = await GoogleUser.findOne({
-      email: email,
-    });
+    const googleLoginUser = await GoogleUser.find({
+      // email: email,
+      organization: req.user.organization,
+      isActive: true,
+    })
+      .sort({ createdAt: -1 }) // newest first
+      .limit(1); // get only one
     if (googleLoginUser) {
       return res.status(200).json({
         message: 'User successfully logged in as google user',
         success: true,
-        googleEmail: googleLoginUser.googleEmail,
+        data: googleLoginUser[0],
       });
     } else {
       return res.status(200).json({
@@ -121,7 +144,7 @@ exports.signin = async (req, res) => {
       expiresIn: '365d',
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       access_token: accessToken,
       message: 'User logged in successfully',
       user_details: userDetails,
@@ -259,12 +282,12 @@ const sendEmail = async (email, token, isReset = true) => {
           <p> ${
             isReset
               ? ' You have requested to reset your password Please use the following token to proceed:'
-              : 'Thank you for singing up for Instwise! To complete your registration, please use the following token .'
+              : 'Thank you for singing up for CoWrkr! To complete your registration, please use the following token .'
           }. </p>
           <div class="token">${token}</div>
           <p>Note: This token is only valid for 5 minutes.</p>
           <p>If you did not request this, please ignore this email.</p>
-          <p>Best regards,<br>Instwise Team <br< Agilemove Inc.</p>
+          <p>Best regards,<br>CoWrkr Team <br< Agilemove Inc.</p>
 
         </div>
       </body>

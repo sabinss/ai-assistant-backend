@@ -1,12 +1,27 @@
 const ctl = require('../controllers/orgCtrl');
+const verifyGoogleAuthUser = require('../middleware/google-auth-verify');
 const permitUser = require('../middleware/permitUser');
 const authUser = require('../middleware/authUser')['authenticate'];
 const checkPermissions = require('../middleware/rolePermit');
 const checkSessionApiKey = require('../middleware/sessionapi');
 const verifySameOrganization = require('../middleware/verifySameOrganization');
 const permissonCheck = checkPermissions('organization');
+const multer = require('multer');
+const path = require('path');
+const upload = multer({ dest: path.join(__dirname, '../uploads/') }); // ensure folder exists
 
 module.exports = (app) => {
+  app.post(
+    `${process.env.APP_URL}/organization/source/upload-pdf`,
+    authUser,
+    upload.array('files'),
+    ctl.uploadOrganizationSourceUpload
+  );
+  app.get(
+    `${process.env.APP_URL}/organization/source/file/list`,
+    authUser,
+    ctl.fetchSourceFileList
+  );
   app.get(`${process.env.APP_URL}/customers/`, ctl.getCustomerDetail);
   app.get(
     `${process.env.APP_URL}/organization/`,
@@ -17,8 +32,25 @@ module.exports = (app) => {
 
   app.get(
     `${process.env.APP_URL}/organization/google-users`,
-    verifySameOrganization,
+    // verifySameOrganization,
+    verifyGoogleAuthUser,
     ctl.getConnectedGmailsWithOrg
+  );
+
+  app.post(
+    `${process.env.APP_URL}/organization/prompts`,
+    authUser,
+    ctl.createOrganizationPrompt
+  );
+  app.get(
+    `${process.env.APP_URL}/organization/prompts`,
+    authUser,
+    ctl.getOrganizationPrompt
+  );
+  app.post(
+    `${process.env.APP_URL}/organization/prompts/category`,
+    authUser,
+    ctl.updateOrganizationPromptCategory
   );
 
   app.post(

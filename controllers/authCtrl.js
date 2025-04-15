@@ -85,16 +85,18 @@ exports.disconnectOrgGoogleUser = async (req, res) => {
 exports.verifyGoogleLogin = async (req, res) => {
   try {
     const { email } = req.body;
-    const googleLoginUser = await GoogleUser.findOne({
+    const googleLoginUser = await GoogleUser.find({
       // email: email,
       organization: req.user.organization,
       isActive: true,
-    });
+    })
+      .sort({ createdAt: -1 }) // newest first
+      .limit(1); // get only one
     if (googleLoginUser) {
       return res.status(200).json({
         message: 'User successfully logged in as google user',
         success: true,
-        data: googleLoginUser,
+        data: googleLoginUser[0],
       });
     } else {
       return res.status(200).json({
@@ -142,7 +144,7 @@ exports.signin = async (req, res) => {
       expiresIn: '365d',
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       access_token: accessToken,
       message: 'User logged in successfully',
       user_details: userDetails,

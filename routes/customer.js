@@ -17,4 +17,9 @@ module.exports = (app) => {
     verifySameOrganization,
     ctl.getCustomerDetail
   );
+  app.post(
+    `${process.env.APP_URL}/customer`,
+    verifySameOrganization,
+    ctl.createCustomer
+  );
 };

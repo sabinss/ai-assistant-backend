@@ -19,7 +19,8 @@ exports.addConversation = async (req, res) => {
     }
 
     // Base URL for Python API
-    let url = `http://3.17.138.140:8000/ask?query=${encodeURIComponent(
+    let url = `http://localhost:8000/ask?query=${encodeURIComponent(
+      // let url = `http://3.17.138.140:8000/ask?query=${encodeURIComponent(
       question
     )}&user_email=${req.user.email}&org_id=${
       req.user.organization
@@ -67,6 +68,7 @@ exports.addConversation = async (req, res) => {
                 if (data.session_id && !session_id) {
                   session_id = data.session_id;
                 }
+
                 // Add content to the complete message
                 if (data.message) {
                   completeMessage += data.message;
@@ -92,7 +94,7 @@ exports.addConversation = async (req, res) => {
       // When the stream ends, update the conversation with the complete answer
       pythonResponse.data.on("end", async () => {
         try {
-          // Send end event
+          // Send end even
           res.write(
             `data: ${JSON.stringify({
               done: true,
@@ -146,6 +148,9 @@ exports.addConversation = async (req, res) => {
       if (!session_id && ans.results?.sessionId) {
         session_id = ans.results.sessionId;
       }
+      if (!session_id && ans.results?.sessionId) {
+        session_id = ans.results.sessionId;
+      }
 
       const answer = ans.results.answer;
 
@@ -167,6 +172,7 @@ exports.addConversation = async (req, res) => {
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -182,6 +188,7 @@ exports.deleteConversation = async (req, res) => {
 
     res.json({ message: "Conversation deleted successfully" });
   } catch (err) {
+    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };
@@ -259,6 +266,7 @@ exports.getConversationByUserId = async (req, res) => {
     res.json(conversation);
   } catch (err) {
     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -313,8 +321,10 @@ exports.getConversationByCustomerId = async (req, res) => {
     res.json(conversation);
   } catch (err) {
     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
+
 exports.updateLikeDislike = async (req, res) => {
   try {
     const { id, liked_disliked } = req.body;
@@ -332,6 +342,7 @@ exports.updateLikeDislike = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -342,6 +353,7 @@ exports.totalConversations = async (req, res) => {
     }).count();
     res.json(conversation);
   } catch (err) {
+    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };
@@ -356,6 +368,7 @@ exports.getPublicConversationByUserId = async (req, res) => {
     }).sort({ created_date: -1 });
     res.json(conversation);
   } catch (err) {
+    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };
@@ -377,6 +390,7 @@ exports.updatePublicLikeDislike = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -384,19 +398,23 @@ exports.addPublicConversation = async (req, res) => {
   const { org_id, chat_session, user_email = null } = req.query;
   try {
     const { question, user_email, customer_id } = req.body;
-    let url = `http://3.17.138.140:8000/public/ask?query=${encodeURIComponent(
+
+    // let url = `http://3.17.138.140:8000/public/ask?query=${encodeURIComponent(
+    let url = `http://localhost:8000/ask/public?query=${encodeURIComponent(
       question
     )}&user_email=${user_email}&org_id=${org_id}&customer_id=null`;
-    console.log("url", url);
-    // const ans = await http.sendMessage(org_id, question, chat_session);
+
+    // Append session_id to the URL if it exists
     if (chat_session) {
-      // Append session_id to the URL if it exists
       url += `&session_id=${encodeURIComponent(chat_session)}`;
     }
-    // const answer = ans.results.answer;
+
     const response = await axios.get(url);
     console.log("chat response==", response.data);
+
     const answer = response.data.message;
+    console.log(answer);
+
     const newConversation = new Conversation({
       user_id: req.public_user_id,
       question,
@@ -406,6 +424,7 @@ exports.addPublicConversation = async (req, res) => {
     });
 
     const savedConversation = await newConversation.save();
+
     const enhancedResponse = {
       ...savedConversation.toObject(), // Convert Mongoose document to plain JS object
       user_email: response.data.user_email || null, // Add user_email from request (fallback to null if not provided)
@@ -416,7 +435,8 @@ exports.addPublicConversation = async (req, res) => {
     res.status(500).json({
       error:
         err.message +
-        " SOMETWTHING WENT WROTG " +
+        " SOMETWTHING WENT WRONG " +
+        err +
         process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT +
         process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT_KEY,
       api: process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT,
@@ -425,12 +445,179 @@ exports.addPublicConversation = async (req, res) => {
   }
 };
 
+// exports.addPublicConversation = async (req, res) => {
+//   const { org_id, chat_session } = req.query;
+
+//   const { question, user_email, customer_id } = req.body;
+
+//   let url = `http://localhost:8000/ask/public?query=${encodeURIComponent(
+//     // let url = `http://3.17.138.140:8000/public/ask?query=${encodeURIComponent(
+//     question
+//   )}&user_email=${user_email}&org_id=${org_id}&customer_id=null`;
+//   try {
+//     const response = await axios.get(url);
+//     const answer = response.data.message;
+
+//     const newConversation = new Conversation({
+//       user_id: req.public_user_id,
+//       question,
+//       answer,
+//       organization: org_id,
+//       chatSession: chat_session,
+//     });
+
+//     const savedConversation = await newConversation.save();
+//     const enhancedResponse = {
+//       ...savedConversation.toObject(), // Convert Mongoose document to plain JS object
+//       user_email: response.data.user_email || null, // Add user_email from request (fallback to null if not provided)
+//       customer_id: response.data.customer_id || null, // Add customer_id from request (fallback to null if not provided)
+//     };
+
+//     res.json(enhancedResponse);
+//   } catch (err) {
+//     console.error("Error in addPublicConversation:", err);
+//   }
+//   // try {
+//   //   const { question, user_email, customer_id } = req.body;
+
+//   //   // Append session_id to the URL if it exists
+//   //   if (chat_session) {
+//   //     url += `&session_id=${encodeURIComponent(chat_session)}`;
+//   //   }
+
+//   //   // Set proper headers for SSE
+//   //   res.writeHead(200, {
+//   //     "Content-Type": "text/event-stream",
+//   //     "Cache-Control": "no-cache, no-transform",
+//   //     Connection: "keep-alive",
+//   //     "X-Accel-Buffering": "no",
+//   //   });
+
+//   //   // Make streaming request to Python API
+//   //   const pythonResponse = await axios({
+//   //     method: "get",
+//   //     url: url,
+//   //     responseType: "stream",
+//   //   });
+
+//   //   let completeMessage = "";
+//   //   let session_id = chat_session;
+
+//   //   pythonResponse.data.on("data", (chunk) => {
+//   //     const chunkStr = chunk.toString();
+
+//   //     // Clean up the string and try to parse JSON
+//   //     try {
+//   //       // Handle multiple SSE messages that might be in a single chunk
+//   //       const messages = chunkStr.split("\n\n").filter((m) => m.trim());
+
+//   //       for (const msgText of messages) {
+//   //         if (msgText.startsWith("data: ")) {
+//   //           try {
+//   //             const data = JSON.parse(msgText.replace("data: ", ""));
+
+//   //             // Add content to the complete message
+//   //             if (data.message) {
+//   //               completeMessage += data.message;
+//   //             }
+
+//   //             // Ensure proper SSE format with data: prefix and double newline
+//   //             res.write(`data: ${JSON.stringify(data)}\n\n`);
+//   //           } catch (e) {
+//   //             console.error("Error parsing JSON:", e); // Add this line
+//   //             res.write(`data: ${JSON.stringify({ chunk: msgText })}\n\n`);
+//   //           }
+//   //         } else if (msgText.trim()) {
+//   //           // For non-data prefixed lines, add the prefix
+//   //           res.write(`data: ${JSON.stringify({ chunk: msgText })}\n\n`);
+//   //         }
+//   //       }
+//   //     } catch (e) {
+//   //       console.error("Error processing chunk:", e); // Add this line
+//   //       res.write(`data: ${JSON.stringify({ chunk: chunkStr })}\n\n`);
+//   //     }
+//   //   });
+
+//   //   // When the stream ends, update the conversation with the complete answer
+//   //   pythonResponse.data.on("end", async () => {
+//   //     try {
+//   //       // Send end event
+//   //       res.write(
+//   //         `data: ${JSON.stringify({
+//   //           done: true,
+//   //           session_id: session_id,
+//   //         })}\n\n`
+//   //       );
+
+//   //       console.log("completeMessage", completeMessage);
+
+//   //       // Create the conversation record in the database
+//   //       // const newConversation = new Conversation({
+//   //       //   user_id: req.public_user_id,
+//   //       //   question,
+//   //       //   answer: completeMessage,
+//   //       //   organization: org_id,
+//   //       //   chatSession: chat_session,
+//   //       // });
+
+//   //       // await newConversation.save();
+
+//   //       res.end();
+//   //     } catch (error) {
+//   //       console.error("Error saving public conversation:", error);
+//   //       res.write(
+//   //         `data: ${JSON.stringify({
+//   //           error: "Error saving conversation",
+//   //         })}\n\n`
+//   //       );
+//   //       res.end();
+//   //     }
+//   //   });
+
+//   //   // Handle errors in the Python API response
+//   //   pythonResponse.data.on("error", (err) => {
+//   //     console.error("Error in Python API stream for public conversation:", err);
+//   //     res.write(
+//   //       `data: ${JSON.stringify({
+//   //         error: "Error in streaming response",
+//   //       })}\n\n`
+//   //     );
+//   //     res.end();
+//   //   });
+
+//   // Check if headers have already been sent
+//   //   if (!res.headerSent) {
+//   //     res.status(500).json({
+//   //       error:
+//   //         err.message +
+//   //         " SOMETWTHING WENT WROTG " +
+//   //         process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT +
+//   //         process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT_KEY,
+//   //       api: process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT,
+//   //       headerkey: process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT_KEY,
+//   //     });
+//   //   } else {
+//   //     // If streaming has already started, send error as SSE
+//   //     res.write(
+//   //       `data: ${JSON.stringify({
+//   //         error: "Error in streaming response",
+//   //       })}\n\n`
+//   //     );
+//   //     res.end();
+//   //   }
+//   // }
+// };
+
 exports.getWholeOrgConvo = async (req, res) => {
   const { startDate, endDate, customer_id } = req.query;
+
   let searchCondition = {};
-  if (customer_id) {
+  const customerId =
+    customer_id === "null" || customer_id === "undefined" ? null : customer_id;
+
+  if (customerId) {
     searchCondition = {
-      customer: customer_id,
+      customer: customerId,
     };
   } else {
     searchCondition = {

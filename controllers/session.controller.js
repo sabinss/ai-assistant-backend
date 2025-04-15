@@ -49,6 +49,7 @@ async function googleOauthHandler(req, res) {
       isGoogleUser: true,
       user: existingUser ? existingUser.id : null,
       emailCredential,
+      isActive: true,
     };
     if (orgId) {
       googleUserPayload.organization = orgId;

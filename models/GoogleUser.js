@@ -16,6 +16,7 @@ const googleUserSchema = new mongoose.Schema(
       default: null,
     },
     emailCredential: { type: Object, default: {} },
+    isActive: { type: Boolean, default: true },
   },
   {
     timestamps: true,

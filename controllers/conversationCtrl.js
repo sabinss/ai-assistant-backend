@@ -397,7 +397,7 @@ exports.addPublicConversation = async (req, res) => {
   const { org_id, chat_session, user_email = null } = req.query;
   try {
     const { question, user_email, customer_id } = req.body;
-
+    
     let url = `http://3.17.138.140:8000/ask/public?query=${encodeURIComponent(
       // let url = `http://localhost:8000/ask/public?query=${encodeURIComponent(
       question

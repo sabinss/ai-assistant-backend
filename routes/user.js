@@ -2,6 +2,7 @@ const ctl = require('../controllers/userCtrl');
 const authUser = require('../middleware/authUser')['authenticate'];
 const checkPermissions = require('../middleware/rolePermit');
 const permissonCheck = checkPermissions('users');
+const verifySameOrganization = require('../middleware/verifySameOrganization');
 module.exports = (app) => {
   app.get(
     `${process.env.APP_URL}/user/profile/changeSession`,
@@ -22,6 +23,7 @@ module.exports = (app) => {
   );
   app.get(
     `${process.env.APP_URL}/users`,
+    verifySameOrganization,
     authUser,
     permissonCheck,
     ctl.getUsers

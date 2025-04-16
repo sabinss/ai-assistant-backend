@@ -1,3 +1,38 @@
 7E7C58801CEFE90D8D9B2C91877B044D553D91B3DED3FD89BA9E625A6D9FFE86
 comodoca.com
 8079e483041cec2
+
+
+// authenticated = token + orgId
+// {
+//   user_email:bhatachas@gmail.com
+//   connectedEmails:[
+//     {
+//       email:a@gmail.com
+//  credentials:{
+//   ...
+//  }
+//     },
+//   ]
+// }
+
+// user_email: sabinshrestha292@gmail.com
+
+//  connectedEamil :[
+//   email:{
+//     a@gamilaim,
+//     credential
+//   }
+//  ]
+
+// user_email  = a@gmail.com
+// authenticated = token + orgId
+// {
+//   user_email:bhatachas@gmail.com
+//   connectedEmails:[
+//     {
+//       email:a@gmail.com
+//     },
+
+//   ]
+// }

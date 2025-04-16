@@ -6,11 +6,13 @@ const swaggerSpecs = require('./routes/swagger');
 const port = process.env.PORT || 8000;
 const cors = require('cors');
 const app = express();
+const cron = require('node-cron');
 
 //todo chat message sort by created date aila sorting milara ako chainclear
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
 const { googleOauthHandler } = require('./controllers/session.controller');
+const TaskAgentModel = require('./models/TaskAgentModel');
 
 app.use(express.json());
 
@@ -37,6 +39,14 @@ app.get('/api/sessions/oauth/google', googleOauthHandler);
 require('./service/userAuth');
 require('./models');
 require('./routes')(app);
+// '0 6 * * *'
+cron.schedule('* * * * * *', async () => {
+  console.log('Running job at 6:00 AM GMT / 1:00 AM EST');
+  const activeAgents = await TaskAgentModel.find({ active: true }).populate(
+    'organization'
+  );
+  console.log('activeAgents', activeAgents);
+});
 
 app.listen(port, () => {
   console.log(`Listening on port: ${port}`);

@@ -33,7 +33,6 @@ app.get('/health-check', async (req, res) => {
 });
 
 app.get('/api/sessions/oauth/google', googleOauthHandler);
-
 require('./service/userAuth');
 require('./models');
 require('./routes')(app);

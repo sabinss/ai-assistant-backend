@@ -175,6 +175,51 @@ exports.addConversation = async (req, res) => {
   }
 };
 
+// Add custom agent conversation
+exports.addCustomAgentConversation = async (req, res) => {
+  try {
+    const { question, chatSession, agentName, sessionId } = req.body;
+
+    // Build URL for the Python API endpoint
+    let url = `http://3.17.138.140:8000/ask/agent?agent_name=${encodeURIComponent(
+      agentName
+    )}&query=${encodeURIComponent(question)}&org_id=${req.user.organization}`;
+
+    // Add session ID if provided
+    if (sessionId) {
+      url += `&session_id=${encodeURIComponent(sessionId)}`;
+    }
+
+    // Call the Python API
+    const response = await axios.get(url);
+    console.log("Agent response:", response.data);
+
+    // Extract the answer
+    const answer = response.data.message;
+
+    // Create a new conversation record
+    const newConversation = new Conversation({
+      user_id: req.user._id,
+      question,
+      answer,
+      organization: req.user.organization,
+      chatSession,
+      session_id: response.data.session_id || sessionId,
+      // Add a field to track that this was from a custom agent
+      agent_name: agentName,
+    });
+
+    // Save the conversation to database
+    const savedConversation = await newConversation.save();
+
+    // Return the saved conversation to the frontend
+    res.json(savedConversation);
+  } catch (err) {
+    console.error("Error handling agent conversation:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // Delete conversation
 exports.deleteConversation = async (req, res) => {
   try {
@@ -397,7 +442,7 @@ exports.addPublicConversation = async (req, res) => {
   const { org_id, chat_session, user_email = null } = req.query;
   try {
     const { question, user_email, customer_id } = req.body;
-    
+
     let url = `http://3.17.138.140:8000/ask/public?query=${encodeURIComponent(
       // let url = `http://localhost:8000/ask/public?query=${encodeURIComponent(
       question
@@ -444,6 +489,7 @@ exports.addPublicConversation = async (req, res) => {
   }
 };
 
+// For public chat streaming
 // exports.addPublicConversation = async (req, res) => {
 //   const { org_id, chat_session } = req.query;
 

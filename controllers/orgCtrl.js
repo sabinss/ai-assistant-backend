@@ -9,6 +9,10 @@ const mongoose = require('mongoose');
 const AgentModel = require('../models/AgentModel');
 const AgentTask = require('../models/AgentTask');
 const AgentTaskStatusModel = require('../models/AgentTaskStatusModel');
+const OrganizationPrompt = require('../models/OrganizationPrompt');
+const path = require('path');
+const fs = require('fs');
+const FormData = require('form-data');
 
 exports.create = async (req, res) => {
   const {
@@ -248,6 +252,10 @@ exports.editOrg = async (req, res) => {
         ...additionalPrompt,
       };
     } else {
+      const updatePrompt = {
+        ...additionalPrompt,
+        prompt: additionalPrompt.internal_solution_prompt,
+      };
       payload = {
         name,
         assistant_name,
@@ -258,7 +266,7 @@ exports.editOrg = async (req, res) => {
         prompt,
         workflow_engine_enabled: workflowFlag,
         mock_data: mockData,
-        ...additionalPrompt,
+        ...updatePrompt,
       };
     }
     const org = await Organization.findByIdAndUpdate(
@@ -301,32 +309,166 @@ exports.getCustomerList = async (req, res) => {
     res.status(500).json({ message: 'Internal server error', error });
   }
 };
+exports.createOrganizationPrompt = async (req, res) => {
+  try {
+    const { organizationPrompts = [], deletePromptIds = [] } = req.body;
+    if (organizationPrompts?.length == 0) {
+      res.status(400).json({ message: 'Payload is empty', success: false });
+    }
+    const isDirtyRecords = organizationPrompts.filter((x) => x.isDirty);
+
+    console.log('isDirtyRecords', isDirtyRecords);
+
+    if (isDirtyRecords.length == 0 && deletePromptIds?.length == 0) {
+      res.status(200).json({ message: 'Updated successfully', success: true });
+      return;
+    }
+
+    if (deletePromptIds?.length > 0) {
+      for (const orgPrompt of deletePromptIds) {
+        const { orgPromptId, promptId } = orgPrompt;
+
+        await OrganizationPrompt.findByIdAndUpdate(
+          orgPromptId, // ID of the OrganizationPrompt document
+          { $pull: { prompts: { _id: promptId } } }, // Remove the prompt with the specified text
+          { new: true } // Return the updated document
+        );
+      }
+    }
+
+    if (isDirtyRecords?.length > 0) {
+      for (const orgPrompt of isDirtyRecords) {
+        const { _id: orgPromptId, prompts } = orgPrompt;
+        for (const prompt of prompts) {
+          if (prompt._id.startsWith('temp-')) {
+            // This is a new prompt — add it
+            await OrganizationPrompt.findByIdAndUpdate(
+              orgPromptId,
+              {
+                $push: {
+                  prompts: { text: prompt.text }, // Only include fields needed
+                },
+              },
+              { new: true }
+            );
+          } else {
+            await OrganizationPrompt.updateOne(
+              { _id: orgPromptId, 'prompts._id': prompt._id },
+              { $set: { 'prompts.$.text': prompt.text } }
+            );
+          }
+        }
+        res.status(200).json({ message: 'Updated successfully' });
+        return;
+      }
+    }
+    res.status(200).json({ message: 'Updated successfully', success: true });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: 'Failed to save organization prompts', error });
+  }
+};
+
+exports.updateOrganizationPromptCategory = async (req, res) => {
+  try {
+    const { orgPromptId, category } = req.body;
+
+    if (!orgPromptId || !category) {
+      res
+        .status(400)
+        .json({ message: 'OrgPromptId | category is missing', error });
+    }
+
+    await OrganizationPrompt.updateOne(
+      { _id: orgPromptId },
+      { $set: { category: category } }
+    );
+    res.status(200).json({ message: 'Updated successfully', success: true });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: 'Failed to update organization prompt category', err });
+  }
+};
+exports.getOrganizationPrompt = async (req, res) => {
+  try {
+    if (!req?.user?.organization) {
+      res.status(500).json({ message: 'Organization is required', err });
+    }
+    const organization = req?.user?.organization;
+    const organizationPrompts = await OrganizationPrompt.find({
+      organization: organization,
+    }).lean(); // If you need to populate organization details
+    if (!organizationPrompts || organizationPrompts.length === 0) {
+      return {
+        message: 'No prompts found for the given organization.',
+        data: [],
+      };
+    }
+    res.status(200).json({ organizationPrompts });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: 'Failed to fetch organization prompts', error });
+  }
+};
+
+// exports.getConnectedGmailsWithOrg = async (req, res) => {
+//   try {
+//     const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;
+//     if (isVerifiedFromExternalCall) {
+//       const { gmail = null } = req.query;
+//       const orgDetail = await Organization.findById(
+//         req.organization._id,
+//         'orgGoogleCredential'
+//       ).lean();
+
+//       const orgGoogleUsers = await GoogleUser.find({
+//         organization: req.organization._id,
+//       }).lean();
+
+//       let response = orgGoogleUsers.map((x) => ({
+//         ...x,
+//         orgGoogleCredential: orgDetail.orgGoogleCredential,
+//       }));
+
+//       if (gmail) {
+//         response = response.filter((x) => x.email == gmail);
+//       }
+//       res.status(200).json({
+//         data: response,
+//       });
+//     }
+//   } catch (err) {
+//     res.status(500).json({ message: 'Internal server error', err });
+//   }
+// };
 
 exports.getConnectedGmailsWithOrg = async (req, res) => {
   try {
     const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;
     if (isVerifiedFromExternalCall) {
-      const { gmail = null } = req.query;
+      // this is logged in user
+      const user_email = req.user.email;
       const orgDetail = await Organization.findById(
         req.organization._id,
         'orgGoogleCredential'
       ).lean();
-
-      const orgGoogleUsers = await GoogleUser.find({
+      const connectedGmailUsers = await GoogleUser.find({
         organization: req.organization._id,
       }).lean();
 
-      let response = orgGoogleUsers.map((x) => ({
-        ...x,
+      const responsePayload = {
+        user_email,
         orgGoogleCredential: orgDetail.orgGoogleCredential,
-      }));
-
-      if (gmail) {
-        response = response.filter((x) => x.email == gmail);
-      }
+        connectedEmails: connectedGmailUsers,
+      };
       res.status(200).json({
-        data: response,
+        data: responsePayload,
       });
+    } else {
+      res.status(500).json({ message: 'Internal server error', err });
     }
   } catch (err) {
     res.status(500).json({ message: 'Internal server error', err });
@@ -768,5 +910,59 @@ exports.createOrgTaskAgents = async (req, res) => {
     res.status(201).json(newTaskAgent);
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+
+exports.uploadOrganizationSourceUpload = async (req, res) => {
+  try {
+    const url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant/upload-pdfs`;
+    const formData = new FormData();
+    const files = req.files;
+    if (!files || files.length == 0) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    for (const file of files) {
+      formData.append(
+        'files',
+        fs.createReadStream(file.path),
+        file.originalname
+      );
+    }
+    const headers = {
+      ...formData.getHeaders(), // Required to set correct `Content-Type` with boundary
+      accept: 'application/json',
+      'X-API-KEY': process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
+      'Content-Type': 'multipart/form-data',
+    };
+    const params = {
+      company_id: req.user.organization,
+    };
+    const response = await axios.post(url, formData, { headers, params });
+    res.status(201).json(response.data);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to upload file', err });
+  }
+};
+
+exports.fetchSourceFileList = async (req, res) => {
+  try {
+    const headers = {
+      accept: 'application/json',
+      'X-API-KEY': process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
+    };
+    // companyId = organizationId
+    const params = req.query;
+    const url = `${
+      process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT
+    }/assistant/get-pdfs-list?company_id=${params.company_id}&page=${
+      params.page
+    }&search=${params.search ?? null}&sortField=${
+      params.sortField ?? null
+    }&sortDirection=${params.sortDirection ?? null}&limit=${params.limit}`;
+    console.log('url', url);
+    const response = await axios.get(url, { headers });
+    res.status(200).json(response.data);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetc files', err });
   }
 };

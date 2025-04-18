@@ -19,7 +19,7 @@ exports.addConversation = async (req, res) => {
     }
 
     // Base URL for Python API
-    let url = `http://3.17.138.140:8000/ask?query=${encodeURIComponent(
+    let url = `${process.env.AGENT_SERVER_URL}/ask?query=${encodeURIComponent(
       question
     )}&user_email=${req.user.email}&org_id=${
       req.user.organization
@@ -182,8 +182,9 @@ exports.addCustomAgentConversation = async (req, res) => {
     let session_id = req.body?.sessionId ? req.body?.sessionId : null;
 
     // Build URL for the Python API endpoint
-    // let url = `http://localhost:8000/ask/agent?agent_name=${encodeURIComponent(
-      let url = `http://3.17.138.140:8000/ask/agent?agent_name=${encodeURIComponent(
+    let url = `${
+      process.env.AGENT_SERVER_URL
+    }/ask/agent?agent_name=${encodeURIComponent(
       agentName
     )}&query=${encodeURIComponent(question)}&org_id=${req.user.organization}`;
 
@@ -550,7 +551,9 @@ exports.addPublicConversation = async (req, res) => {
   try {
     const { question, user_email, customer_id } = req.body;
 
-    let url = `http://3.17.138.140:8000/ask/public?query=${encodeURIComponent(
+    let url = `${
+      process.env.AGENT_SERVER_URL
+    }/ask/public?query=${encodeURIComponent(
       // let url = `http://localhost:8000/ask/public?query=${encodeURIComponent(
       question
     )}&user_email=${user_email}&org_id=${org_id}&customer_id=null`;
@@ -603,7 +606,7 @@ exports.addPublicConversation = async (req, res) => {
 //   const { question, user_email, customer_id } = req.body;
 
 //   let url = `http://localhost:8000/ask/public?query=${encodeURIComponent(
-//     // let url = `http://3.17.138.140:8000/public/ask?query=${encodeURIComponent(
+//     // let url = `${process.env.AGENT_SERVER_URL}/public/ask?query=${encodeURIComponent(
 //     question
 //   )}&user_email=${user_email}&org_id=${org_id}&customer_id=null`;
 //   try {

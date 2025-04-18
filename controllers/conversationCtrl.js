@@ -19,7 +19,7 @@ exports.addConversation = async (req, res) => {
     }
 
     // Base URL for Python API
-    let url = `http://3.17.138.140:8000/ask?query=${encodeURIComponent(
+    let url = `${process.env.AGENT_SERVER_URL}/ask?query=${encodeURIComponent(
       question
     )}&user_email=${req.user.email}&org_id=${
       req.user.organization
@@ -178,45 +178,153 @@ exports.addConversation = async (req, res) => {
 // Add custom agent conversation
 exports.addCustomAgentConversation = async (req, res) => {
   try {
-    const { question, chatSession, agentName, sessionId } = req.body;
+    const { question, chatSession, agentName } = req.body;
+    let session_id = req.body?.sessionId ? req.body?.sessionId : null;
 
     // Build URL for the Python API endpoint
-    let url = `http://3.17.138.140:8000/ask/agent?agent_name=${encodeURIComponent(
+    let url = `${
+      process.env.AGENT_SERVER_URL
+    }/ask/agent?agent_name=${encodeURIComponent(
       agentName
     )}&query=${encodeURIComponent(question)}&org_id=${req.user.organization}`;
 
     // Add session ID if provided
-    if (sessionId) {
-      url += `&session_id=${encodeURIComponent(sessionId)}`;
+    if (session_id) {
+      url += `&session_id=${encodeURIComponent(session_id)}`;
     }
 
-    // Call the Python API
-    const response = await axios.get(url);
-    console.log("Agent response:", response.data);
-
-    // Extract the answer
-    const answer = response.data.message;
-
-    // Create a new conversation record
-    const newConversation = new Conversation({
-      user_id: req.user._id,
-      question,
-      answer,
-      organization: req.user.organization,
-      chatSession,
-      session_id: response.data.session_id || sessionId,
-      // Add a field to track that this was from a custom agent
-      agent_name: agentName,
+    // Set proper headers for SSE
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no", // Disable buffering for Nginx
     });
 
-    // Save the conversation to database
-    const savedConversation = await newConversation.save();
+    // Make streaming request to Python API
+    const pythonResponse = await axios({
+      method: "get",
+      url: url,
+      responseType: "stream",
+    });
 
-    // Return the saved conversation to the frontend
-    res.json(savedConversation);
+    let completeMessage = "";
+
+    // Forward the stream from Python API to client
+    pythonResponse.data.on("data", (chunk) => {
+      const chunkStr = chunk.toString();
+
+      // Clean up the string and try to parse JSON
+      try {
+        // Handle multiple SSE messages that might be in a single chunk
+        const messages = chunkStr.split("\n\n").filter((m) => m.trim());
+
+        for (const msgText of messages) {
+          if (msgText.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(msgText.replace("data: ", ""));
+
+              // Extract session_id if it exists in the response
+              if (data.session_id && !session_id) {
+                session_id = data.session_id;
+              }
+
+              // Add content to the complete message
+              if (data.message) {
+                completeMessage += data.message;
+              }
+
+              // Ensure proper SSE format with data: prefix and double newline
+              res.write(`data: ${JSON.stringify(data)}\n\n`);
+            } catch (e) {
+              // If parsing individual message fails, send as is
+              res.write(`data: ${JSON.stringify({ chunk: msgText })}\n\n`);
+            }
+          } else if (msgText.trim()) {
+            // For non-data prefixed lines, add the prefix
+            res.write(`data: ${JSON.stringify({ chunk: msgText })}\n\n`);
+          }
+        }
+      } catch (e) {
+        // If overall parsing fails, send raw chunk
+        res.write(`data: ${JSON.stringify({ chunk: chunkStr })}\n\n`);
+      }
+    });
+
+    // When the stream ends, update the conversation with the complete answer
+    pythonResponse.data.on("end", async () => {
+      try {
+        // Send end event
+        res.write(
+          `data: ${JSON.stringify({
+            done: true,
+            session_id: session_id,
+          })}\n\n`
+        );
+
+        const answer = completeMessage; // Use the accumulated message
+
+        // Create payload for saving conversation
+        let payload = {
+          user_id: req.user._id,
+          question,
+          answer, // Save the complete answer
+          organization: req.user.organization,
+          chatSession,
+          session_id: session_id, // Use the potentially updated session_id
+          agent_name: agentName, // Track the agent used
+        };
+        console.log("Saving agent conversation payload:", payload);
+
+        // Create a new conversation record
+        const newConversation = new Conversation(payload);
+
+        // Save the conversation to database
+        await newConversation.save();
+        console.log("Agent conversation saved successfully.");
+
+        res.end(); // End the response stream
+      } catch (error) {
+        console.error("Error saving agent conversation:", error);
+        // Attempt to send an error event if stream is still open, otherwise just log
+        if (!res.writableEnded) {
+          res.write(
+            `data: ${JSON.stringify({
+              error: "Error saving conversation",
+            })}\n\n`
+          );
+          res.end();
+        }
+      }
+    });
+
+    // Handle errors in the Python API response
+    pythonResponse.data.on("error", (err) => {
+      console.error("Error in Python API agent stream:", err);
+      // Attempt to send an error event if stream is still open
+      if (!res.writableEnded) {
+        res.write(
+          `data: ${JSON.stringify({
+            error: "Error in streaming agent response",
+          })}\n\n`
+        );
+        res.end();
+      }
+    });
   } catch (err) {
     console.error("Error handling agent conversation:", err);
-    res.status(500).json({ error: err.message });
+    // Check if headers have already been sent before sending a status code
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    } else if (!res.writableEnded) {
+      // If streaming has started, try sending an error event
+      res.write(
+        `data: ${JSON.stringify({
+          error: "Server error during streaming",
+        })}\n\n`
+      );
+      res.end();
+    }
   }
 };
 
@@ -443,7 +551,9 @@ exports.addPublicConversation = async (req, res) => {
   try {
     const { question, user_email, customer_id } = req.body;
 
-    let url = `http://3.17.138.140:8000/ask/public?query=${encodeURIComponent(
+    let url = `${
+      process.env.AGENT_SERVER_URL
+    }/ask/public?query=${encodeURIComponent(
       // let url = `http://localhost:8000/ask/public?query=${encodeURIComponent(
       question
     )}&user_email=${user_email}&org_id=${org_id}&customer_id=null`;
@@ -496,7 +606,7 @@ exports.addPublicConversation = async (req, res) => {
 //   const { question, user_email, customer_id } = req.body;
 
 //   let url = `http://localhost:8000/ask/public?query=${encodeURIComponent(
-//     // let url = `http://3.17.138.140:8000/public/ask?query=${encodeURIComponent(
+//     // let url = `${process.env.AGENT_SERVER_URL}/public/ask?query=${encodeURIComponent(
 //     question
 //   )}&user_email=${user_email}&org_id=${org_id}&customer_id=null`;
 //   try {

@@ -16,6 +16,7 @@ const FormData = require('form-data');
 const {
   organizationPromptDefaultData,
 } = require('../seeders/saveOrganizationPrompt');
+const OrganizationToken = require('../models/OrganizationToken');
 
 exports.create = async (req, res) => {
   const {
@@ -153,6 +154,12 @@ exports.getOrg = async (req, res) => {
       id = req.query.organization;
     }
     // 66158fe71bfe10b58cb23eea
+    let organizationTokenRecord = null;
+    if (req.user.email) {
+      organizationTokenRecord = await OrganizationToken.findOne({
+        email: req.user.email,
+      });
+    }
     const org = await Organization.findById(id);
     if (!id) res.status(500).json({ message: 'Organization is is required' });
     if (!org) {
@@ -205,6 +212,8 @@ exports.getOrg = async (req, res) => {
       database_name,
       redshit_work_space,
       redshift_db,
+      email: organizationTokenRecord.email,
+      organizationToken: organizationTokenRecord.token,
     };
     return res.json({ org: orgResponsePayload });
   } catch (error) {

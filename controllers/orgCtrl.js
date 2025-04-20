@@ -155,9 +155,20 @@ exports.getOrg = async (req, res) => {
     }
     // 66158fe71bfe10b58cb23eea
     let organizationTokenRecord = null;
-    if (req.user.email) {
+    let organizationEmail = null;
+
+    if (req.user.organization) {
+      const user = await User.findOne({
+        organization: id,
+      });
+      if (user) {
+        organizationEmail = user.email;
+      }
+    }
+    if (req.user?.email || organizationEmail) {
+      const email = req.user?.email || organizationEmail;
       organizationTokenRecord = await OrganizationToken.findOne({
-        email: req.user.email,
+        email,
       });
     }
     const org = await Organization.findById(id);

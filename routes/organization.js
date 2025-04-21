@@ -8,15 +8,40 @@ const verifySameOrganization = require('../middleware/verifySameOrganization');
 const permissonCheck = checkPermissions('organization');
 const multer = require('multer');
 const path = require('path');
-const upload = multer({ dest: path.join(__dirname, '../uploads/') }); // ensure folder exists
+const upload = multer({
+  dest: path.join(__dirname, '../uploads/'),
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 5 MB in bytes
+  },
+}); // ensure folder exists
+const uploadMiddleware = upload.array('files');
 
 module.exports = (app) => {
-  app.post(
-    `${process.env.APP_URL}/organization/source/upload-pdf`,
+  app.delete(
+    `${process.env.APP_URL}/organization/source`,
     authUser,
-    upload.array('files'),
-    ctl.uploadOrganizationSourceUpload
-  );
+    ctl.deleteSourceFile
+  ),
+    app.post(
+      `${process.env.APP_URL}/organization/source/upload-pdf`,
+      authUser,
+      (req, res, next) => {
+        uploadMiddleware(req, res, (err) => {
+          if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+              return res
+                .status(400)
+                .json({ error: 'File too large. Max size is 2MB.' });
+            }
+            return res.status(400).json({ error: err.message });
+          } else if (err) {
+            return res.status(500).json({ error: 'File upload failed.' });
+          }
+          next(); // proceed to controller if no errors
+        });
+      },
+      ctl.uploadOrganizationSourceUpload
+    );
   app.get(
     `${process.env.APP_URL}/organization/source/file/list`,
     authUser,

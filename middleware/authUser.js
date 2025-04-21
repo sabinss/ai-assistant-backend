@@ -19,6 +19,7 @@ module.exports = {
           ) {
             req.user = req.user || {};
             req.user.isAuth = true;
+            req.user.organization = req.query?.organization || null;
             next();
           } else {
             return res.status(401).json({ message: 'Authorization failed' });

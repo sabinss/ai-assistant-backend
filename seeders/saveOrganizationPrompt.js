@@ -1,6 +1,6 @@
 const OrganizationPrompt = require('../models/OrganizationPrompt'); // Adjust path if needed
 
-const categories = [
+const organizationPromptDefaultData = [
   {
     category: 'Insights & Recommendations',
     prompts: [
@@ -47,7 +47,7 @@ const seedOrganizationPrompt = async () => {
     let organization = '66158fe71bfe10b58cb23eea';
     // Insert new data
     const insertedData = await OrganizationPrompt.insertMany(
-      categories.map((category) => ({
+      organizationPromptDefaultData.map((category) => ({
         ...category,
         organization: organization,
       }))
@@ -58,4 +58,4 @@ const seedOrganizationPrompt = async () => {
   }
 };
 
-module.exports = seedOrganizationPrompt;
+module.exports = { seedOrganizationPrompt, organizationPromptDefaultData };

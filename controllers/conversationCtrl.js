@@ -171,7 +171,6 @@ exports.addConversation = async (req, res) => {
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });
-    res.status(500).json({ error: err.message });
   }
 };
 
@@ -341,7 +340,6 @@ exports.deleteConversation = async (req, res) => {
     res.json({ message: "Conversation deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
-    res.status(500).json({ error: err.message });
   }
 };
 
@@ -418,7 +416,6 @@ exports.getConversationByUserId = async (req, res) => {
     res.json(conversation);
   } catch (err) {
     res.status(500).json({ error: err.message });
-    res.status(500).json({ error: err.message });
   }
 };
 
@@ -473,7 +470,6 @@ exports.getConversationByCustomerId = async (req, res) => {
     res.json(conversation);
   } catch (err) {
     res.status(500).json({ error: err.message });
-    res.status(500).json({ error: err.message });
   }
 };
 
@@ -494,7 +490,6 @@ exports.updateLikeDislike = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
-    res.status(500).json({ error: err.message });
   }
 };
 
@@ -505,7 +500,6 @@ exports.totalConversations = async (req, res) => {
     }).count();
     res.json(conversation);
   } catch (err) {
-    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };
@@ -520,7 +514,6 @@ exports.getPublicConversationByUserId = async (req, res) => {
     }).sort({ created_date: -1 });
     res.json(conversation);
   } catch (err) {
-    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };
@@ -541,7 +534,6 @@ exports.updatePublicLikeDislike = async (req, res) => {
       updatedConversation,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 };

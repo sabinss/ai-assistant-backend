@@ -10,14 +10,12 @@ const AgentModel = require('../models/AgentModel');
 const AgentTask = require('../models/AgentTask');
 const AgentTaskStatusModel = require('../models/AgentTaskStatusModel');
 const OrganizationPrompt = require('../models/OrganizationPrompt');
-const path = require('path');
 const fs = require('fs');
 const FormData = require('form-data');
 const {
   organizationPromptDefaultData,
 } = require('../seeders/saveOrganizationPrompt');
 const OrganizationToken = require('../models/OrganizationToken');
-
 exports.create = async (req, res) => {
   const {
     name,
@@ -375,8 +373,17 @@ exports.createOrganizationPrompt = async (req, res) => {
               { new: true }
             );
           } else {
+            // await OrganizationPrompt.updateOne(
+            //   { _id: orgPromptId, 'prompts._id': prompt._id },
+            //   { $set: { 'prompts.$.text': prompt.text } }
+            // );
+            const id = new mongoose.Types.ObjectId(prompt._id);
+
             await OrganizationPrompt.updateOne(
-              { _id: orgPromptId, 'prompts._id': prompt._id },
+              {
+                _id: orgPromptId,
+                'prompts._id': id,
+              },
               { $set: { 'prompts.$.text': prompt.text } }
             );
           }

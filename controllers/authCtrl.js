@@ -70,7 +70,7 @@ exports.disconnectOrgGoogleUser = async (req, res) => {
       res.status(500).json({ message: 'Organization is required', err });
     }
     await GoogleUser.updateOne(
-      { organizationId: organization },
+      { organization: organization },
       { $set: { isActive: false } }
     );
     return res.status(200).json({
@@ -85,13 +85,13 @@ exports.disconnectOrgGoogleUser = async (req, res) => {
 exports.verifyGoogleLogin = async (req, res) => {
   try {
     const { email } = req.body;
-    const googleLoginUser = await GoogleUser.find({
+    const googleLoginUser = await GoogleUser.findOne({
       // email: email,
       organization: req.user.organization,
       isActive: true,
-    })
-      .sort({ createdAt: -1 }) // newest first
-      .limit(1); // get only one
+    }).lean();
+    // .sort({ createdAt: -1 }) // newest first
+    // .limit(1); // get only one
     if (googleLoginUser) {
       return res.status(200).json({
         message: 'User successfully logged in as google user',

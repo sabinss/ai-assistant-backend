@@ -519,7 +519,7 @@ exports.callTaskAgentPythonApi = async (req, res) => {
         .status(400)
         .json({ success: false, message: 'TaskName | OrgId are required' });
     }
-    const pythonServerUri = `${process.env.AGENT_SERVER_URL}/task-agent?task_name=${task_name}&org_id=${org_id}`;
+    const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/task-agent?task_name=${task_name}&org_id=${org_id}`;
     const response = await axios.post(pythonServerUri);
     return res.status(200).json({
       data: response?.data,

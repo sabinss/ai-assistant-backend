@@ -10,10 +10,12 @@ const AgentModel = require('../models/AgentModel');
 const AgentTask = require('../models/AgentTask');
 const AgentTaskStatusModel = require('../models/AgentTaskStatusModel');
 const OrganizationPrompt = require('../models/OrganizationPrompt');
-const path = require('path');
 const fs = require('fs');
 const FormData = require('form-data');
-
+const {
+  organizationPromptDefaultData,
+} = require('../seeders/saveOrganizationPrompt');
+const OrganizationToken = require('../models/OrganizationToken');
 exports.create = async (req, res) => {
   const {
     name,
@@ -150,6 +152,23 @@ exports.getOrg = async (req, res) => {
       id = req.query.organization;
     }
     // 66158fe71bfe10b58cb23eea
+    let organizationTokenRecord = null;
+    let organizationEmail = null;
+
+    if (req.user.organization) {
+      const user = await User.findOne({
+        organization: id,
+      });
+      if (user) {
+        organizationEmail = user.email;
+      }
+    }
+    if (req.user?.email || organizationEmail) {
+      const email = req.user?.email || organizationEmail;
+      organizationTokenRecord = await OrganizationToken.findOne({
+        email,
+      });
+    }
     const org = await Organization.findById(id);
     if (!id) res.status(500).json({ message: 'Organization is is required' });
     if (!org) {
@@ -202,6 +221,8 @@ exports.getOrg = async (req, res) => {
       database_name,
       redshit_work_space,
       redshift_db,
+      email: organizationTokenRecord.email,
+      organizationToken: organizationTokenRecord.token,
     };
     return res.json({ org: orgResponsePayload });
   } catch (error) {
@@ -352,8 +373,17 @@ exports.createOrganizationPrompt = async (req, res) => {
               { new: true }
             );
           } else {
+            // await OrganizationPrompt.updateOne(
+            //   { _id: orgPromptId, 'prompts._id': prompt._id },
+            //   { $set: { 'prompts.$.text': prompt.text } }
+            // );
+            const id = new mongoose.Types.ObjectId(prompt._id);
+
             await OrganizationPrompt.updateOne(
-              { _id: orgPromptId, 'prompts._id': prompt._id },
+              {
+                _id: orgPromptId,
+                'prompts._id': id,
+              },
               { $set: { 'prompts.$.text': prompt.text } }
             );
           }
@@ -396,15 +426,21 @@ exports.getOrganizationPrompt = async (req, res) => {
     if (!req?.user?.organization) {
       res.status(500).json({ message: 'Organization is required', err });
     }
+    let organizationPrompts = null;
     const organization = req?.user?.organization;
-    const organizationPrompts = await OrganizationPrompt.find({
+    organizationPrompts = await OrganizationPrompt.find({
       organization: organization,
     }).lean(); // If you need to populate organization details
     if (!organizationPrompts || organizationPrompts.length === 0) {
-      return {
-        message: 'No prompts found for the given organization.',
-        data: [],
-      };
+      const insertedData = await OrganizationPrompt.insertMany(
+        organizationPromptDefaultData.map((category) => ({
+          ...category,
+          organization: organization,
+        }))
+      );
+      organizationPrompts = await OrganizationPrompt.find({
+        organization: organization,
+      }).lean();
     }
     res.status(200).json({ organizationPrompts });
   } catch (error) {
@@ -483,7 +519,7 @@ exports.callTaskAgentPythonApi = async (req, res) => {
         .status(400)
         .json({ success: false, message: 'TaskName | OrgId are required' });
     }
-    const pythonServerUri = `http://3.17.138.140:8000/task-agent?task_name=${task_name}&org_id=${org_id}`;
+    const pythonServerUri = `${process.env.AGENT_SERVER_URL}/task-agent?task_name=${task_name}&org_id=${org_id}`;
     const response = await axios.post(pythonServerUri);
     return res.status(200).json({
       data: response?.data,
@@ -909,6 +945,24 @@ exports.createOrgTaskAgents = async (req, res) => {
     await newTaskAgent.save();
     res.status(201).json(newTaskAgent);
   } catch (error) {
+    res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+
+exports.deleteSourceFile = async (req, res) => {
+  try {
+    const { company_id, file_names } = req.query;
+    const headers = {
+      accept: 'application/json',
+      'X-API-KEY': process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
+    };
+    // https://chat-backend.instwise.app/api/assistant/delete-pdfs?company_id=66158fe71bfe10b58cb23eea&file_names=5-mb-example-file.pdf
+    const url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant/delete-pdfs?company_id=${company_id}&file_names=${file_names}}`;
+
+    console.log('delete route hit');
+    const response = await axios.delete(url, { headers });
+    res.status(201).json(response.data);
+  } catch (err) {
     res.status(500).json({ message: 'Internal server error', error });
   }
 };

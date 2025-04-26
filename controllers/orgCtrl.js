@@ -197,6 +197,7 @@ exports.getOrg = async (req, res) => {
       database_name,
       redshit_work_space,
       redshift_db,
+      assistant_name,
     } = org;
     const orgResponsePayload = {
       _id,
@@ -223,6 +224,7 @@ exports.getOrg = async (req, res) => {
       redshift_db,
       email: organizationTokenRecord.email,
       organizationToken: organizationTokenRecord.token,
+      assistant_name,
     };
     return res.json({ org: orgResponsePayload });
   } catch (error) {
@@ -245,6 +247,18 @@ exports.getOrgDetailByPublicApi = async (req, res) => {
 
 exports.editOrg = async (req, res) => {
   try {
+    // update request assistant name of organization name
+    if (req.body?.singleUpdate) {
+      const { name = null, assistant_name = null } = req.body;
+      let payload = name ? { name } : { assistant_name };
+      const org = await Organization.findByIdAndUpdate(
+        req?.user?.organization,
+        payload,
+        { new: true }
+      );
+      return res.json(org);
+    }
+
     const {
       name,
       assistant_name,

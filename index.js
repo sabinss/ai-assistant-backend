@@ -48,40 +48,40 @@ require('./routes')(app);
 // Run every day at 6 AM UTC (1 AM EST)
 let cronTrigger = '0 6 * * *';
 // let cronTrigger = '* * * * * *';
-cron.schedule(cronTrigger, async () => {
-  console.log('Running job at 6:00 AM GMT / 1:00 AM EST');
-  try {
-    // Step 1: Get all organizations
-    const organizations = await Organization.find();
-    for (const org of organizations) {
-      const activeAgents = await TaskAgentModel.find({
-        active: true,
-        organization: org._id,
-      }).populate('organization');
-      console.log('activeAgents', activeAgents);
-      if (activeAgents?.length > 0) {
-        // Optional: Trigger your action logic for each task
-        for (let task of activeAgents) {
-          try {
-            const pythonServerUri = `${
-              process.env.AI_AGENT_SERVER_URI
-            }/task-agent?task_name=${encodeURIComponent(task.name)}&org_id=${
-              org._id
-            }`;
-            const response = await axios.post(pythonServerUri);
-            console.log(
-              `✅ [${org._id}] Task: ${task.name} responded with status ${response.status}`
-            );
-          } catch (err) {
-            console.log('Failed Cron job api', err);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.log('Cron job error', err);
-  }
-});
+// cron.schedule(cronTrigger, async () => {
+//   console.log('Running job at 6:00 AM GMT / 1:00 AM EST');
+//   try {
+//     // Step 1: Get all organizations
+//     const organizations = await Organization.find();
+//     for (const org of organizations) {
+//       const activeAgents = await TaskAgentModel.find({
+//         active: true,
+//         organization: org._id,
+//       }).populate('organization');
+//       console.log('activeAgents', activeAgents);
+//       if (activeAgents?.length > 0) {
+//         // Optional: Trigger your action logic for each task
+//         for (let task of activeAgents) {
+//           try {
+//             const pythonServerUri = `${
+//               process.env.AI_AGENT_SERVER_URI
+//             }/task-agent?task_name=${encodeURIComponent(task.name)}&org_id=${
+//               org._id
+//             }`;
+//             const response = await axios.post(pythonServerUri);
+//             console.log(
+//               `✅ [${org._id}] Task: ${task.name} responded with status ${response.status}`
+//             );
+//           } catch (err) {
+//             console.log('Failed Cron job api', err);
+//           }
+//         }
+//       }
+//     }
+//   } catch (err) {
+//     console.log('Cron job error', err);
+//   }
+// });
 
 app.listen(port, () => {
   console.log(`Listening on port: ${port}`);

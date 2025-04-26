@@ -1,9 +1,9 @@
-const ctl = require("../controllers/conversationCtrl");
-const publicChat = require("../middleware/publicChat");
-const authUser = require("../middleware/authUser")["authenticate"];
-const checkPermissions = require("../middleware/rolePermit");
-const verifySameOrganization = require("../middleware/verifySameOrganization");
-const permissonCheck = checkPermissions("chat");
+const ctl = require('../controllers/conversationCtrl');
+const publicChat = require('../middleware/publicChat');
+const authUser = require('../middleware/authUser')['authenticate'];
+const checkPermissions = require('../middleware/rolePermit');
+const verifySameOrganization = require('../middleware/verifySameOrganization');
+const permissonCheck = checkPermissions('chat');
 
 module.exports = (app) => {
   app.get(
@@ -14,6 +14,7 @@ module.exports = (app) => {
 
   app.get(
     `${process.env.APP_URL}/conversations/public/`,
+    verifySameOrganization,
     publicChat,
     ctl.getPublicConversationByUserId
   );
@@ -26,6 +27,7 @@ module.exports = (app) => {
 
   app.post(
     `${process.env.APP_URL}/conversation/public/add`,
+    verifySameOrganization,
     publicChat,
     ctl.addPublicConversation
   );
@@ -61,15 +63,15 @@ module.exports = (app) => {
     `${process.env.APP_URL}/conversations/customer`,
     (req, res, next) => {
       if (req.query.token) {
-        const tokerParts = req.query.token.split("_");
-        console.log("tokerParts", tokerParts);
+        const tokerParts = req.query.token.split('_');
+        console.log('tokerParts', tokerParts);
         if (tokerParts.length > 0) {
           next();
         } else {
-          return res.status(403).json({ message: "Authentication failed" });
+          return res.status(403).json({ message: 'Authentication failed' });
         }
       } else {
-        return res.status(403).json({ message: "Authentication failed" });
+        return res.status(403).json({ message: 'Authentication failed' });
       }
     },
     ctl.getConversationByCustomerId

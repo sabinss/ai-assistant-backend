@@ -509,10 +509,15 @@ exports.getPublicConversationByUserId = async (req, res) => {
   if (req.externalApiCall) {
     org_id = req.organization;
   }
+  let payload = {
+    user_id: req.public_user_id,
+  };
+  if (chat_session) {
+    payload = { ...payload, chatSession: chat_session };
+  }
   try {
     const conversation = await Conversation.find({
-      user_id: req.public_user_id,
-      chatSession: chat_session,
+      ...payload,
     }).sort({ created_date: -1 });
     res.json(conversation);
   } catch (err) {

@@ -1,21 +1,21 @@
-const Conversation = require("../models/UserConversation");
-const http = require("../helper/http");
-const axios = require("axios");
+const Conversation = require('../models/UserConversation');
+const http = require('../helper/http');
+const axios = require('axios');
 
 // Add conversation
 exports.addConversation = async (req, res) => {
   try {
     let ans, apiTypeValue;
 
-    const defaultCustomerId = "0000";
+    const defaultCustomerId = '0000';
     const { question, chatSession, apiType } = req.body;
 
     let session_id = req.body?.sessionId ? req.body?.sessionId : null;
 
-    if (apiType === "Customer Information") {
-      apiTypeValue = "insights";
-    } else if (apiType === "Product Knowledge") {
-      apiTypeValue = "support";
+    if (apiType === 'Customer Information') {
+      apiTypeValue = 'insights';
+    } else if (apiType === 'Product Knowledge') {
+      apiTypeValue = 'support';
     }
 
     // Base URL for Python API
@@ -31,37 +31,37 @@ exports.addConversation = async (req, res) => {
     }
 
     // Use streaming only for "insights" API type
-    if (apiTypeValue === "insights") {
+    if (apiTypeValue === 'insights') {
       // Set proper headers for SSE
       res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no", // Disable buffering for Nginx
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no', // Disable buffering for Nginx
       });
 
       // Make streaming request to Python API
       const pythonResponse = await axios({
-        method: "get",
+        method: 'get',
         url: url,
-        responseType: "stream",
+        responseType: 'stream',
       });
 
-      let completeMessage = "";
+      let completeMessage = '';
 
       // Forward the stream from Python API to client
-      pythonResponse.data.on("data", (chunk) => {
+      pythonResponse.data.on('data', (chunk) => {
         const chunkStr = chunk.toString();
 
         // Clean up the string and try to parse JSON
         try {
           // Handle multiple SSE messages that might be in a single chunk
-          const messages = chunkStr.split("\n\n").filter((m) => m.trim());
+          const messages = chunkStr.split('\n\n').filter((m) => m.trim());
 
           for (const msgText of messages) {
-            if (msgText.startsWith("data: ")) {
+            if (msgText.startsWith('data: ')) {
               try {
-                const data = JSON.parse(msgText.replace("data: ", ""));
+                const data = JSON.parse(msgText.replace('data: ', ''));
 
                 // Extract session_id if it exists in the response
                 if (data.session_id && !session_id) {
@@ -91,7 +91,7 @@ exports.addConversation = async (req, res) => {
       });
 
       // When the stream ends, update the conversation with the complete answer
-      pythonResponse.data.on("end", async () => {
+      pythonResponse.data.on('end', async () => {
         try {
           // Send end even
           res.write(
@@ -110,24 +110,24 @@ exports.addConversation = async (req, res) => {
             chatSession,
             session_id,
           };
-          console.log("payload", payload);
+          console.log('payload', payload);
 
           const newConversation = new Conversation(payload);
           await newConversation.save();
 
           res.end();
         } catch (error) {
-          console.error("Error updating conversation:", error);
+          console.error('Error updating conversation:', error);
           res.end();
         }
       });
 
       // Handle errors in the Python API response
-      pythonResponse.data.on("error", (err) => {
-        console.error("Error in Python API stream:", err);
+      pythonResponse.data.on('error', (err) => {
+        console.error('Error in Python API stream:', err);
         res.write(
           `data: ${JSON.stringify({
-            error: "Error in streaming response",
+            error: 'Error in streaming response',
           })}\n\n`
         );
         res.end();
@@ -161,7 +161,7 @@ exports.addConversation = async (req, res) => {
         chatSession,
         session_id,
       };
-      console.log("payload", payload);
+      console.log('payload', payload);
 
       const newConversation = new Conversation(payload);
       const savedConversation = await newConversation.save();
@@ -194,34 +194,34 @@ exports.addCustomAgentConversation = async (req, res) => {
 
     // Set proper headers for SSE
     res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no", // Disable buffering for Nginx
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no', // Disable buffering for Nginx
     });
 
     // Make streaming request to Python API
     const pythonResponse = await axios({
-      method: "get",
+      method: 'get',
       url: url,
-      responseType: "stream",
+      responseType: 'stream',
     });
 
-    let completeMessage = "";
+    let completeMessage = '';
 
     // Forward the stream from Python API to client
-    pythonResponse.data.on("data", (chunk) => {
+    pythonResponse.data.on('data', (chunk) => {
       const chunkStr = chunk.toString();
 
       // Clean up the string and try to parse JSON
       try {
         // Handle multiple SSE messages that might be in a single chunk
-        const messages = chunkStr.split("\n\n").filter((m) => m.trim());
+        const messages = chunkStr.split('\n\n').filter((m) => m.trim());
 
         for (const msgText of messages) {
-          if (msgText.startsWith("data: ")) {
+          if (msgText.startsWith('data: ')) {
             try {
-              const data = JSON.parse(msgText.replace("data: ", ""));
+              const data = JSON.parse(msgText.replace('data: ', ''));
 
               // Extract session_id if it exists in the response
               if (data.session_id && !session_id) {
@@ -251,7 +251,7 @@ exports.addCustomAgentConversation = async (req, res) => {
     });
 
     // When the stream ends, update the conversation with the complete answer
-    pythonResponse.data.on("end", async () => {
+    pythonResponse.data.on('end', async () => {
       try {
         // Send end event
         res.write(
@@ -273,23 +273,23 @@ exports.addCustomAgentConversation = async (req, res) => {
           session_id: session_id, // Use the potentially updated session_id
           agent_name: agentName, // Track the agent used
         };
-        console.log("Saving agent conversation payload:", payload);
+        console.log('Saving agent conversation payload:', payload);
 
         // Create a new conversation record
         const newConversation = new Conversation(payload);
 
         // Save the conversation to database
         await newConversation.save();
-        console.log("Agent conversation saved successfully.");
+        console.log('Agent conversation saved successfully.');
 
         res.end(); // End the response stream
       } catch (error) {
-        console.error("Error saving agent conversation:", error);
+        console.error('Error saving agent conversation:', error);
         // Attempt to send an error event if stream is still open, otherwise just log
         if (!res.writableEnded) {
           res.write(
             `data: ${JSON.stringify({
-              error: "Error saving conversation",
+              error: 'Error saving conversation',
             })}\n\n`
           );
           res.end();
@@ -298,20 +298,20 @@ exports.addCustomAgentConversation = async (req, res) => {
     });
 
     // Handle errors in the Python API response
-    pythonResponse.data.on("error", (err) => {
-      console.error("Error in Python API agent stream:", err);
+    pythonResponse.data.on('error', (err) => {
+      console.error('Error in Python API agent stream:', err);
       // Attempt to send an error event if stream is still open
       if (!res.writableEnded) {
         res.write(
           `data: ${JSON.stringify({
-            error: "Error in streaming agent response",
+            error: 'Error in streaming agent response',
           })}\n\n`
         );
         res.end();
       }
     });
   } catch (err) {
-    console.error("Error handling agent conversation:", err);
+    console.error('Error handling agent conversation:', err);
     // Check if headers have already been sent before sending a status code
     if (!res.headersSent) {
       res.status(500).json({ error: err.message });
@@ -319,7 +319,7 @@ exports.addCustomAgentConversation = async (req, res) => {
       // If streaming has started, try sending an error event
       res.write(
         `data: ${JSON.stringify({
-          error: "Server error during streaming",
+          error: 'Server error during streaming',
         })}\n\n`
       );
       res.end();
@@ -334,10 +334,10 @@ exports.deleteConversation = async (req, res) => {
     const deletedConversation = await Conversation.findByIdAndDelete(id);
 
     if (!deletedConversation) {
-      return res.status(404).json({ error: "Conversation not found" });
+      return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    res.json({ message: "Conversation deleted successfully" });
+    res.json({ message: 'Conversation deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -359,7 +359,7 @@ exports.getConversationByUserId = async (req, res) => {
     // Check if user_id is provided
     if (!req.user._id && !user_id && !customer_id) {
       return res.status(400).json({
-        error: "Either user_id, or customer_id is required",
+        error: 'Either user_id, or customer_id is required',
       });
     }
     let searchCondition = {};
@@ -374,7 +374,7 @@ exports.getConversationByUserId = async (req, res) => {
     // }
 
     if (externalApiCall && req.organization) {
-      searchCondition["organization"] = req.organization._id;
+      searchCondition['organization'] = req.organization._id;
     }
 
     if (customer_id) {
@@ -385,12 +385,12 @@ exports.getConversationByUserId = async (req, res) => {
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      searchCondition["updatedAt"] = { $gt: filterDate };
+      searchCondition['updatedAt'] = { $gt: filterDate };
     }
     if (created_date) {
       const filterDate = new Date(created_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      searchCondition["createdAt"] = { $gt: filterDate };
+      searchCondition['createdAt'] = { $gt: filterDate };
     }
     // Add additional search conditions based on provided parameters
     if (chatSession) {
@@ -408,8 +408,8 @@ exports.getConversationByUserId = async (req, res) => {
     //   createdAt: -1,
     // });
     const conversation = await Conversation.find(searchCondition)
-      .populate("customer") // Populate the 'customer' field
-      .populate("user_id") // Populate the 'customer' field
+      .populate('customer') // Populate the 'customer' field
+      .populate('user_id') // Populate the 'customer' field
       .sort({ createdAt: 1 }) // Sort by createdAt in descending order
       .exec(); // Execute the query
 
@@ -427,7 +427,7 @@ exports.getConversationByCustomerId = async (req, res) => {
     if (!user_id && !customer_id) {
       return res
         .status(400)
-        .json({ error: "user_id or customer_id is required" });
+        .json({ error: 'user_id or customer_id is required' });
     }
 
     let searchCondition = {};
@@ -462,7 +462,7 @@ exports.getConversationByCustomerId = async (req, res) => {
     if (!conversation || conversation.length === 0) {
       return res.status(404).json({
         error: `Conversation not found for the provided ${
-          customer_id ? "customer_id" : "user_id"
+          customer_id ? 'customer_id' : 'user_id'
         }`,
       });
     }
@@ -479,13 +479,13 @@ exports.updateLikeDislike = async (req, res) => {
     const conversation = await Conversation.findById(id);
 
     if (!conversation) {
-      return res.status(404).json({ error: "Conversation not found" });
+      return res.status(404).json({ error: 'Conversation not found' });
     }
 
     conversation.liked_disliked = liked_disliked;
     const updatedConversation = await conversation.save();
     res.json({
-      message: "Conversation updated successfully",
+      message: 'Conversation updated successfully',
       updatedConversation,
     });
   } catch (err) {
@@ -505,8 +505,10 @@ exports.totalConversations = async (req, res) => {
 };
 
 exports.getPublicConversationByUserId = async (req, res) => {
-  const { org_id, chat_session } = req.query;
-
+  let { org_id = null, chat_session } = req.query;
+  if (req.externalApiCall) {
+    org_id = req.organization;
+  }
   try {
     const conversation = await Conversation.find({
       user_id: req.public_user_id,
@@ -524,13 +526,13 @@ exports.updatePublicLikeDislike = async (req, res) => {
     const conversation = await Conversation.findById(id);
 
     if (!conversation) {
-      return res.status(404).json({ error: "Conversation not found" });
+      return res.status(404).json({ error: 'Conversation not found' });
     }
 
     conversation.liked_disliked = liked_disliked;
     const updatedConversation = await conversation.save();
     res.json({
-      message: "Conversation updated successfully",
+      message: 'Conversation updated successfully',
       updatedConversation,
     });
   } catch (err) {
@@ -539,12 +541,15 @@ exports.updatePublicLikeDislike = async (req, res) => {
 };
 
 exports.addPublicConversation = async (req, res) => {
-  const { org_id, chat_session, user_email = null } = req.query;
+  let { org_id = null, chat_session, user_email = null } = req.query;
   try {
     const { question, user_email, customer_id } = req.body;
 
+    if (req.externalApiCall) {
+      org_id = req.organization;
+    }
     let url = `${
-      process.env.AGENT_SERVER_URL
+      process.env.AI_AGENT_SERVER_URI
     }/ask/public?query=${encodeURIComponent(
       // let url = `http://localhost:8000/ask/public?query=${encodeURIComponent(
       question
@@ -553,10 +558,14 @@ exports.addPublicConversation = async (req, res) => {
     // Append session_id to the URL if it exists
     if (chat_session) {
       url += `&session_id=${encodeURIComponent(chat_session)}`;
+    } else {
+      let randomSessionId = Math.floor(1000 + Math.random() * 9000);
+      chat_session = randomSessionId;
+      url += `&session_id=${randomSessionId}`;
     }
 
     const response = await axios.get(url);
-    console.log("chat response==", response.data);
+    console.log('chat response==', response.data);
 
     const answer = response.data.message;
     console.log(answer);
@@ -581,7 +590,7 @@ exports.addPublicConversation = async (req, res) => {
     res.status(500).json({
       error:
         err.message +
-        " SOMETWTHING WENT WRONG " +
+        ' SOMETWTHING WENT WRONG ' +
         err +
         process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT +
         process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT_KEY,
@@ -760,7 +769,7 @@ exports.getWholeOrgConvo = async (req, res) => {
 
   let searchCondition = {};
   const customerId =
-    customer_id === "null" || customer_id === "undefined" ? null : customer_id;
+    customer_id === 'null' || customer_id === 'undefined' ? null : customer_id;
 
   if (customerId) {
     searchCondition = {

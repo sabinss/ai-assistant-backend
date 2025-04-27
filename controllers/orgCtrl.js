@@ -198,6 +198,10 @@ exports.getOrg = async (req, res) => {
       redshit_work_space,
       redshift_db,
       assistant_name,
+      zendesk_token,
+      zendesk_user,
+      zendesk_subdomain,
+      hubspot_bearer_token,
     } = org;
     const orgResponsePayload = {
       _id,
@@ -225,6 +229,10 @@ exports.getOrg = async (req, res) => {
       email: organizationTokenRecord.email,
       organizationToken: organizationTokenRecord.token,
       assistant_name,
+      zendesk_token,
+      zendesk_user,
+      zendesk_subdomain,
+      hubspot_bearer_token,
     };
     return res.json({ org: orgResponsePayload });
   } catch (error) {

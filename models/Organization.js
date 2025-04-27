@@ -36,6 +36,11 @@ const orgSchema = new mongoose.Schema(
     database_name: { type: String, default: '' },
     redshit_work_space: { type: String, default: '' },
     redshift_db: { type: String, default: '' },
+
+    zendesk_token: { type: String, default: '' },
+    zendesk_user: { type: String, default: '' },
+    zendesk_subdomain: { type: String, default: '' },
+    hubspot_bearer_token: { type: String, default: '' },
     orgGoogleCredential: {
       type: Object,
       default: {},

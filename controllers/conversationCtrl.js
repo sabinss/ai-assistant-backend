@@ -5,18 +5,19 @@ const axios = require('axios');
 // Add conversation
 exports.addConversation = async (req, res) => {
   try {
-    let ans, apiTypeValue;
+    let ans;
+    let apiTypeValue = 'insights';
 
     const defaultCustomerId = '0000';
     const { question, chatSession, apiType } = req.body;
 
     let session_id = req.body?.sessionId ? req.body?.sessionId : null;
 
-    if (apiType === 'Customer Information') {
-      apiTypeValue = 'insights';
-    } else if (apiType === 'Product Knowledge') {
-      apiTypeValue = 'support';
-    }
+    // if (apiType === 'Customer Information') {
+    //   apiTypeValue = 'insights';
+    // } else if (apiType === 'Product Knowledge') {
+    //   apiTypeValue = 'support';
+    // }
 
     // Base URL for Python API
     let url = `${process.env.AGENT_SERVER_URL}/ask?query=${encodeURIComponent(

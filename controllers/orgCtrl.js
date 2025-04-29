@@ -979,7 +979,7 @@ exports.deleteSourceFile = async (req, res) => {
       'X-API-KEY': process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
     };
     // https://chat-backend.instwise.app/api/assistant/delete-pdfs?company_id=66158fe71bfe10b58cb23eea&file_names=5-mb-example-file.pdf
-    const url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant/delete-pdfs?company_id=${company_id}&file_names=${file_names}}`;
+    const url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant/delete-pdfs?company_id=${company_id}&file_names=${file_names}`;
 
     console.log('delete route hit');
     const response = await axios.delete(url, { headers });

@@ -17,8 +17,10 @@ const verifyGoogleAuthUser = async (req, res, next) => {
       });
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const organizationId = orgId ? orgId : decoded.organization;
+
     const user = await User.findOne({ email: decoded.email });
-    if (user.organization.equals(orgId.toString())) {
+    if (user.organization.equals(organizationId.toString())) {
       // Organization matches
       req.orgTokenAuth = true;
       req.externalApiCall = true;

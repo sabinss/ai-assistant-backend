@@ -96,7 +96,7 @@ exports.verifyGoogleLogin = async (req, res) => {
       return res.status(200).json({
         message: 'User successfully logged in as google user',
         success: true,
-        data: googleLoginUser[0],
+        data: googleLoginUser,
       });
     } else {
       return res.status(200).json({

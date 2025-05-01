@@ -1,7 +1,7 @@
 const axios = require('axios');
 const qs = require('qs');
 
-async function getGoogleAuthTokens({code}) {
+async function getGoogleAuthTokens({ code }) {
   const url = 'https://oauth2.googleapis.com/token';
   const values = {
     code,
@@ -10,13 +10,14 @@ async function getGoogleAuthTokens({code}) {
     redirect_uri: process.env.GOOGLE_REDIRECT_URL,
     grant_type: 'authorization_code',
   };
-  console.log('values', values);
+  console.log('2->values', values);
   try {
     const res = await axios.post(url, qs.stringify(values), {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
     });
+    console.log('url response->', res.data);
     return res.data;
   } catch (err) {
     console.error(err.response.data.error);
@@ -24,7 +25,7 @@ async function getGoogleAuthTokens({code}) {
   }
 }
 
-async function getGoogleUser({id_token, access_token}) {
+async function getGoogleUser({ id_token, access_token }) {
   try {
     const res = await axios.get(
       `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`,
@@ -40,4 +41,4 @@ async function getGoogleUser({id_token, access_token}) {
   }
 }
 
-module.exports = {getGoogleAuthTokens, getGoogleUser};
+module.exports = { getGoogleAuthTokens, getGoogleUser };

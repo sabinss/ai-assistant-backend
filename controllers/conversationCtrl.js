@@ -183,7 +183,7 @@ exports.addCustomAgentConversation = async (req, res) => {
 
     // Build URL for the Python API endpoint
     let url = `${
-      process.env.AGENT_SERVER_URL
+      process.env.AI_AGENT_SERVER_URI
     }/ask/agent?agent_name=${encodeURIComponent(
       agentName
     )}&query=${encodeURIComponent(question)}&org_id=${req.user.organization}`;
@@ -272,7 +272,7 @@ exports.addCustomAgentConversation = async (req, res) => {
           organization: req.user.organization,
           chatSession,
           session_id: session_id, // Use the potentially updated session_id
-          agent_name: agentName, // Track the agent used
+          agent_name: agentName ? agentName : 'Onboarding Agent', // Track the agent used
         };
         console.log('Saving agent conversation payload:', payload);
 

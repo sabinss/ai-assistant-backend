@@ -72,7 +72,12 @@ exports.getFeedback = async (req, res) => {
 };
 
 exports.createFeedback = async (req, res) => {
-  const { conversation, feedback, modified_answer, agentName } = req.body;
+  const {
+    conversation,
+    feedback,
+    modified_answer,
+    agentName = 'Onboarding Agent',
+  } = req.body;
   if (!conversation) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
@@ -86,8 +91,6 @@ exports.createFeedback = async (req, res) => {
     const org = await Organization.findById(req?.user?.organization);
     const frequency = org?.temperature;
 
-    console.log('frequency from org is ', frequency);
-
     const newFeedback = await Feedback.create({
       organization: req?.user?.organization,
       user: req?.user?._id,
@@ -96,7 +99,7 @@ exports.createFeedback = async (req, res) => {
       feedback,
       status: 'new',
       frequency,
-      agentName,
+      agent_name: agentName,
     });
 
     res

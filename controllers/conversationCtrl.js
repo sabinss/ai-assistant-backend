@@ -20,9 +20,11 @@ exports.addConversation = async (req, res) => {
     // }
 
     // Base URL for Python API
-    let url = `${process.env.AGENT_SERVER_URL}/ask?query=${encodeURIComponent(
-      question
-    )}&user_email=${req.user.email}&org_id=${
+    let url = `${
+      process.env.AI_AGENT_SERVER_URI
+    }/ask?query=${encodeURIComponent(question)}&user_email=${
+      req.user.email
+    }&org_id=${
       req.user.organization
     }&customer_id=${defaultCustomerId}&api_type=${apiTypeValue}`;
 

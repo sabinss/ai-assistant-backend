@@ -557,7 +557,13 @@ exports.getOrgAgentInstructions = async (req, res) => {
     // const { agent_name } = req.query;
     // Step 1: Fetch all agents for the given organization
     let agents = await AgentModel.find({ organization });
-
+    agents = agents.map((agent) => {
+      const { isAgent, ...rest } = agent.toObject(); // convert Mongoose document to plain object
+      return {
+        ...rest,
+        non_Interactive: isAgent,
+      };
+    });
     // if (agent_name) {
     //   agents = agents.filter(
     //     (x) => x.name.toLowerCase() == agent_name.toLowerCase()
@@ -581,7 +587,7 @@ exports.getOrgAgentInstructions = async (req, res) => {
     // Step 4: Merge agent data with their instructions
     const agentsWithInstructions = agents.map((agent) => {
       return {
-        ...agent.toObject(), // Convert Mongoose document to plain JavaScript object
+        ...agent, // Convert Mongoose document to plain JavaScript object
         tasks: instructionsMap[agent._id] || [], // Attach instructions if they exist
       };
     });

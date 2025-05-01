@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 
 async function googleOauthHandler(req, res) {
   try {
+    console.log('1-> Webhook hit');
     // get the code from qs
     const code = req.query.code;
     const state = req.query.state;

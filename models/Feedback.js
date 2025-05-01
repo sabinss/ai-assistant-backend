@@ -13,7 +13,7 @@ const feedbackSchema = new mongoose.Schema(
     feedback: { type: String, enum: ['liked', 'disliked'], required: true },
     status: { type: String, default: 'new' },
     frequency: { type: Number },
-    agentName: { type: String },
+    agent_name: { type: String },
   },
 
   {

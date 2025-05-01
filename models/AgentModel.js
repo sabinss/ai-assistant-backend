@@ -13,6 +13,16 @@ const agentModel = new mongoose.Schema(
     primary_instruction: {
       type: String,
     },
+    isAgent: {
+      type: Boolean,
+      default: false,
+    },
+    frequency: {
+      type: String,
+    },
+    dayTime: {
+      type: String,
+    },
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',

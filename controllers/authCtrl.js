@@ -9,6 +9,7 @@ const ResetToken = require('../models/ResetToken');
 const ConfirmToken = require('../models/ConfirmToken');
 const rolePermission = require('../helper/rolePermission');
 const GoogleUser = require('../models/GoogleUser');
+const axios = require('axios');
 
 exports.signup = async (req, res) => {
   const {
@@ -62,6 +63,26 @@ exports.signup = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+const revokeGoogleToken = async (refreshToken) => {
+  try {
+    await axios.post(
+      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(
+        refreshToken
+      )}`,
+      {},
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+    console.log('Token revoked');
+    return true;
+  } catch (err) {
+    console.error('Failed to revoke token:', err.response?.data || err.message);
+    return false;
+  }
+};
 
 exports.disconnectOrgGoogleUser = async (req, res) => {
   try {
@@ -69,10 +90,16 @@ exports.disconnectOrgGoogleUser = async (req, res) => {
     if (!organization) {
       res.status(500).json({ message: 'Organization is required', err });
     }
-    await GoogleUser.updateOne(
-      { organization: organization },
-      { $set: { isActive: false } }
-    );
+
+    const googleUserRecord = await GoogleUser.findOne({
+      organization: organization,
+    });
+
+    const refreshToken = googleUserRecord.emailCredential.access_token;
+    console.log('refresh token', googleUserRecord.emailCredential.access_token);
+    refreshToken &&
+      (await revokeGoogleToken(googleUserRecord.emailCredential.access_token));
+    await GoogleUser.deleteOne({ organization: organization });
     return res.status(200).json({
       message: 'Disconnected google user successfully',
       success: true,

@@ -36,6 +36,7 @@ const verifyGoogleAuthUser = async (req, res, next) => {
     }
     // Check if API key is provided
   } catch (error) {
+    console.log('Error', error);
     return res.status(500).json({
       error: 'Internal Server Error',
       message: 'Email not matched with orgnization token',

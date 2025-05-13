@@ -533,6 +533,7 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
       res.status(500).json({ message: 'Internal server error', err });
     }
   } catch (err) {
+    console.log('getConnectedGmailsWithOrg', err);
     res.status(500).json({ message: 'Internal server error', err });
   }
 };

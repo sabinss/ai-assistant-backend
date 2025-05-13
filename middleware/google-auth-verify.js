@@ -22,7 +22,8 @@ const verifyGoogleAuthUser = async (req, res, next) => {
     const organizationId = orgId ? orgId : decoded.organization;
     console.log({ decoded });
     const user = await User.findOne({ email: decoded.email });
-
+    console.log({ user });
+    console.log('matched', user.organization.toString() === organizationId);
     if (user.organization.toString() === organizationId) {
       // Organization matches
       req.orgTokenAuth = true;

@@ -506,6 +506,10 @@ exports.getOrganizationPrompt = async (req, res) => {
 exports.getConnectedGmailsWithOrg = async (req, res) => {
   try {
     const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;
+    console.log(
+      'getConnectedGmailsWithOrg> isVerifiedFromExternalCall',
+      isVerifiedFromExternalCall
+    );
     if (isVerifiedFromExternalCall) {
       // this is logged in user
       const user_email = req.user.email;

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { Types } = require('mongoose');
 
 /**
  *
@@ -21,7 +22,8 @@ const verifyGoogleAuthUser = async (req, res, next) => {
     const organizationId = orgId ? orgId : decoded.organization;
     console.log({ decoded });
     const user = await User.findOne({ email: decoded.email });
-    if (user.organization.equals(organizationId.toString())) {
+
+    if (user.organization.equals(Types.ObjectId(organizationId))) {
       // Organization matches
       req.orgTokenAuth = true;
       req.externalApiCall = true;

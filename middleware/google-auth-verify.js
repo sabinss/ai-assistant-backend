@@ -8,6 +8,7 @@ const User = require('../models/User');
  */
 const verifyGoogleAuthUser = async (req, res, next) => {
   try {
+    console.log('verifyGoogleAuthUser called----');
     // Extract API key from request headers
     const { token, orgId } = req.query;
     if (!req.query.token && !req.query.orgId) {
@@ -18,7 +19,7 @@ const verifyGoogleAuthUser = async (req, res, next) => {
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const organizationId = orgId ? orgId : decoded.organization;
-
+    console.log({ decoded });
     const user = await User.findOne({ email: decoded.email });
     if (user.organization.equals(organizationId.toString())) {
       // Organization matches

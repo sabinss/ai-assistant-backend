@@ -19,7 +19,7 @@ const verifyGoogleAuthUser = async (req, res, next) => {
       });
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const organizationId = orgId ? orgId : decoded.organization;
+    const organizationId = orgId ? orgId : decoded.orgnizationId;
     console.log({ decoded });
     const user = await User.findOne({ email: decoded.email });
     console.log({ user });

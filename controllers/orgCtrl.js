@@ -506,25 +506,28 @@ exports.getOrganizationPrompt = async (req, res) => {
 exports.getConnectedGmailsWithOrg = async (req, res) => {
   try {
     const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;
-    console.log(
-      'getConnectedGmailsWithOrg> isVerifiedFromExternalCall',
-      isVerifiedFromExternalCall
-    );
+    const from_email = req.query.from_email;
+    let connectedGmailUsersQuery = {
+      organization: req.organization._id,
+    };
     if (isVerifiedFromExternalCall) {
+      if (from_email) {
+        connectedGmailUsersQuery.email = from_email;
+      }
       // this is logged in user
       const user_email = req.user.email;
       const orgDetail = await Organization.findById(
         req.organization._id,
         'orgGoogleCredential'
       ).lean();
-      const connectedGmailUsers = await GoogleUser.find({
-        organization: req.organization._id,
-      }).lean();
+      const connectedGmailUsers = await GoogleUser.find(
+        connectedGmailUsersQuery
+      ).lean();
 
       const responsePayload = {
         user_email,
         orgGoogleCredential: orgDetail.orgGoogleCredential,
-        connectedEmails: connectedGmailUsers,
+        connectedEmails: connectedGmailUsers ? connectedGmailUsers : [],
       };
       res.status(200).json({
         data: responsePayload,
@@ -533,7 +536,6 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
       res.status(500).json({ message: 'Internal server error', err });
     }
   } catch (err) {
-    console.log('getConnectedGmailsWithOrg', err);
     res.status(500).json({ message: 'Internal server error', err });
   }
 };

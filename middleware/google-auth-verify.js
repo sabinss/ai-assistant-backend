@@ -23,7 +23,7 @@ const verifyGoogleAuthUser = async (req, res, next) => {
     console.log({ decoded });
     const user = await User.findOne({ email: decoded.email });
 
-    if (user.organization.equals(Types.ObjectId(organizationId))) {
+    if (user.organization.toString() === organizationId) {
       // Organization matches
       req.orgTokenAuth = true;
       req.externalApiCall = true;

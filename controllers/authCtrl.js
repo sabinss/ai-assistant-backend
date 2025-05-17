@@ -12,258 +12,239 @@ const GoogleUser = require('../models/GoogleUser');
 const axios = require('axios');
 
 exports.signup = async (req, res) => {
-  const {
-    first_name,
-    last_name,
-    email,
-    organization_name,
-    ai_assistant_name,
-    password,
-  } = req.body;
+    const { first_name, last_name, email, organization_name, ai_assistant_name, password } = req.body;
 
-  try {
-    const existingOrg = await Organization.findOne({ name: organization_name });
-    if (existingOrg)
-      return res
-        .status(409)
-        .json({ message: 'Organization name already taken.' });
+    try {
+        const isUserExist = await User.findOne({ email });
+        if (isUserExist) {
+            return res.status(400).json({ message: 'User aleady exist' });
+        }
+        const existingOrg = await Organization.findOne({ name: organization_name });
+        if (existingOrg) return res.status(409).json({ message: 'Organization name already taken.' });
 
-    const newOrg = new Organization({
-      name: organization_name,
-      assistant_name: ai_assistant_name,
-    });
+        const newOrg = new Organization({
+            name: organization_name,
+            assistant_name: ai_assistant_name
+        });
 
-    await newOrg.save();
+        await newOrg.save();
 
-    const role = await Role.findOne({ name: 'admin' });
-    const status = await Status.findOne({ name: 'active' });
-    const role_id = role ? role._id : null;
-    const status_id = status ? status._id : null;
+        const role = await Role.findOne({ name: 'admin' });
+        const status = await Status.findOne({ name: 'active' });
+        const role_id = role ? role._id : null;
+        const status_id = status ? status._id : null;
 
-    const existingUser = await User.findOne({ email: email });
-    if (existingUser)
-      return res.status(409).json({ message: 'Email is already in use' });
+        const existingUser = await User.findOne({ email: email });
+        if (existingUser) return res.status(409).json({ message: 'Email is already in use' });
 
-    const hashed_password = bcrypt.hashSync(password, 10);
+        const hashed_password = bcrypt.hashSync(password, 10);
 
-    const newUser = new User({
-      organization: newOrg._id,
-      email,
-      first_name,
-      last_name,
-      password: hashed_password,
-      role: role_id,
-      status: status_id,
-    });
+        const newUser = new User({
+            organization: newOrg._id,
+            email,
+            first_name,
+            last_name,
+            password: hashed_password,
+            role: role_id,
+            status: status_id
+        });
 
-    await newUser.save();
-    res.status(201).json({ message: 'User created successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
+        await newUser.save();
+        res.status(201).json({ message: 'User created successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 };
-const revokeGoogleToken = async (refreshToken) => {
-  try {
-    await axios.post(
-      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(
-        refreshToken
-      )}`,
-      {},
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    );
-    console.log('Token revoked');
-    return true;
-  } catch (err) {
-    console.error('Failed to revoke token:', err.response?.data || err.message);
-    return false;
-  }
+const revokeGoogleToken = async refreshToken => {
+    try {
+        await axios.post(
+            `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(refreshToken)}`,
+            {},
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }
+        );
+        console.log('Token revoked');
+        return true;
+    } catch (err) {
+        console.error('Failed to revoke token:', err.response?.data || err.message);
+        return false;
+    }
 };
 
 exports.disconnectOrgGoogleUser = async (req, res) => {
-  try {
-    const organization = req.user?.organization;
-    if (!organization) {
-      res.status(500).json({ message: 'Organization is required', err });
+    try {
+        const organization = req.user?.organization;
+        if (!organization) {
+            res.status(500).json({ message: 'Organization is required', err });
+        }
+
+        const googleUserRecord = await GoogleUser.findOne({
+            organization: organization
+        });
+
+        const refreshToken = googleUserRecord.emailCredential.access_token;
+        console.log('refresh token', googleUserRecord.emailCredential.access_token);
+        refreshToken && (await revokeGoogleToken(googleUserRecord.emailCredential.access_token));
+        await GoogleUser.deleteOne({ organization: organization });
+        return res.status(200).json({
+            message: 'Disconnected google user successfully',
+            success: true
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Internal server error', err });
     }
-
-    const googleUserRecord = await GoogleUser.findOne({
-      organization: organization,
-    });
-
-    const refreshToken = googleUserRecord.emailCredential.access_token;
-    console.log('refresh token', googleUserRecord.emailCredential.access_token);
-    refreshToken &&
-      (await revokeGoogleToken(googleUserRecord.emailCredential.access_token));
-    await GoogleUser.deleteOne({ organization: organization });
-    return res.status(200).json({
-      message: 'Disconnected google user successfully',
-      success: true,
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Internal server error', err });
-  }
 };
 
 exports.verifyGoogleLogin = async (req, res) => {
-  try {
-    const { email } = req.body;
-    const googleLoginUser = await GoogleUser.findOne({
-      // email: email,
-      organization: req.user.organization,
-      isActive: true,
-    }).lean();
-    // .sort({ createdAt: -1 }) // newest first
-    // .limit(1); // get only one
-    if (googleLoginUser) {
-      return res.status(200).json({
-        message: 'User successfully logged in as google user',
-        success: true,
-        data: googleLoginUser,
-      });
-    } else {
-      return res.status(200).json({
-        message: 'Google user not found',
-        success: false,
-        googleEmail: null,
-      });
+    try {
+        const { email } = req.body;
+        const googleLoginUser = await GoogleUser.findOne({
+            // email: email,
+            organization: req.user.organization,
+            isActive: true
+        }).lean();
+        // .sort({ createdAt: -1 }) // newest first
+        // .limit(1); // get only one
+        if (googleLoginUser) {
+            return res.status(200).json({
+                message: 'User successfully logged in as google user',
+                success: true,
+                data: googleLoginUser
+            });
+        } else {
+            return res.status(200).json({
+                message: 'Google user not found',
+                success: false,
+                googleEmail: null
+            });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
     }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
 };
 
 exports.signin = async (req, res) => {
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
-  if (!email || !password)
-    return res.status(400).json({ message: 'Please fill all details' });
-  if (password.length < 6)
-    return res
-      .status(400)
-      .json({ message: 'Password must be at least 6 characters long' });
+    if (!email || !password) return res.status(400).json({ message: 'Please fill all details' });
+    if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters long' });
 
-  try {
-    const user = await User.findOne({ email: email });
-    if (!user) return res.status(404).json({ message: 'Email not found' });
+    try {
+        const user = await User.findOne({ email: email });
+        if (!user) return res.status(404).json({ message: 'Email not found' });
 
-    const role = (await Role.findById(user.role)) || { name: 'user' };
-    const isValidUser = await bcrypt.compare(password, user.password);
-    if (!isValidUser)
-      return res.status(401).json({ message: 'Invalid password' });
+        const role = (await Role.findById(user.role)) || { name: 'user' };
+        const isValidUser = await bcrypt.compare(password, user.password);
+        if (!isValidUser) return res.status(401).json({ message: 'Invalid password' });
 
-    const userDetails = {
-      user_id: user._id,
-      email: user.email,
-      organization: user.organization,
-      role: user.role,
-      status: user.status,
-      first_name: user.first_name,
-      last_name: user.last_name,
-    };
+        const userDetails = {
+            user_id: user._id,
+            email: user.email,
+            organization: user.organization,
+            role: user.role,
+            status: user.status,
+            first_name: user.first_name,
+            last_name: user.last_name
+        };
 
-    const accessToken = jwt.sign(userDetails, process.env.JWT_SECRET, {
-      expiresIn: '365d',
-    });
+        const accessToken = jwt.sign(userDetails, process.env.JWT_SECRET, {
+            expiresIn: '365d'
+        });
 
-    return res.status(200).json({
-      access_token: accessToken,
-      message: 'User logged in successfully',
-      user_details: userDetails,
-      rolePermission: rolePermission[role.name],
-      chatSession: user.chatSession,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
+        return res.status(200).json({
+            access_token: accessToken,
+            message: 'User logged in successfully',
+            user_details: userDetails,
+            rolePermission: rolePermission[role.name],
+            chatSession: user.chatSession
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 };
 
 exports.changePassword = async (req, res) => {
-  const { user_id, new_password, current_password } = req.body;
+    const { user_id, new_password, current_password } = req.body;
 
-  try {
-    const user = await User.findById(user_id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    try {
+        const user = await User.findById(user_id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const isPasswordCorrect = await bcrypt.compare(
-      current_password,
-      user.password
-    );
-    if (!isPasswordCorrect)
-      return res.status(401).json({ message: 'Incorrect current password' });
+        const isPasswordCorrect = await bcrypt.compare(current_password, user.password);
+        if (!isPasswordCorrect) return res.status(401).json({ message: 'Incorrect current password' });
 
-    const hashedPassword = bcrypt.hashSync(new_password, 10);
-    user.password = hashedPassword;
-    await user.save();
+        const hashedPassword = bcrypt.hashSync(new_password, 10);
+        user.password = hashedPassword;
+        await user.save();
 
-    res.status(200).json({ message: 'Password changed successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
+        res.status(200).json({ message: 'Password changed successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 };
 
 exports.forgotPassword = async (req, res) => {
-  const { email } = req.body;
+    const { email } = req.body;
 
-  try {
-    // Find the user by email
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'Email not found' });
+    try {
+        // Find the user by email
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ message: 'Email not found' });
 
-    // Check if a reset token already exists for the user
-    let resetTokenData = await ResetToken.findOne({ userRef: user._id });
+        // Check if a reset token already exists for the user
+        let resetTokenData = await ResetToken.findOne({ userRef: user._id });
 
-    // Generate a new reset token if no token exists, otherwise update the existing one
-    const resetToken = Math.floor(Math.random() * 1000000 + 1);
-    if (!resetTokenData) {
-      resetTokenData = new ResetToken({
-        userRef: user._id,
-        resetToken,
-      });
-    } else {
-      resetTokenData.resetToken = resetToken;
+        // Generate a new reset token if no token exists, otherwise update the existing one
+        const resetToken = Math.floor(Math.random() * 1000000 + 1);
+        if (!resetTokenData) {
+            resetTokenData = new ResetToken({
+                userRef: user._id,
+                resetToken
+            });
+        } else {
+            resetTokenData.resetToken = resetToken;
+        }
+
+        // Save or update the reset token data
+        await resetTokenData.save();
+
+        // Send email with the reset token
+        await sendEmail(email, resetToken, true);
+        res.status(200).json({
+            message: 'The reset password link has been sent to your email.'
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
     }
-
-    // Save or update the reset token data
-    await resetTokenData.save();
-
-    // Send email with the reset token
-    await sendEmail(email, resetToken, true);
-    res.status(200).json({
-      message: 'The reset password link has been sent to your email.',
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
 };
 
 const sendEmail = async (email, token, isReset = true) => {
-  console.log(process.env.MAIL_API_EMAIL, process.env.MAIL_API_PASSWORD);
-  const transporter = nodemailer.createTransport({
-    // service: "gmail",
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.MAIL_API_EMAIL,
-      pass: process.env.MAIL_API_PASSWORD,
-    },
-  });
+    console.log(process.env.MAIL_API_EMAIL, process.env.MAIL_API_PASSWORD);
+    const transporter = nodemailer.createTransport({
+        // service: "gmail",
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+            user: process.env.MAIL_API_EMAIL,
+            pass: process.env.MAIL_API_PASSWORD
+        }
+    });
 
-  const mailOptions = {
-    from: 'theagilemove@gmail.com',
-    // from: process.env.MAIL_API_EMAIL,
-    to: email,
-    subject: isReset ? 'Reset Password' : 'Email Confirmation',
-    html: `
+    const mailOptions = {
+        from: 'theagilemove@gmail.com',
+        // from: process.env.MAIL_API_EMAIL,
+        to: email,
+        subject: isReset ? 'Reset Password' : 'Email Confirmation',
+        html: `
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -307,9 +288,9 @@ const sendEmail = async (email, token, isReset = true) => {
           <h1>${isReset ? 'Reset Password' : 'Email Confirmation'}</h1>
           <p>Dear User,</p>
           <p> ${
-            isReset
-              ? ' You have requested to reset your password Please use the following token to proceed:'
-              : 'Thank you for singing up for CoWrkr! To complete your registration, please use the following token .'
+              isReset
+                  ? ' You have requested to reset your password Please use the following token to proceed:'
+                  : 'Thank you for singing up for CoWrkr! To complete your registration, please use the following token .'
           }. </p>
           <div class="token">${token}</div>
           <p>Note: This token is only valid for 5 minutes.</p>
@@ -319,72 +300,70 @@ const sendEmail = async (email, token, isReset = true) => {
         </div>
       </body>
       </html>
-    `,
-  };
-  console.log('mailOptions', mailOptions);
-  try {
-    const mailResponse = await transporter.sendMail(mailOptions);
-    console.log('mailResponse', mailResponse);
-  } catch (err) {
-    console.log('Send Email error', err);
-  }
+    `
+    };
+    console.log('mailOptions', mailOptions);
+    try {
+        const mailResponse = await transporter.sendMail(mailOptions);
+        console.log('mailResponse', mailResponse);
+    } catch (err) {
+        console.log('Send Email error', err);
+    }
 };
 
 exports.verifyPasswordResetToken = async (req, res) => {
-  const { token, email, newPassword } = req.body;
+    const { token, email, newPassword } = req.body;
 
-  try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    try {
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const tokenInDb = await ResetToken.findOne({ resetToken: token });
-    if (!tokenInDb) return res.status(400).json({ message: 'Invalid token' });
+        const tokenInDb = await ResetToken.findOne({ resetToken: token });
+        if (!tokenInDb) return res.status(400).json({ message: 'Invalid token' });
 
-    const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    user.password = hashedPassword;
-    await user.save();
+        const hashedPassword = bcrypt.hashSync(newPassword, 10);
+        user.password = hashedPassword;
+        await user.save();
 
-    await ResetToken.findOneAndDelete({ resetToken: token });
-    res.status(200).json({ message: 'Password changed successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
+        await ResetToken.findOneAndDelete({ resetToken: token });
+        res.status(200).json({ message: 'Password changed successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 };
 
 exports.sendConfirmEmailToken = async (req, res) => {
-  const { email } = req.body;
-  console.log('sendConfirmEmailToken called');
-  try {
-    const token = Math.floor(Math.random() * 100000 + 1);
-    const confirmTokenData = new ConfirmToken({
-      email,
-      token,
-    });
+    const { email } = req.body;
+    console.log('sendConfirmEmailToken called');
+    try {
+        const token = Math.floor(Math.random() * 100000 + 1);
+        const confirmTokenData = new ConfirmToken({
+            email,
+            token
+        });
 
-    await confirmTokenData.save();
-    console.log('Sending Email');
-    await sendEmail(email, token, false);
-    res
-      .status(200)
-      .json({ message: 'Verification code has been sent to your email.' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
+        await confirmTokenData.save();
+        console.log('Sending Email');
+        await sendEmail(email, token, false);
+        res.status(200).json({ message: 'Verification code has been sent to your email.' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 };
 
 exports.verifyEmail = async (req, res) => {
-  const { token, email } = req.body;
+    const { token, email } = req.body;
 
-  try {
-    const tokenInDb = await ConfirmToken.findOne({ email, token });
-    if (!tokenInDb) return res.status(400).json({ message: 'Invalid token' });
+    try {
+        const tokenInDb = await ConfirmToken.findOne({ email, token });
+        if (!tokenInDb) return res.status(400).json({ message: 'Invalid token' });
 
-    await ConfirmToken.findOneAndDelete({ email, token });
-    res.status(200).json({ message: 'Email confirmed successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
+        await ConfirmToken.findOneAndDelete({ email, token });
+        res.status(200).json({ message: 'Email confirmed successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 };

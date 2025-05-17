@@ -1,0 +1,10 @@
+[2025-05-17 14:15:00] INFO: ⏰ Cron job started at 2025-05-17 14:15:00
+[2025-05-17 14:16:00] INFO: ⏰ Cron job started at 2025-05-17 14:16:00
+[2025-05-17 14:16:01] INFO: 📅 [Agent 67cdd41718c7604a4717b0b6] Weekly check: Today=6, Org=6 → true
+[2025-05-17 14:16:01] INFO: 📤 Triggering API for agent 67cdd41718c7604a4717b0b6 in org StaynTouch
+[2025-05-17 14:16:26] INFO: 📤 API URI triggered http://3.17.138.140:8000/task-agent?task_name=Onboarding%20Agent&org_id=66158fe71bfe10b58cb23eea
+[2025-05-17 14:17:00] INFO: ⏰ Cron job started at 2025-05-17 14:17:00
+[2025-05-17 14:17:01] INFO: 📅 [Agent 67cdd41718c7604a4717b0b6] Weekly check: Today=6, Org=6 → true
+[2025-05-17 14:18:00] INFO: ⏰ Cron job started at 2025-05-17 14:18:00
+[2025-05-17 14:18:00] INFO: 🗓️ [Agent 67cdd41718c7604a4717b0b6] Quarterly check: Month=5, Day=17, OrgDay=2 → false
+[2025-05-17 14:19:00] INFO: ⏰ Cron job started at 2025-05-17 14:19:00

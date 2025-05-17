@@ -123,7 +123,9 @@ const handleTaskAgentCronJob = async () => {
         for (const org of allOrgs) {
             const activeAgents = await AgentModel.find({
                 active: true,
-                organization: org._id
+                organization: org._id,
+                frequency: { $ne: null },
+                dayTime: { $ne: null }
             }).populate('organization');
             console.log('activeAgents', activeAgents);
             if (!activeAgents || activeAgents.length === 0) continue;

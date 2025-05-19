@@ -13,6 +13,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
 const { googleOauthHandler } = require('./controllers/session.controller');
 const { handleTaskAgentCronJob } = require('./cronJob/taskAgentJob');
+const webhookRoute = require('./webhook');
 
 app.use(express.json());
 
@@ -40,6 +41,7 @@ app.get('/health-check', async (req, res) => {
 });
 
 app.get('/api/sessions/oauth/google', googleOauthHandler);
+app.use('/webhook', webhookRoute);
 
 require('./service/userAuth');
 require('./models');

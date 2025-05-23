@@ -80,8 +80,8 @@ const shouldTriggerNow = (org, now, agentId) => {
     const { frequency, dayTime } = org;
     switch (frequency) {
         case 'Daily':
-            logger.info(`🔁 [Agent ${agentId}] Daily check @ ${now.format()} → ${isDaily}`);
-
+            logger.info(`🔁 [Agent ${agentId}] Daily check @ ${now.format()} → `);
+            return true;
             return now.hour() === 1; // always true at 1 AM
         case 'Weekly':
             // `W-1` = Monday (moment.isoWeekday: 1 = Monday, 7 = Sunday)
@@ -127,20 +127,21 @@ const handleTaskAgentCronJob = async () => {
                 frequency: { $ne: null },
                 dayTime: { $ne: null }
             }).populate('organization');
-            console.log('activeAgents', activeAgents);
-            if (!activeAgents || activeAgents.length === 0) continue;
+            console.log('activeAgents', activeAgents.length);
+            if (activeAgents?.length === 0) continue;
 
             for (const agent of activeAgents) {
                 if (shouldTriggerNow(agent, now, agent._id)) {
                     logger.info(`📤 Triggering API for agent ${agent._id} in org ${org.name}`);
                     // call your API trigger function here, e.g.
                     try {
-                        const pythonServerUri = `${
-                            process.env.AI_AGENT_SERVER_URI
-                        }/task-agent?task_name=${encodeURIComponent(agent.name)}&org_id=${org._id}`;
+                        // const pythonServerUri = `${
+                        //     process.env.AI_AGENT_SERVER_URI
+                        // }/task-agent?task_name=${encodeURIComponent(agent.name)}&org_id=${org._id}`;
+                        const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent.name}&org_id=${org._id}&query='hilton'`;
                         logger.info(`📤 API URI triggered ${pythonServerUri}`);
 
-                        const response = await axios.post(pythonServerUri);
+                        const response = await axios.get(pythonServerUri);
                         logger.info('✅ Cron job completed\n');
 
                         console.log(`✅ [${org._id}] Task: ${agent.name} responded with status ${response.status}`);

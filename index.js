@@ -158,7 +158,7 @@ app.post('/api/send-whatsapp', async (req, res) => {
     // Payload for WhatsApp message
     const payload = {
       messaging_product: 'whatsapp',
-      to: '+9779843063571',
+      to: '+18137863140',
       type: 'text',
       text: {
         body: message,

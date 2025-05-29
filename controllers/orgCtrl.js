@@ -183,7 +183,8 @@ exports.getOrg = async (req, res) => {
             zendesk_token,
             zendesk_user,
             zendesk_subdomain,
-            hubspot_bearer_token
+            hubspot_bearer_token,
+            whatsappConfig
         } = org;
         const orgResponsePayload = {
             _id,
@@ -214,7 +215,8 @@ exports.getOrg = async (req, res) => {
             zendesk_token,
             zendesk_user,
             zendesk_subdomain,
-            hubspot_bearer_token
+            hubspot_bearer_token,
+            whatsappConfig
         };
         return res.json({ org: orgResponsePayload });
     } catch (error) {
@@ -257,7 +259,8 @@ exports.editOrg = async (req, res) => {
             mockData,
             configuration,
             additionalPrompt,
-            orgDbSetting
+            orgDbSetting,
+            whatsappConfig
         } = req.body;
 
         let payload = null;
@@ -266,6 +269,7 @@ exports.editOrg = async (req, res) => {
                 model: selectedModel,
                 temperature,
                 api: apiKey,
+                whatsappConfig,
                 ...orgDbSetting
             };
         } else if (configuration == 'configuration') {

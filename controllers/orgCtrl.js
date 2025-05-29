@@ -575,7 +575,7 @@ exports.updateOrgAgentInstructions = async (req, res) => {
         console.log('req.body', req.body);
 
         const { _id, tasks, ...agentData } = req.body;
-        agentData.active = agentData.isActive.toLowerCase() == 'y' ? true : false;
+        agentData.active = agentData?.isActive?.toLowerCase() == 'y' ? true : false;
 
         // Check if the organization is present
         if (!req.user.organization) {

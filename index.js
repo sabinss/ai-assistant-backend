@@ -13,49 +13,200 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
 const { googleOauthHandler } = require('./controllers/session.controller');
 const { handleTaskAgentCronJob } = require('./cronJob/taskAgentJob');
-
+const webhookRoute = require('./webhook');
+const Organization = require('./models/Organization');
+const User = require('./models/User');
 app.use(express.json());
 
 const corsOptions = {
-    origin: '*',
-    credentials: true
+  origin: '*',
+  credentials: true,
 };
 
 app.use(cors(corsOptions));
 app.use(bodyParser.urlencoded({ extended: false }));
 // app.options('*', cors(corsOptions)); // Preflight request support
 app.use((err, req, res, next) => {
-    if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ error: 'File too large. Max size is 5MB.' });
-    }
-    next(err);
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ error: 'File too large. Max size is 5MB.' });
+  }
+  next(err);
 });
 db.connect();
 app.get('/health-check', async (req, res) => {
-    const check = await db.connect();
-    if (!check) {
-        res.status(500).send('Not OK');
-    }
-    res.status(200).send('CoWrkr API running..');
+  const check = await db.connect();
+  if (!check) {
+    res.status(500).send('Not OK');
+  }
+  res.status(200).send('CoWrkr API running..');
 });
 
 app.get('/api/sessions/oauth/google', googleOauthHandler);
+// app.use('/webhook', webhookRoute);
+app.get('/webhook', (req, res) => {
+  const VERIFY_TOKEN = 'my_verify_token'; // same as what you'll enter on Meta
 
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode && token === VERIFY_TOKEN) {
+    console.log('WEBHOOK_VERIFIED');
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
+  }
+});
+const processedMessages = new Set(); // Use Redis or DB for production
+
+// Receive messages
+app.post('/webhook', async (req, res) => {
+  console.log('webhook triggered', req.body.entry);
+  const entry = req.body.entry;
+
+  if (
+    entry &&
+    entry.length > 0 &&
+    entry[0].changes &&
+    entry[0].changes.length > 0
+  ) {
+    const change = entry[0].changes[0];
+    const phoneNumberId = change?.value?.metadata?.phone_number_id;
+
+    if (
+      change.value &&
+      change.value.messages &&
+      change.value.messages.length > 0
+    ) {
+      const message = change.value.messages[0];
+      const senderNumber = message.from; // e.g. '9779843063571'
+      const whatsAppMessage = message.text?.body || ''; // message content
+      const messageId = message.id;
+      // 🧠 Deduplication check
+      if (processedMessages.has(messageId)) {
+        console.log('Duplicate message. Skipping:', messageId);
+        return;
+      }
+      processedMessages.add(messageId);
+      setTimeout(() => processedMessages.delete(messageId), 5 * 60 * 1000); // 5 min
+      console.log('Sender:', senderNumber);
+      console.log('Message:', whatsAppMessage);
+      // 🔍 Find organization with matching WhatsApp Phone Number ID
+      const organization = await Organization.findOne({
+        'whatsappConfig.whatsAppPhoneNumberId': phoneNumberId,
+      });
+      console.log('organization', organization);
+
+      if (!organization) {
+        console.log('No organization found for this WhatsApp number.');
+        return;
+      }
+      let user_email = null;
+
+      const user = await User.findOne({
+        organization: organization._id,
+      });
+      if (user) {
+        user_email = user.email;
+      }
+      console.log('user', user);
+      let url = `${
+        process.env.AI_AGENT_SERVER_URI
+      }/ask/public?query=${encodeURIComponent(
+        whatsAppMessage
+      )}&user_email=${user_email}&org_id=${organization._id}&customer_id=null`;
+      console.log('url', url);
+      const response = await axios.get(url);
+      console.log('response', response.data);
+    } else {
+      console.log('No message content received.');
+    }
+  } else {
+    console.log('No entry/changes in webhook payload.');
+  }
+});
+
+app.post('/api/send-whatsapp', async (req, res) => {
+  console.log('Message received from python server', req.body);
+
+  try {
+    const { organization_id: orgId, message } = req.body;
+    if (!orgId) {
+      console.log('orgId  is missing, cannot fetch whatsapp config');
+    }
+    const organization = await Organization.findById(orgId).select(
+      'whatsappConfig'
+    );
+    const { whatsappPhoneNumber, whatsAppPhoneNumberId, whatsappToken } =
+      organization.whatsappConfig;
+    console.log(
+      'whatsapp config',
+      whatsappPhoneNumber,
+      whatsAppPhoneNumberId,
+      whatsappToken
+    );
+    if (!whatsappToken || !whatsAppPhoneNumberId || !whatsappPhoneNumber) {
+      console.log('Whatsapp config is missing');
+    }
+    // Clean and format the recipient phone number to E.164 format (basic example)
+    const formattedToNumber = whatsappPhoneNumber.replace(/\D/g, ''); // remove non-digits
+    const e164Number = `+${formattedToNumber}`;
+
+    // WhatsApp API endpoint
+    const url = `https://graph.facebook.com/v22.0/${whatsAppPhoneNumberId}/messages`;
+    console.log('uri', url, e164Number);
+    // Payload for WhatsApp message
+    const payload = {
+      messaging_product: 'whatsapp',
+      to: '+9779843063571',
+      type: 'text',
+      text: {
+        body: message,
+      },
+    };
+    // const payload = {
+    //     messaging_product: 'whatsapp',
+    //     to: '+9779843063571', // Must be E.164 format
+    //     type: 'template',
+    //     template: {
+    //         name: 'hello_world',
+    //         language: {
+    //             code: 'en_US'
+    //         }
+    //     }
+    // };
+    console.log('whatsapp payload', payload);
+    // Send the message via HTTP POST using axios
+    const response = await axios.post(url, payload, {
+      headers: {
+        Authorization: `Bearer ${whatsappToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    res
+      .status(200)
+      .json({ success: true, message: 'Whatsapp message send successfully' });
+
+    console.log('WhatsApp message sent:', response.data);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error });
+  }
+});
 require('./service/userAuth');
 require('./models');
 require('./routes')(app);
 // Run every day at 6 AM UTC (1 AM EST)
 let cronTrigger = '* 6 * * *';
 cron.schedule(cronTrigger, async () => {
-    console.log('Running job at 6:00 AM GMT / 1:00 AM EST');
-    try {
-        await handleTaskAgentCronJob();
-        console.log('task agent cron job completed');
-    } catch (err) {
-        console.log('Cron job error', err);
-    }
+  console.log('Running job at 6:00 AM GMT / 1:00 AM EST');
+  try {
+    await handleTaskAgentCronJob();
+    console.log('task agent cron job completed');
+  } catch (err) {
+    console.log('Cron job error', err);
+  }
 });
 
 app.listen(port, () => {
-    console.log(`Listening on port: ${port}`);
+  console.log(`Listening on port: ${port}`);
 });

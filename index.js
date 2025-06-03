@@ -129,7 +129,6 @@ app.post('/webhook', async (req, res) => {
                             'Content-Type': 'application/json'
                         }
                     });
-                    res.status(200).json({ success: true, message: 'Whatsapp message send successfully' });
                 } catch (err) {
                     console.log('Whatspp message send failed', err);
                 }
@@ -140,6 +139,7 @@ app.post('/webhook', async (req, res) => {
     } else {
         console.log('No entry/changes in webhook payload.');
     }
+    return res.status(200).end(); // ✅ always respond once and only once
 });
 
 app.post('/api/send-whatsapp', async (req, res) => {

@@ -25,6 +25,10 @@ module.exports = (app) => {
     authUser,
     ctl.disconnectOrgGoogleUser
   );
+  app.post(
+    `${process.env.APP_URL}/auth/google-oauth/exchange`,
+    ctl.googleOauthCodeExchange
+  );
 
   // app.post(`${process.env.APP_URL}/auth/tokenRefresh`, ctl.tokenRefresh);
 };

@@ -10,6 +10,10 @@ const ConfirmToken = require('../models/ConfirmToken');
 const rolePermission = require('../helper/rolePermission');
 const GoogleUser = require('../models/GoogleUser');
 const axios = require('axios');
+const {
+  getGoogleAuthTokens,
+  getGoogleUser,
+} = require('../service/userService');
 
 exports.signup = async (req, res) => {
     const { first_name, last_name, email, organization_name, ai_assistant_name, password } = req.body;
@@ -73,6 +77,52 @@ const revokeGoogleToken = async refreshToken => {
         console.error('Failed to revoke token:', err.response?.data || err.message);
         return false;
     }
+};
+
+exports.googleOauthCodeExchange = async (req, res) => {
+  try {
+    const { code, orgId } = req.body;
+    console.log(code, orgId);
+    const emailCredential = await getGoogleAuthTokens({
+      code,
+    });
+    const googleUser = await getGoogleUser({
+      id_token: emailCredential.id_token,
+      access_token: emailCredential.access_token,
+    });
+    console.log('googleUser', googleUser);
+    if (!googleUser || !googleUser.email) {
+      console.log('Failed to retrieve google user details');
+    }
+    const existingUser = await User.findOne({
+      email: googleUser.email,
+    });
+
+    // Update or link the logged-in user with their Google account
+    let googleUserPayload = {
+      googleId: googleUser.id,
+      isGoogleUser: true,
+      user: existingUser ? existingUser.id : null,
+      emailCredential,
+      isActive: true,
+    };
+    if (orgId) {
+      googleUserPayload.organization = orgId;
+    }
+    console.log('Google user payload', googleUserPayload);
+    const newGoogleUser = await GoogleUser.findOneAndUpdate(
+      { email: googleUser.email },
+      googleUserPayload,
+      { new: true, upsert: true }
+    );
+    console.log('newGoogleUser', newGoogleUser);
+    //redirect back to client
+    // res.redirect(process.env.CLIENT_URI);
+    res.status(200).json({
+      success: true,
+      message: 'Google oauth success',
+    });
+  } catch (err) {}
 };
 
 exports.disconnectOrgGoogleUser = async (req, res) => {

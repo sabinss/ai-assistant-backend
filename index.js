@@ -17,6 +17,7 @@ const webhookRoute = require('./webhook');
 const Organization = require('./models/Organization');
 const User = require('./models/User');
 app.use(express.json());
+const { v4: uuidv4 } = require('uuid');
 
 const corsOptions = {
     origin: '*',
@@ -58,6 +59,24 @@ app.get('/webhook', (req, res) => {
     }
 });
 const processedMessages = new Set(); // Use Redis or DB for production
+const sessions = new Map(); // In-memory map: { senderNumber => sessionId }
+
+const SESSION_TIMEOUT_MINUTES = 10;
+function createOrUpdateSession(senderNumber) {
+    const existing = sessions.get(senderNumber);
+    if (existing) {
+        clearTimeout(existing.timeoutId);
+    }
+
+    const sessionId = existing?.sessionId || uuidv4(); // use old or new session
+    const timeoutId = setTimeout(() => {
+        console.log(`🕒 Session expired for ${senderNumber}`);
+        sessions.delete(senderNumber);
+    }, SESSION_TIMEOUT_MINUTES * 60 * 1000); // 10 minutes
+
+    sessions.set(senderNumber, { sessionId, timeoutId });
+    return sessionId;
+}
 
 // Receive messages
 app.post('/webhook', async (req, res) => {
@@ -101,10 +120,18 @@ app.post('/webhook', async (req, res) => {
                 user_email = user.email;
             }
             console.log('user', user);
+
             let url = `${process.env.AI_AGENT_SERVER_URI}/ask/public?query=${encodeURIComponent(
                 whatsAppMessage
             )}&user_email=${user_email}&org_id=${organization._id}&customer_id=null`;
             console.log('url', url);
+
+            // Generate or retrieve session ID
+            let sessionId = createOrUpdateSession(senderNumber);
+            if (sessionId) {
+                url += `&session_id=${encodeURIComponent(sessionId)}`;
+            }
+
             const response = await axios.get(url);
             const answer = response.data.message;
             console.log('answer', answer);
@@ -117,7 +144,7 @@ app.post('/webhook', async (req, res) => {
                 const payload = {
                     messaging_product: 'whatsapp',
                     // to: '9779843063571',
-                    to: '18137863140',
+                    to: senderNumber ? senderNumber : '18137863140',
                     type: 'text',
                     text: {
                         body: answer
@@ -145,9 +172,9 @@ app.post('/webhook', async (req, res) => {
 
 app.post('/api/send-whatsapp', async (req, res) => {
     console.log('Message received from python server', req.body);
+    const { organization_id: orgId, message, to } = req.body;
 
     try {
-        const { organization_id: orgId, message } = req.body;
         if (!orgId) {
             console.log('orgId  is missing, cannot fetch whatsapp config');
         }
@@ -167,23 +194,12 @@ app.post('/api/send-whatsapp', async (req, res) => {
         // Payload for WhatsApp message
         const payload = {
             messaging_product: 'whatsapp',
-            to: '18137863140',
+            to: to ? to : '18137863140',
             type: 'text',
             text: {
                 body: message
             }
         };
-        // const payload = {
-        //     messaging_product: 'whatsapp',
-        //     to: '+9779843063571', // Must be E.164 format
-        //     type: 'template',
-        //     template: {
-        //         name: 'hello_world',
-        //         language: {
-        //             code: 'en_US'
-        //         }
-        //     }
-        // };
         console.log('whatsapp payload', payload);
         // Send the message via HTTP POST using axios
         const response = await axios.post(url, payload, {

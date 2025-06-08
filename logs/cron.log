@@ -1,0 +1,14 @@
+[2025-06-07 06:32:00] INFO: ⏰ Cron job started at 2025-06-07 06:32:00
+[2025-06-07 06:32:05] INFO: 🔁 [Agent 67fd64b53bd5e57568999024] Daily check @ 2025-06-07T06:32:00+05:45 → 
+[2025-06-07 06:32:05] INFO: 📤 Triggering API for agent 67fd64b53bd5e57568999024 in org DriftBeyond
+[2025-06-07 06:32:05] INFO: 📤 API URI triggered http://3.17.138.140:8000/ask/agent?agent_name=Detail Daily Calls Analysis&org_id=67e967473bd5e575689984b2&query='hilton'
+[2025-06-07 06:32:06] ERROR: ❌ Error during cron job: AxiosError: Request failed with status code 500
+    at settle (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/node_modules/axios/dist/node/axios.cjs:2049:12)
+    at IncomingMessage.handleStreamEnd (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/node_modules/axios/dist/node/axios.cjs:3166:11)
+    at IncomingMessage.emit (node:events:530:35)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+    at Axios.request (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/node_modules/axios/dist/node/axios.cjs:4276:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async handleTaskAgentCronJob (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/cronJob/taskAgentJob.js:144:42)
+    at async Task._execution (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/index.js:226:9)

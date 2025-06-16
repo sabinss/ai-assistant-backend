@@ -12,3 +12,24 @@
     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
     at async handleTaskAgentCronJob (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/cronJob/taskAgentJob.js:144:42)
     at async Task._execution (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/index.js:226:9)
+[2025-06-14 06:36:00] INFO: ⏰ Cron job started at 2025-06-14 06:36:00
+[2025-06-14 06:37:00] INFO: ⏰ Cron job started at 2025-06-14 06:37:00
+[2025-06-14 06:38:00] INFO: ⏰ Cron job started at 2025-06-14 06:38:00
+[2025-06-14 06:39:00] INFO: ⏰ Cron job started at 2025-06-14 06:39:00
+[2025-06-14 06:40:00] INFO: ⏰ Cron job started at 2025-06-14 06:40:00
+[2025-06-14 06:41:00] INFO: ⏰ Cron job started at 2025-06-14 06:41:00
+[2025-06-14 06:42:00] INFO: ⏰ Cron job started at 2025-06-14 06:42:00
+[2025-06-14 06:43:00] INFO: ⏰ Cron job started at 2025-06-14 06:43:00
+[2025-06-14 06:47:00] INFO: ⏰ Cron job started at 2025-06-14 06:47:00
+[2025-06-14 06:48:00] INFO: ⏰ Cron job started at 2025-06-14 06:48:00
+[2025-06-14 06:49:00] INFO: ⏰ Cron job started at 2025-06-14 06:49:00
+[2025-06-14 06:50:00] INFO: ⏰ Cron job started at 2025-06-14 06:50:00
+[2025-06-14 06:51:00] INFO: ⏰ Cron job started at 2025-06-14 06:51:00
+[2025-06-14 06:52:00] INFO: ⏰ Cron job started at 2025-06-14 06:52:00
+[2025-06-14 06:53:00] INFO: ⏰ Cron job started at 2025-06-14 06:53:00
+[2025-06-14 06:54:00] INFO: ⏰ Cron job started at 2025-06-14 06:54:00
+[2025-06-14 06:55:00] INFO: ⏰ Cron job started at 2025-06-14 06:55:00
+[2025-06-14 06:56:00] INFO: ⏰ Cron job started at 2025-06-14 06:56:00
+[2025-06-14 06:57:00] INFO: ⏰ Cron job started at 2025-06-14 06:57:00
+[2025-06-14 06:58:00] INFO: ⏰ Cron job started at 2025-06-14 06:58:00
+[2025-06-14 06:59:00] INFO: ⏰ Cron job started at 2025-06-14 06:59:00

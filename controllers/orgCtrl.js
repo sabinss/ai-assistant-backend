@@ -520,6 +520,7 @@ exports.callTaskAgentPythonApi = async (req, res) => {
 exports.getOrgAgentInstructions = async (req, res) => {
     try {
         const { organization } = req.user;
+        const { from } = req.query;
         // const { agent_name } = req.query;
         // Step 1: Fetch all agents for the given organization
         let agents = await AgentModel.find({ organization });
@@ -527,9 +528,12 @@ exports.getOrgAgentInstructions = async (req, res) => {
             const { isAgent, ...rest } = agent.toObject(); // convert Mongoose document to plain object
             return {
                 ...rest,
-                non_Interactive: isAgent
+                isAgent: isAgent
             };
         });
+        if (from == 'chat') {
+            agents = agents.filter(x => x.isAgent == false || x.isAgent == null);
+        }
         // if (agent_name) {
         //   agents = agents.filter(
         //     (x) => x.name.toLowerCase() == agent_name.toLowerCase()

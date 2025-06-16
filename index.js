@@ -34,6 +34,7 @@ app.use((err, req, res, next) => {
     next(err);
 });
 db.connect();
+
 app.get('/health-check', async (req, res) => {
     const check = await db.connect();
     if (!check) {

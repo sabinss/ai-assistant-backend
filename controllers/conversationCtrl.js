@@ -97,12 +97,6 @@ exports.addConversation = async (req, res) => {
       pythonResponse.data.on('end', async () => {
         try {
           // Send end even
-          res.write(
-            `data: ${JSON.stringify({
-              done: true,
-              session_id: session_id,
-            })}\n\n`
-          );
 
           answer = completeMessage;
           let payload = {
@@ -117,6 +111,13 @@ exports.addConversation = async (req, res) => {
 
           const newConversation = new Conversation(payload);
           await newConversation.save();
+          res.write(
+            `data: ${JSON.stringify({
+              done: true,
+              session_id: session_id,
+              id: newConversation._id,
+            })}\n\n`
+          );
 
           res.end();
         } catch (error) {
@@ -257,12 +258,6 @@ exports.addCustomAgentConversation = async (req, res) => {
     pythonResponse.data.on('end', async () => {
       try {
         // Send end event
-        res.write(
-          `data: ${JSON.stringify({
-            done: true,
-            session_id: session_id,
-          })}\n\n`
-        );
 
         const answer = completeMessage; // Use the accumulated message
 
@@ -282,8 +277,15 @@ exports.addCustomAgentConversation = async (req, res) => {
         const newConversation = new Conversation(payload);
 
         // Save the conversation to database
-        await newConversation.save();
+        let c = await newConversation.save();
         console.log('Agent conversation saved successfully.');
+        res.write(
+          `data: ${JSON.stringify({
+            done: true,
+            session_id: session_id,
+            id: c._id,
+          })}\n\n`
+        );
 
         res.end(); // End the response stream
       } catch (error) {

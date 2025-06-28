@@ -7,4 +7,4 @@
     at Axios.request (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/node_modules/axios/dist/node/axios.cjs:4276:41)
     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
     at async handleTaskAgentCronJob (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/cronJob/taskAgentJob.js:144:42)
-    at async Task._execution (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/index.js:226:9)
+    at async Task._execution (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/index.js:226:9)ss

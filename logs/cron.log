@@ -2,7 +2,7 @@
 [2025-06-07 06:32:05] INFO: 🔁 [Agent 67fd64b53bd5e57568999024] Daily check @ 2025-06-07T06:32:00+05:45 → 
 [2025-06-07 06:32:05] INFO: 📤 Triggering API for agent 67fd64b53bd5e57568999024 in org DriftBeyond
 [2025-06-07 06:32:05] INFO: 📤 API URI triggered http://3.17.138.140:8000/ask/agent?agent_name=Detail Daily Calls Analysis&org_id=67e967473bd5e575689984b2&query='hilton'
-[2025-06-07 06:32:06] ERROR: ❌ Error during cron job: AxiosError: Request failed with status code 500
+[2025-06-07 06:32:06] ERROR: ❌ Error during cron job: AxiosError: Request failed with status code 500 -
     at settle (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/node_modules/axios/dist/node/axios.cjs:2049:12)
     at IncomingMessage.handleStreamEnd (/Users/sabin/Desktop/My Projects/Freelance/ai-assistant-backend/node_modules/axios/dist/node/axios.cjs:3166:11)
     at IncomingMessage.emit (node:events:530:35)
@@ -33,3 +33,9 @@
 [2025-06-14 06:57:00] INFO: ⏰ Cron job started at 2025-06-14 06:57:00
 [2025-06-14 06:58:00] INFO: ⏰ Cron job started at 2025-06-14 06:58:00
 [2025-06-14 06:59:00] INFO: ⏰ Cron job started at 2025-06-14 06:59:00
+[2025-06-27 06:47:00] INFO: ⏰ Cron job started at 2025-06-27 06:47:00
+[2025-06-28 06:00:00] INFO: ⏰ Cron job started at 2025-06-28 06:00:00
+[2025-06-28 06:06:00] INFO: ⏰ Cron job started at 2025-06-28 06:06:00
+[2025-06-28 06:06:01] INFO: 🗓️ [Agent 67e42cb28152290ae224bee7] Quarterly check: Month=6, Day=28, OrgDay=1 → false
+[2025-06-28 06:22:00] INFO: ⏰ Cron job started at 2025-06-28 06:22:00
+[2025-06-28 06:22:01] INFO: 🗓️ [Agent 67e42cb28152290ae224bee7] Quarterly check: Month=6, Day=28, OrgDay=1 → false

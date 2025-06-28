@@ -37,7 +37,6 @@ module.exports = (app) => {
     authUser,
     ctl.addCustomAgentConversation
   );
-
   app.post(
     `${process.env.APP_URL}/conversation/public/update_like_dislike`,
     publicChat,

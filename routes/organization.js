@@ -113,6 +113,12 @@ module.exports = (app) => {
     ctl.getOrgAgentInstructions
   );
 
+  app.delete(
+    `${process.env.APP_URL}/organization/agent/:id/instruction`,
+    authUser,
+    ctl.deleteAgentInstruction
+  );
+
   app.get(
     `${process.env.APP_URL}/organization/agent`,
     verifySameOrganization,

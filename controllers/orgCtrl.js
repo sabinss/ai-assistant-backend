@@ -202,6 +202,7 @@ exports.getOrg = async (req, res) => {
       zendesk_user,
       zendesk_subdomain,
       hubspot_bearer_token,
+      whatsappConfig,
     } = org;
     const orgResponsePayload = {
       _id,
@@ -233,6 +234,7 @@ exports.getOrg = async (req, res) => {
       zendesk_user,
       zendesk_subdomain,
       hubspot_bearer_token,
+      whatsappConfig,
     };
     return res.json({ org: orgResponsePayload });
   } catch (error) {
@@ -280,6 +282,7 @@ exports.editOrg = async (req, res) => {
       configuration,
       additionalPrompt,
       orgDbSetting,
+      whatsappConfig,
     } = req.body;
 
     let payload = null;
@@ -288,6 +291,7 @@ exports.editOrg = async (req, res) => {
         model: selectedModel,
         temperature,
         api: apiKey,
+        whatsappConfig,
         ...orgDbSetting,
       };
     } else if (configuration == 'configuration') {
@@ -558,9 +562,20 @@ exports.callTaskAgentPythonApi = async (req, res) => {
   }
 };
 
+exports.deleteAgentInstruction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { organization } = req.user;
+    await AgentModel.findByIdAndDelete(id);
+    res.status(200).json({ message: 'Agent instruction deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error', err });
+  }
+};
 exports.getOrgAgentInstructions = async (req, res) => {
   try {
     const { organization } = req.user;
+    const { from } = req.query;
     // const { agent_name } = req.query;
     // Step 1: Fetch all agents for the given organization
     let agents = await AgentModel.find({ organization });
@@ -568,9 +583,12 @@ exports.getOrgAgentInstructions = async (req, res) => {
       const { isAgent, ...rest } = agent.toObject(); // convert Mongoose document to plain object
       return {
         ...rest,
-        non_Interactive: isAgent,
+        isAgent: isAgent,
       };
     });
+    if (from == 'chat') {
+      agents = agents.filter((x) => x.isAgent == false || x.isAgent == null);
+    }
     // if (agent_name) {
     //   agents = agents.filter(
     //     (x) => x.name.toLowerCase() == agent_name.toLowerCase()

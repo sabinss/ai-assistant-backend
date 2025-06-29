@@ -23,9 +23,10 @@ module.exports = app => {
             authUser,
             (req, res, next) => {
                 uploadMiddleware(req, res, err => {
+                    console.log('Rag file upload error', err);
                     if (err instanceof multer.MulterError) {
                         if (err.code === 'LIMIT_FILE_SIZE') {
-                            return res.status(400).json({ error: 'File too large. Max size is 2MB.' });
+                            return res.status(400).json({ error: 'File too large. Max size is 40mMB.' });
                         }
                         return res.status(400).json({ error: err.message });
                     } else if (err) {

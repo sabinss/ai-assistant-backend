@@ -84,7 +84,7 @@ const shouldTriggerNow = (org, now, agentId) => {
   const { frequency, dayTime } = org;
   switch (frequency) {
     case 'Daily':
-      logger.info(`🔁 [Agent ${agentId}] Daily check @ ${now.format()} → `);
+      //   logger.info(`🔁 [Agent ${agentId}] Daily check @ ${now.format()} → `);
       return true;
       return now.hour() === 1; // always true at 1 AM
     case 'Weekly':
@@ -92,18 +92,18 @@ const shouldTriggerNow = (org, now, agentId) => {
       const todayWeekDay = now.isoWeekday(); // 1-7
       const orgWeekDay = parseInt(dayTime.replace('W-', ''));
       const isWeekly = todayWeekDay === orgWeekDay;
-      logger.info(
-        `📅 [Agent ${agentId}] Weekly check: Today=${todayWeekDay}, Org=${orgWeekDay} → ${isWeekly}`
-      );
+      //   logger.info(
+      //     `📅 [Agent ${agentId}] Weekly check: Today=${todayWeekDay}, Org=${orgWeekDay} → ${isWeekly}`
+      //   );
       return isWeekly;
     case 'Monthly':
       // `M-15` means 15th of the month
       const todayDate = now.date(); // 1-31
       const orgDay = parseInt(dayTime.replace('M-', ''));
       const isMonthly = todayDate === orgDay;
-      logger.info(
-        `📆 [Agent ${agentId}] Monthly check: Today=${todayDate}, Org=${orgDay} → ${isMonthly}`
-      );
+      //   logger.info(
+      //     `📆 [Agent ${agentId}] Monthly check: Today=${todayDate}, Org=${orgDay} → ${isMonthly}`
+      //   );
       return isMonthly;
     case 'Quarterly':
       const quarterMonths = [1, 4, 7, 10];
@@ -112,9 +112,9 @@ const shouldTriggerNow = (org, now, agentId) => {
       const isQuarterMonth = quarterMonths.includes(currentMonth);
       const isQuarterDay = now.date() === quarterDay;
       const isQuarterly = isQuarterMonth && isQuarterDay;
-      logger.info(
-        `🗓️ [Agent ${agentId}] Quarterly check: Month=${currentMonth}, Day=${now.date()}, OrgDay=${quarterDay} → ${isQuarterly}`
-      );
+      //   logger.info(
+      //     `🗓️ [Agent ${agentId}] Quarterly check: Month=${currentMonth}, Day=${now.date()}, OrgDay=${quarterDay} → ${isQuarterly}`
+      //   );
       return isQuarterly;
     default:
       return false;
@@ -124,7 +124,7 @@ const shouldTriggerNow = (org, now, agentId) => {
 const handleTaskAgentCronJob = async () => {
   try {
     const now = moment();
-    logger.info(`⏰ Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`);
+    // logger.info(`⏰ Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`);
 
     const allOrgs = await Organization.find();
     for (const org of allOrgs) {
@@ -139,27 +139,27 @@ const handleTaskAgentCronJob = async () => {
 
       for (const agent of activeAgents) {
         if (shouldTriggerNow(agent, now, agent._id)) {
-          logger.info(
-            `📤 Triggering API for agent ${agent._id} in org ${org.name}`
-          );
+          //   logger.info(
+          //     `📤 Triggering API for agent ${agent._id} in org ${org.name}`
+          //   );
           // call your API trigger function here, e.g.
           try {
             // const pythonServerUri = `${
             //     process.env.AI_AGENT_SERVER_URI
             // }/task-agent?task_name=${encodeURIComponent(agent.name)}&org_id=${org._id}`;
             const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent.name}&org_id=${org._id}&query='hilton'`;
-            logger.info(`📤 API URI triggered ${pythonServerUri}`);
+            // logger.info(`📤 API URI triggered ${pythonServerUri}`);
 
             const response = await axios.get(pythonServerUri);
-            logger.info('✅ Cron job completed\n');
+            // logger.info('✅ Cron job completed\n');
 
             console.log(
               `✅ [${org._id}] Task: ${agent.name} responded with status ${response.status}`
             );
           } catch (error) {
-            logger.error(
-              `❌ Error during cron job: ${error.stack || error.message}`
-            );
+            // logger.error(
+            //   `❌ Error during cron job: ${error.stack || error.message}`
+            // );
 
             console.log('Failed Cron job api', error);
           }

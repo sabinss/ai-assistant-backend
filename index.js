@@ -25,7 +25,9 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json({ limit: '40mb' }));
+app.use(bodyParser.urlencoded({ extended: false, limit: '40mb' }));
+
 // app.options('*', cors(corsOptions)); // Preflight request support
 app.use((err, req, res, next) => {
     if (err.code === 'LIMIT_FILE_SIZE') {

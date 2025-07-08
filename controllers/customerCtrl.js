@@ -84,6 +84,28 @@ exports.getCustomerLoginDetail = async (req, res) => {
     }
 };
 
+exports.updateCustomerDetail = async (req, res) => {
+    try {
+        const { id } = req.params; // Customer ID
+        const { stage } = req.body; // Fields to update
+
+        if (!id) {
+            return res.status(400).json({ message: 'Customer ID is required' });
+        }
+
+        const updatedCustomer = await Customer.findByIdAndUpdate(id, { stage }, { new: true, runValidators: true });
+
+        if (!updatedCustomer) {
+            return res.status(404).json({ message: 'Customer not found' });
+        }
+
+        return res.status(200).json({ message: 'Customer updated successfully', data: updatedCustomer });
+    } catch (err) {
+        console.error('Error updating customer:', err);
+        return res.status(500).json({ message: 'Internal server error', error: err.message });
+    }
+};
+
 exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
     try {
         const session_id = Math.floor(1000 + Math.random() * 9000);

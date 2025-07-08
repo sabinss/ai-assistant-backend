@@ -8,4 +8,5 @@ module.exports = app => {
     app.get(`${process.env.APP_URL}/customer/details`, verifySameOrganization, ctl.getCustomerDetail);
     app.post(`${process.env.APP_URL}/customer`, verifySameOrganization, ctl.createCustomer);
     app.get(`${process.env.APP_URL}/customer/redshift`, authUser, ctl.fetchCustomerDetailsFromRedshift);
+    app.put(`${process.env.APP_URL}/customer/:id`, authUser, ctl.updateCustomerDetail);
 };

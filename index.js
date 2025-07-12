@@ -18,13 +18,13 @@ const Organization = require('./models/Organization');
 const User = require('./models/User');
 app.use(express.json());
 const { v4: uuidv4 } = require('uuid');
-
 const corsOptions = {
     origin: '*',
     credentials: true
 };
 
 app.use(cors(corsOptions));
+app.use(express.json());
 app.use(bodyParser.json({ limit: '40mb' }));
 app.use(bodyParser.urlencoded({ extended: false, limit: '40mb' }));
 
@@ -43,6 +43,31 @@ app.get('/health-check', async (req, res) => {
         res.status(500).send('Not OK');
     }
     res.status(200).send('CoWrkr API running..');
+});
+
+app.post('/api/events', async (req, res) => {
+    console.log('Raw req.body:\n', JSON.stringify(req.body, null, 2));
+    const url = 'https://grjr9d0i7k.execute-api.us-east-2.amazonaws.com/dev/api/customer_features';
+    const payload = {
+        email: 'sushilbhatachas@gmail.com',
+        feature_id: 'login',
+        feature_date: new Date().toISOString(),
+        device: 'web',
+        organization: '66158fe71bfe10b58cb23eea'
+    };
+    try {
+        const response = await axios.post(url, payload, {
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer 666158fe71bfe10b58cb23eea'
+            }
+        });
+
+        console.log('✅ API Response:', response.data);
+        res.status(200).json({ message: 'Event tracked successfully', data: response.data });
+    } catch (err) {
+        console.log('err', err);
+    }
 });
 
 app.get('/api/sessions/oauth/google', googleOauthHandler);

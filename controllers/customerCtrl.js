@@ -99,13 +99,87 @@ exports.updateCustomerDetail = async (req, res) => {
             return res.status(404).json({ message: 'Customer not found' });
         }
 
-        return res.status(200).json({ message: 'Customer updated successfully', data: updatedCustomer });
+        return res.status(200).json({
+            message: 'Customer updated successfully',
+            data: updatedCustomer
+        });
     } catch (err) {
         console.error('Error updating customer:', err);
         return res.status(500).json({ message: 'Internal server error', error: err.message });
     }
 };
 
+exports.getCustomerScore = async (req, res) => {
+    try {
+        const session_id = Math.floor(1000 + Math.random() * 9000);
+        const org_id = req.user.organization.toString(); // e.g., '12'
+        const customer_id = req.params.id || req.query.id; // e.g., '123123'
+
+        if (!customer_id) {
+            return res.status(400).json({ message: 'Missing customer_id' });
+        }
+
+        const sql_query = `
+        SELECT * FROM db${org_id}.customer_score_view 
+        WHERE customer_id = '${customer_id}' 
+          AND year = EXTRACT(YEAR FROM DATEADD(MONTH, -1, CURRENT_DATE)) 
+          AND month = EXTRACT(MONTH FROM DATEADD(MONTH, -1, CURRENT_DATE))
+      `;
+
+        const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
+            sql_query
+        )}&session_id=${session_id}&org_id=${org_id}`;
+
+        console.log('Requesting URL:', url);
+
+        const response = await axios.post(url);
+
+        if (response?.data?.error) {
+            return res.status(500).json({ message: response.data.error, error: response.data.error });
+        }
+        // has score and analysis
+        return res.status(200).json({ data: response.data.result.result_set });
+    } catch (error) {
+        console.error('Error fetching customer score:', error);
+        return res.status(500).json({ message: 'Internal Server Error', error });
+    }
+};
+
+exports.getCustomerScoreDetails = async (req, res) => {
+    try {
+        const session_id = Math.floor(1000 + Math.random() * 9000);
+        const org_id = req.user.organization.toString(); // e.g. '12'
+        const customer_id = req.params.id || req.query.id; // e.g. 'hilton'
+
+        if (!customer_id) {
+            return res.status(400).json({ message: 'Missing customer_id' });
+        }
+
+        const sql_query = `
+        SELECT * FROM db${org_id}.score_details_view 
+        WHERE customer_id = '${customer_id}' 
+          AND year = EXTRACT(YEAR FROM DATEADD(MONTH, -1, CURRENT_DATE)) 
+          AND month = EXTRACT(MONTH FROM DATEADD(MONTH, -1, CURRENT_DATE))
+      `;
+
+        const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
+            sql_query
+        )}&session_id=${session_id}&org_id=${org_id}`;
+
+        console.log('Requesting URL:', url);
+
+        const response = await axios.post(url);
+
+        if (response?.data?.error) {
+            return res.status(500).json({ message: response.data.error, error: response.data.error });
+        }
+        // key drivers
+        return res.status(200).json({ data: response.data.result.result_set });
+    } catch (error) {
+        console.error('Error fetching customer score details:', error);
+        return res.status(500).json({ message: 'Internal Server Error', error });
+    }
+};
 exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
     try {
         const session_id = Math.floor(1000 + Math.random() * 9000);
@@ -116,6 +190,10 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
             `/run-sql-query?sql_query=${sql_query}&session_id=${session_id}&org_id=${org_id}`;
         console.log('url', url);
         const response = await axios.post(url);
+        if (response?.data?.error) {
+            res.status(500).json({ message: response?.data?.error, error: response?.data?.error });
+            return;
+        }
         res.status(200).json({ data: response.data.result.result_set });
     } catch (err) {
         console.log('Err', err);

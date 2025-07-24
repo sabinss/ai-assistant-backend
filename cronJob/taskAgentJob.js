@@ -6,6 +6,7 @@ const TaskAgentModel = require('../models/TaskAgentModel');
 const moment = require('moment');
 const AgentModel = require('../models/AgentModel');
 const logger = require('../config/logger');
+const AgentCronLogSchema = require('../models/AgentCronLogSchema');
 function getCronSchedule(frequency, dayTime) {
   let minute = '0';
   let hour = '0';
@@ -85,8 +86,8 @@ const shouldTriggerNow = (org, now, agentId) => {
   switch (frequency) {
     case 'Daily':
       //   logger.info(`🔁 [Agent ${agentId}] Daily check @ ${now.format()} → `);
-      return true;
-      return now.hour() === 1; // always true at 1 AM
+      return now.date() == +dayTime;
+    // return now.hour() === 1; // always true at 1 AM
     case 'Weekly':
       // `W-1` = Monday (moment.isoWeekday: 1 = Monday, 7 = Sunday)
       const todayWeekDay = now.isoWeekday(); // 1-7
@@ -130,6 +131,7 @@ const handleTaskAgentCronJob = async () => {
     for (const org of allOrgs) {
       const activeAgents = await AgentModel.find({
         active: true,
+        isAgent: true,
         organization: org._id,
         frequency: { $ne: null },
         dayTime: { $ne: null },
@@ -152,6 +154,12 @@ const handleTaskAgentCronJob = async () => {
 
             const response = await axios.get(pythonServerUri);
             // logger.info('✅ Cron job completed\n');
+            await AgentCronLogSchema.create({
+              organization: org?._id,
+              agent: agent?._id,
+              status: 'success',
+              message: `Response status: ${response?.status}`,
+            });
 
             console.log(
               `✅ [${org._id}] Task: ${agent.name} responded with status ${response.status}`
@@ -162,6 +170,12 @@ const handleTaskAgentCronJob = async () => {
             // );
 
             console.log('Failed Cron job api', error);
+            await AgentCronLog.create({
+              organization: org._id,
+              agent: agent._id,
+              status: 'failure',
+              message: error?.message,
+            });
           }
         }
       }

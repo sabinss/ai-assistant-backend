@@ -18,6 +18,7 @@ const Organization = require('./models/Organization');
 const User = require('./models/User');
 app.use(express.json());
 const { v4: uuidv4 } = require('uuid');
+const AgentCronLogSchema = require('./models/AgentCronLogSchema');
 
 const corsOptions = {
   origin: '*',
@@ -244,7 +245,7 @@ require('./service/userAuth');
 require('./models');
 require('./routes')(app);
 // Run every day at 6 AM UTC (1 AM EST)
-let cronTrigger = '* 6 * * *';
+let cronTrigger = '0 6 * * *';
 cron.schedule(cronTrigger, async () => {
   console.log('Running job at 6:00 AM GMT / 1:00 AM EST');
   try {

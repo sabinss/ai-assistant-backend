@@ -86,8 +86,9 @@ const shouldTriggerNow = (org, now, agentId) => {
   switch (frequency) {
     case 'Daily':
       //   logger.info(`🔁 [Agent ${agentId}] Daily check @ ${now.format()} → `);
-      return now.date() == +dayTime;
-    // return now.hour() === 1; // always true at 1 AM
+      // return now.date() == +dayTime;
+      // return now.hour() === 1; // always true at 1 AM
+      return true;
     case 'Weekly':
       // `W-1` = Monday (moment.isoWeekday: 1 = Monday, 7 = Sunday)
       const todayWeekDay = now.isoWeekday(); // 1-7
@@ -137,23 +138,20 @@ const handleTaskAgentCronJob = async () => {
         dayTime: { $ne: null },
       }).populate('organization');
       console.log('activeAgents', activeAgents.length);
+      await AgentCronLogSchema.create({
+        organization: org._id,
+        agent: agent._id,
+        status: 'success',
+        message: `Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
+      });
       if (activeAgents?.length === 0) continue;
 
       for (const agent of activeAgents) {
         if (shouldTriggerNow(agent, now, agent._id)) {
-          //   logger.info(
-          //     `📤 Triggering API for agent ${agent._id} in org ${org.name}`
-          //   );
-          // call your API trigger function here, e.g.
           try {
-            // const pythonServerUri = `${
-            //     process.env.AI_AGENT_SERVER_URI
-            // }/task-agent?task_name=${encodeURIComponent(agent.name)}&org_id=${org._id}`;
             const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent.name}&org_id=${org._id}&query='hilton'`;
-            // logger.info(`📤 API URI triggered ${pythonServerUri}`);
 
             const response = await axios.get(pythonServerUri);
-            // logger.info('✅ Cron job completed\n');
             await AgentCronLogSchema.create({
               organization: org?._id,
               agent: agent?._id,
@@ -165,10 +163,6 @@ const handleTaskAgentCronJob = async () => {
               `✅ [${org._id}] Task: ${agent.name} responded with status ${response.status}`
             );
           } catch (error) {
-            // logger.error(
-            //   `❌ Error during cron job: ${error.stack || error.message}`
-            // );
-
             console.log('Failed Cron job api', error);
             await AgentCronLog.create({
               organization: org._id,

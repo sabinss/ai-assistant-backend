@@ -5,15 +5,19 @@ const AgentCronLogSchema = new mongoose.Schema({
   organization: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Organization',
-    required: true,
+    required: false,
   },
   agent: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Agent',
-    required: true,
+    required: false,
   },
-  status: { type: String, enum: ['success', 'failure'], required: true },
-  message: { type: String }, // error message or success note
+  status: {
+    type: String,
+    enum: ['success', 'failure', 'triggered'],
+    required: false,
+  },
+  message: { type: String, required: false }, // error message or success note
   executedAt: { type: Date, default: Date.now },
 });
 

@@ -126,6 +126,13 @@ const shouldTriggerNow = (org, now, agentId) => {
 const handleTaskAgentCronJob = async () => {
   try {
     const now = moment();
+
+    await AgentCronLogSchema.create({
+      organization: null,
+      agent: null,
+      status: 'triggered',
+      message: `Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
+    });
     // logger.info(`⏰ Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`);
 
     const allOrgs = await Organization.find();
@@ -138,13 +145,16 @@ const handleTaskAgentCronJob = async () => {
         dayTime: { $ne: null },
       }).populate('organization');
       console.log('activeAgents', activeAgents.length);
-      await AgentCronLogSchema.create({
-        organization: org._id,
-        agent: agent._id,
-        status: 'success',
-        message: `Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
-      });
+
       if (activeAgents?.length === 0) continue;
+      if (activeAgents) {
+        await AgentCronLogSchema.create({
+          organization: org._id,
+          agent: activeAgents._id,
+          status: 'success',
+          message: `Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
+        });
+      }
 
       for (const agent of activeAgents) {
         if (shouldTriggerNow(agent, now, agent._id)) {

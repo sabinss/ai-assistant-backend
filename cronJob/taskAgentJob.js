@@ -161,20 +161,24 @@ const handleTaskAgentCronJob = async () => {
           try {
             const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent.name}&org_id=${org._id}`;
 
-            const response = await axios.get(pythonServerUri);
+            // const response = await
+            axios.get(pythonServerUri);
             await AgentCronLogSchema.create({
               organization: org?._id,
               agent: agent?._id,
               status: 'success',
-              message: `Response status: ${response?.status}`,
+              message: `Cron job started at ${now.format(
+                'YYYY-MM-DD HH:mm:ss'
+              )}`,
+              // message: `Response status: ${response?.status}`,
             });
 
-            console.log(
-              `✅ [${org._id}] Task: ${agent.name} responded with status ${response.status}`
-            );
+            // console.log(
+            //   `✅ [${org._id}] Task: ${agent.name} responded with status ${response.status}`
+            // );
           } catch (error) {
             console.log('Failed Cron job api', error);
-            await AgentCronLog.create({
+            await AgentCronLogSchema.create({
               organization: org._id,
               agent: agent._id,
               status: 'failure',

@@ -160,7 +160,7 @@ const handleTaskAgentCronJob = async () => {
         // shouldTriggerNow(agent, now, agent._id)
         if (true) {
           try {
-            const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent.name}&org_id=${org._id}&query='placeholder'`;
+            const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent.name}&org_id=${org._id}&query='run'`;
 
             // const response = await
             await axios.get(pythonServerUri);

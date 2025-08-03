@@ -245,8 +245,8 @@ require('./service/userAuth');
 require('./models');
 require('./routes')(app);
 // Run every day at 6 AM UTC (1 AM EST)
-let cronTrigger = '0 6 * * *';
-// let cronTrigger = '*/2 * * * *';
+// let cronTrigger = '0 6 * * *';
+let cronTrigger = '*/2 * * * *';
 cron.schedule(cronTrigger, async () => {
   console.log('Running job at 6:00 AM GMT / 1:00 AM EST');
   try {

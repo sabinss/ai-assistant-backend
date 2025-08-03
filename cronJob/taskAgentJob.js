@@ -157,12 +157,13 @@ const handleTaskAgentCronJob = async () => {
       }
 
       for (const agent of activeAgents) {
-        if (shouldTriggerNow(agent, now, agent._id)) {
+        // shouldTriggerNow(agent, now, agent._id)
+        if (true) {
           try {
-            const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent.name}&org_id=${org._id}`;
+            const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent.name}&org_id=${org._id}&query='placeholder'`;
 
             // const response = await
-            axios.get(pythonServerUri);
+            await axios.get(pythonServerUri);
             await AgentCronLogSchema.create({
               organization: org?._id,
               agent: agent?._id,

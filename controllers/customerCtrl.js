@@ -1,229 +1,655 @@
 const Customer = require('../models/Customer');
 const CustomerFeature = require('../models/CustomerFeature');
 const axios = require('axios');
-exports.getCustomerDetail = async (req, res) => {
-    try {
-        const { customer_id, updated_date, created_date } = req.query;
-        let filter = {};
-        if (customer_id) {
-            filter._id = customer_id;
-        }
-        if (req.externalApiCall && req.organization) {
-            filter.organization = req.organization;
-        }
-        if (updated_date) {
-            const filterDate = new Date(updated_date);
-            filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-            filter['updatedAt'] = { $gt: filterDate };
-        }
-        if (created_date) {
-            const filterDate = new Date(created_date);
-            filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-            searchCondition['createdAt'] = { $gt: filterDate };
-        }
-        const customerDetail = await Customer.find(filter);
+const moment = require('moment');
 
-        res.status(200).json({ data: customerDetail });
-    } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error', error });
+// Configure axios with proper timeouts and retry logic
+const axiosInstance = axios.create({
+  timeout: 300000, // 5 minutes timeout
+  maxRedirects: 5,
+  validateStatus: function (status) {
+    return status >= 200 && status < 300; // Accept only 2xx status codes
+  },
+});
+
+// Add request interceptor for logging
+axiosInstance.interceptors.request.use(
+  (config) => {
+    console.log(`🚀 Making request to: ${config.url}`);
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request interceptor error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for error handling
+axiosInstance.interceptors.response.use(
+  (response) => {
+    console.log(
+      `✅ Response received from: ${response.config.url} (${response.status})`
+    );
+    return response;
+  },
+  (error) => {
+    if (error.code === 'ECONNABORTED') {
+      console.error('⏰ Request timeout:', error.message);
+    } else if (error.code === 'ECONNRESET') {
+      console.error('🔌 Connection reset:', error.message);
+    } else if (error.code === 'ENOTFOUND') {
+      console.error('🌐 DNS lookup failed:', error.message);
+    } else if (error.code === 'ECONNREFUSED') {
+      console.error('🚫 Connection refused:', error.message);
+    } else {
+      console.error('❌ Axios error:', error.message);
     }
+    return Promise.reject(error);
+  }
+);
+
+exports.getCustomerDetail = async (req, res) => {
+  try {
+    const { customer_id, updated_date, created_date } = req.query;
+    let filter = {};
+    if (customer_id) {
+      filter._id = customer_id;
+    }
+    if (req.externalApiCall && req.organization) {
+      filter.organization = req.organization;
+    }
+    if (updated_date) {
+      const filterDate = new Date(updated_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      filter['updatedAt'] = { $gt: filterDate };
+    }
+    if (created_date) {
+      const filterDate = new Date(created_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      searchCondition['createdAt'] = { $gt: filterDate };
+    }
+    const customerDetail = await Customer.find(filter);
+
+    res.status(200).json({ data: customerDetail });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
 };
 
 exports.createCustomer = async (req, res) => {
-    try {
-        const { name, organization, ...optionalFields } = req.body;
-        if (req.externalApiCall && !req.organization) {
-            res.status(400).json({ message: 'Organization required', error });
-        }
-        // Check if required fields are provided
-        if (!name || !organization) {
-            return res.status(400).json({
-                message: 'Missing required fields: name,  organization'
-            });
-        }
-        // Create a new customer with required and optional fields
-        const customer = new Customer({
-            name,
-            organization,
-            email: optionalFields?.email || '', // Ensure email is explicitly set to null if not provided
-            ...optionalFields // Spread operator adds any additional fields dynamically
-        });
-
-        await customer.save();
-
-        res.status(201).json({
-            message: 'Customer created successfully',
-            customer
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error', error });
+  try {
+    const { name, organization, ...optionalFields } = req.body;
+    if (req.externalApiCall && !req.organization) {
+      res.status(400).json({ message: 'Organization required', error });
     }
+    // Check if required fields are provided
+    if (!name || !organization) {
+      return res.status(400).json({
+        message: 'Missing required fields: name,  organization',
+      });
+    }
+    // Create a new customer with required and optional fields
+    const customer = new Customer({
+      name,
+      organization,
+      email: optionalFields?.email || '', // Ensure email is explicitly set to null if not provided
+      ...optionalFields, // Spread operator adds any additional fields dynamically
+    });
+
+    await customer.save();
+
+    res.status(201).json({
+      message: 'Customer created successfully',
+      customer,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
 };
 
 exports.getCustomerLoginDetail = async (req, res) => {
-    try {
-        const { customer_id, updated_date } = req.query;
-        let filter = { feature: { $regex: /^Login$/i } };
-        if (customer_id) {
-            filter.customer = customer_id;
-        }
-
-        if (req?.organization) {
-            filter.organization = organization;
-        }
-
-        if (updated_date) {
-            const filterDate = new Date(updated_date);
-            filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-            filter['updatedAt'] = { $gt: filterDate };
-        }
-        const customerLoginDetails = await CustomerFeature.find(filter);
-        res.status(200).json({ data: customerLoginDetails });
-    } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error', error });
+  try {
+    const { customer_id, updated_date } = req.query;
+    let filter = { feature: { $regex: /^Login$/i } };
+    if (customer_id) {
+      filter.customer = customer_id;
     }
+
+    if (req?.organization) {
+      filter.organization = organization;
+    }
+
+    if (updated_date) {
+      const filterDate = new Date(updated_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      filter['updatedAt'] = { $gt: filterDate };
+    }
+    const customerLoginDetails = await CustomerFeature.find(filter);
+    res.status(200).json({ data: customerLoginDetails });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
 };
 
 exports.updateCustomerDetail = async (req, res) => {
-    try {
-        const { id } = req.params; // Customer ID
-        const { stage } = req.body; // Fields to update
+  try {
+    const { id } = req.params; // Customer ID
+    const { stage } = req.body; // Fields to update
 
-        if (!id) {
-            return res.status(400).json({ message: 'Customer ID is required' });
-        }
-
-        const updatedCustomer = await Customer.findByIdAndUpdate(id, { stage }, { new: true, runValidators: true });
-
-        if (!updatedCustomer) {
-            return res.status(404).json({ message: 'Customer not found' });
-        }
-
-        return res.status(200).json({
-            message: 'Customer updated successfully',
-            data: updatedCustomer
-        });
-    } catch (err) {
-        console.error('Error updating customer:', err);
-        return res.status(500).json({ message: 'Internal server error', error: err.message });
+    if (!id) {
+      return res.status(400).json({ message: 'Customer ID is required' });
     }
+
+    const updatedCustomer = await Customer.findByIdAndUpdate(
+      id,
+      { stage },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedCustomer) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
+
+    return res.status(200).json({
+      message: 'Customer updated successfully',
+      data: updatedCustomer,
+    });
+  } catch (err) {
+    console.error('Error updating customer:', err);
+    return res
+      .status(500)
+      .json({ message: 'Internal server error', error: err.message });
+  }
 };
 
 exports.getCustomerScore = async (req, res) => {
-    try {
-        const session_id = Math.floor(1000 + Math.random() * 9000);
-        const org_id = req.user.organization.toString(); // e.g., '12'
-        const customer_id = req.params.id || req.query.id; // e.g., '123123'
+  try {
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const org_id = req.user.organization.toString(); // e.g., '12'
+    const customer_id = req.params.id || req.query.id; // e.g., '123123'
 
-        if (!customer_id) {
-            return res.status(400).json({ message: 'Missing customer_id' });
-        }
+    if (!customer_id) {
+      return res.status(400).json({ message: 'Missing customer_id' });
+    }
 
-        const sql_query = `
+    const sql_query = `
         SELECT * FROM db${org_id}.customer_score_view 
         WHERE customer_id = '${customer_id}' 
           AND year = EXTRACT(YEAR FROM DATEADD(MONTH, -1, CURRENT_DATE)) 
           AND month = EXTRACT(MONTH FROM DATEADD(MONTH, -1, CURRENT_DATE))
       `;
 
-        const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
-            sql_query
-        )}&session_id=${session_id}&org_id=${org_id}`;
+    const url = `${
+      process.env.AI_AGENT_SERVER_URI
+    }/run-sql-query?sql_query=${encodeURIComponent(
+      sql_query
+    )}&session_id=${session_id}&org_id=${org_id}`;
 
-        console.log('Requesting URL:', url);
+    console.log('Requesting URL:', url);
 
-        const response = await axios.post(url);
+    const response = await axiosInstance.post(
+      url,
+      {},
+      {
+        timeout: 300000, // 5 minutes
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      }
+    );
 
-        if (response?.data?.error) {
-            return res.status(500).json({ message: response.data.error, error: response.data.error });
-        }
-        // has score and analysis
-        return res.status(200).json({ data: response.data.result.result_set });
-    } catch (error) {
-        console.error('Error fetching customer score:', error);
-        return res.status(500).json({ message: 'Internal Server Error', error });
+    if (response?.data?.error) {
+      return res
+        .status(500)
+        .json({ message: response.data.error, error: response.data.error });
     }
+    // has score and analysis
+    return res.status(200).json({ data: response.data.result.result_set });
+  } catch (error) {
+    console.error('Error fetching customer score:', error);
+    return res.status(500).json({ message: 'Internal Server Error', error });
+  }
 };
 
 exports.getCustomerScoreDetails = async (req, res) => {
-    try {
-        const session_id = Math.floor(1000 + Math.random() * 9000);
-        const org_id = req.user.organization.toString(); // e.g. '12'
-        const customer_id = req.params.id || req.query.id; // e.g. 'hilton'
+  try {
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const org_id = req.user.organization.toString(); // e.g. '12'
+    const customer_id = req.params.id || req.query.id; // e.g. 'hilton'
 
-        if (!customer_id) {
-            return res.status(400).json({ message: 'Missing customer_id' });
-        }
+    if (!customer_id) {
+      return res.status(400).json({ message: 'Missing customer_id' });
+    }
 
-        const sql_query = `
+    const sql_query = `
         SELECT * FROM db${org_id}.score_details_view 
         WHERE customer_id = '${customer_id}' 
           AND year = EXTRACT(YEAR FROM DATEADD(MONTH, -1, CURRENT_DATE)) 
           AND month = EXTRACT(MONTH FROM DATEADD(MONTH, -1, CURRENT_DATE))
       `;
 
-        const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
-            sql_query
-        )}&session_id=${session_id}&org_id=${org_id}`;
+    const url = `${
+      process.env.AI_AGENT_SERVER_URI
+    }/run-sql-query?sql_query=${encodeURIComponent(
+      sql_query
+    )}&session_id=${session_id}&org_id=${org_id}`;
 
-        console.log('Requesting URL:', url);
+    console.log('Requesting URL:', url);
 
-        const response = await axios.post(url);
+    const response = await axiosInstance.post(
+      url,
+      {},
+      {
+        timeout: 300000, // 5 minutes
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      }
+    );
 
-        if (response?.data?.error) {
-            return res.status(500).json({ message: response.data.error, error: response.data.error });
-        }
-        // key drivers
-        return res.status(200).json({ data: response.data.result.result_set });
-    } catch (error) {
-        console.error('Error fetching customer score details:', error);
-        return res.status(500).json({ message: 'Internal Server Error', error });
+    if (response?.data?.error) {
+      return res
+        .status(500)
+        .json({ message: response.data.error, error: response.data.error });
     }
+    // key drivers
+    return res.status(200).json({ data: response.data.result.result_set });
+  } catch (error) {
+    console.error('Error fetching customer score details:', error);
+    return res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};
+// ... existing code ...
+exports.getHighRiskChurnStats = async (req, res) => {
+  try {
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const org_id = req.user.organization.toString();
+    const threshold = Number(req.query.threshold || 70);
+
+    // Get current date info
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
+
+    // Calculate previous month (current month - 1)
+    const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+
+    // Calculate previous-1 month (current month - 2)
+    const prevPrevMonth = prevMonth === 1 ? 12 : prevMonth - 1;
+    const prevPrevYear = prevMonth === 1 ? prevYear - 1 : prevYear;
+
+    // Fetch all data for previous month (current month - 1)
+    const prevMonthQuery = `
+            SELECT *
+            FROM db${org_id}.customer_score_view 
+            WHERE year = ${prevYear} AND month = ${prevMonth}
+        `;
+
+    // Fetch all data for previous-1 month (current month - 2)
+    const prevPrevMonthQuery = `
+            SELECT *
+            FROM db${org_id}.customer_score_view 
+            WHERE year = ${prevPrevYear} AND month = ${prevPrevMonth}
+        `;
+
+    // Helper function to execute SQL query with retry logic
+    const executeSqlQueryWithRetry = async (
+      query,
+      queryName,
+      maxRetries = 3
+    ) => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`🔄 ${queryName} - Attempt ${attempt}/${maxRetries}`);
+
+          const response = await axiosInstance.post(
+            `${
+              process.env.AI_AGENT_SERVER_URI
+            }/run-sql-query?sql_query=${encodeURIComponent(
+              query
+            )}&session_id=${session_id}&org_id=${org_id}`,
+            {},
+            {
+              timeout: 300000, // 5 minutes
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+            }
+          );
+
+          // Check for API-level errors
+          if (response?.data?.error) {
+            throw new Error(`API Error: ${response.data.error}`);
+          }
+
+          // Check for query execution status
+          if (response?.data?.result?.metadata?.status === 'FAILED') {
+            throw new Error(
+              `Query execution failed: ${
+                response.data.result.metadata.message || 'Unknown error'
+              }`
+            );
+          }
+
+          console.log(`✅ ${queryName} - Success on attempt ${attempt}`);
+          return response;
+        } catch (error) {
+          console.error(
+            `❌ ${queryName} - Attempt ${attempt} failed:`,
+            error.message
+          );
+
+          if (attempt === maxRetries) {
+            throw new Error(
+              `${queryName} failed after ${maxRetries} attempts: ${error.message}`
+            );
+          }
+
+          // Wait before retrying (exponential backoff)
+          const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Max 10 seconds
+          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+    };
+
+    console.log('Fetching previous month data...');
+    const prevMonthResponse = await executeSqlQueryWithRetry(
+      prevMonthQuery,
+      'Previous Month Query'
+    );
+
+    console.log('Fetching previous-1 month data...');
+    const prevPrevMonthResponse = await executeSqlQueryWithRetry(
+      prevPrevMonthQuery,
+      'Previous-Previous Month Query'
+    );
+
+    // Extract data from responses
+    const prevMonthData = prevMonthResponse?.data?.result?.result_set || [];
+    const prevPrevMonthData =
+      prevPrevMonthResponse?.data?.result?.result_set || [];
+
+    console.log(`Previous month records: ${prevMonthData.length}`);
+    console.log(`Previous-1 month records: ${prevPrevMonthData.length}`);
+
+    // Custom logic to calculate statistics
+    const calculateStats = (data) => {
+      if (!data || data.length === 0) {
+        return {
+          totalCustomers: 0,
+          highRiskCount: 0,
+          highRiskPercent: 0,
+          avgChurnScore: 0,
+          totalHighRiskScore: 0,
+          churnScores: [],
+          churnRiskDistribution: {
+            veryLow: 0, // 1-20
+            low: 0, // 21-40
+            medium: 0, // 41-60
+            high: 0, // 61-80
+            critical: 0, // 81-100
+          },
+        };
+      }
+
+      const uniqueCustomers = [...new Set(data.map((row) => row.customer_id))];
+      const totalCustomers = uniqueCustomers.length;
+
+      const churnScores = data.map((row) => Number(row.churn_risk_score || 0));
+      const highRiskCustomers = data.filter(
+        (row) => Number(row.churn_risk_score || 0) > threshold
+      );
+      const highRiskCount = [
+        ...new Set(highRiskCustomers.map((row) => row.customer_id)),
+      ].length;
+
+      // Calculate total sum of churn risk scores for customers >70
+      const totalHighRiskScore = highRiskCustomers.reduce(
+        (sum, row) => sum + Number(row.churn_risk_score || 0),
+        0
+      );
+
+      const revenueAtRisk = highRiskCustomers.reduce(
+        (sum, row) => sum + Number(row.churn_risk_score || 0),
+        0
+      );
+
+      const highRiskPercent =
+        totalCustomers > 0 ? (highRiskCount / totalCustomers) * 100 : 0;
+      const avgChurnScore =
+        churnScores.length > 0
+          ? churnScores.reduce((sum, score) => sum + score, 0) /
+            churnScores.length
+          : 0;
+
+      // Map customers to churn risk distribution chart ranges
+      const churnRiskDistribution = {
+        veryLow: data.filter((row) => {
+          const score = Number(row.churn_risk_score || 0);
+          return score >= 1 && score <= 20;
+        }).length,
+        low: data.filter((row) => {
+          const score = Number(row.churn_risk_score || 0);
+          return score >= 21 && score <= 40;
+        }).length,
+        medium: data.filter((row) => {
+          const score = Number(row.churn_risk_score || 0);
+          return score >= 41 && score <= 60;
+        }).length,
+        high: data.filter((row) => {
+          const score = Number(row.churn_risk_score || 0);
+          return score >= 61 && score <= 80;
+        }).length,
+        critical: data.filter((row) => {
+          const score = Number(row.churn_risk_score || 0);
+          return score >= 81 && score <= 100;
+        }).length,
+      };
+
+      return {
+        totalCustomers,
+        highRiskCount,
+        highRiskPercent: Math.round(highRiskPercent * 100) / 100, // Round to 2 decimal places
+        avgChurnScore: Math.round(avgChurnScore * 100) / 100,
+        totalHighRiskScore: Math.round(totalHighRiskScore * 100) / 100, // Round to 2 decimal places
+        churnScores,
+        churnRiskDistribution,
+        revenueAtRisk: revenueAtRisk ? revenueAtRisk : null,
+      };
+    };
+
+    // Calculate stats for both months
+    const prevMonthStats = calculateStats(prevMonthData);
+    const prevPrevMonthStats = calculateStats(prevPrevMonthData);
+
+    // Get detailed list of high-risk customers from previous month
+    const getHighRiskCustomerList = (data) => {
+      if (!data || data.length === 0) return [];
+
+      const highRiskCustomers = data.filter(
+        (row) => Number(row.churn_risk_score || 0) > threshold
+      );
+
+      return highRiskCustomers.map((row) => {
+        const score = Number(row.churn_risk_score || 0);
+        let riskLevel = '';
+
+        // Determine risk level based on score ranges
+        if (score >= 1 && score <= 20) riskLevel = 'Very Low';
+        else if (score >= 21 && score <= 40) riskLevel = 'Low';
+        else if (score >= 41 && score <= 60) riskLevel = 'Medium';
+        else if (score >= 61 && score <= 80) riskLevel = 'High';
+        else if (score >= 81 && score <= 100) riskLevel = 'Critical';
+        else riskLevel = 'Unknown';
+        const today = moment();
+        const renewalDate = moment(row.renewal_date, 'YYYY-MM-DD');
+        return {
+          customer_id: row.customer_id,
+          customer_name: row.customer_name || row.company_name || 'N/A',
+          churn_risk_score: score,
+          renewal_days: renewalDate.diff(today, 'days') || 'N/A',
+          monetary_value: row.monetary_value || row.contract_value || 'N/A',
+          risk_level: riskLevel,
+        };
+      });
+    };
+
+    const highRiskCustomerList = getHighRiskCustomerList(prevMonthData);
+
+    // Calculate percentage changes
+    const calculatePercentageChange = (current, previous) => {
+      if (previous === 0) return null;
+      return Math.round(((current - previous) / previous) * 100 * 100) / 100; // Round to 2 decimal places
+    };
+
+    const highRiskCountPctChange = calculatePercentageChange(
+      prevMonthStats.highRiskCount,
+      prevPrevMonthStats.highRiskCount
+    );
+    const highRiskPercentPctChange = calculatePercentageChange(
+      prevMonthStats.highRiskPercent,
+      prevPrevMonthStats.highRiskPercent
+    );
+    const avgChurnScorePctChange = calculatePercentageChange(
+      prevMonthStats.avgChurnScore,
+      prevPrevMonthStats.avgChurnScore
+    );
+    const revenueAtRiskPctChange = calculatePercentageChange(
+      prevMonthStats.revenueAtRisk,
+      prevPrevMonthStats.revenueAtRisk
+    );
+
+    // Additional insights
+    const riskDistribution = prevMonthStats.churnRiskDistribution;
+
+    return res.status(200).json({
+      data: {
+        threshold,
+        previousMonth: {
+          year: prevYear,
+          month: prevMonth,
+          ...prevMonthStats,
+        },
+        previousPreviousMonth: {
+          year: prevPrevYear,
+          month: prevPrevMonth,
+          ...prevPrevMonthStats,
+        },
+        deltas: {
+          highRiskCountPctChange,
+          highRiskPercentPctChange,
+          avgChurnScorePctChange,
+          revenueAtRiskPctChange,
+        },
+        insights: {
+          riskDistribution,
+          totalRecordsProcessed: {
+            previous: prevMonthData.length,
+            previousPrevious: prevPrevMonthData.length,
+          },
+        },
+        highRiskCustomers: highRiskCustomerList,
+      },
+    });
+  } catch (error) {
+    console.error('Error computing high risk churn stats:', error);
+
+    // Handle specific socket hang up and connection errors
+    if (error.code === 'ECONNABORTED') {
+      return res.status(504).json({
+        message: 'Request timeout - SQL query took too long to execute',
+        error: 'Gateway Timeout',
+        suggestion: 'Try again or contact support if the issue persists',
+      });
+    } else if (error.code === 'ECONNRESET') {
+      return res.status(503).json({
+        message:
+          'Connection reset - AI Agent Server connection was interrupted',
+        error: 'Service Unavailable',
+        suggestion: 'The server may be experiencing issues. Please try again.',
+      });
+    } else if (error.code === 'ENOTFOUND') {
+      return res.status(502).json({
+        message: 'AI Agent Server not found - Check server configuration',
+        error: 'Bad Gateway',
+        suggestion: 'Verify AI_AGENT_SERVER_URI environment variable',
+      });
+    } else if (error.code === 'ECONNREFUSED') {
+      return res.status(502).json({
+        message: 'AI Agent Server connection refused - Server may be down',
+        error: 'Bad Gateway',
+        suggestion: 'Check if the AI Agent Server is running and accessible',
+      });
+    }
+
+    return res.status(500).json({
+      message: 'Internal Server Error',
+      error: error.message,
+      suggestion: 'Please try again or contact support if the issue persists',
+    });
+  }
 };
 exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
-    try {
-        const session_id = Math.floor(1000 + Math.random() * 9000);
-        const org_id = req.user.organization.toString();
-        const sql_query = `SELECT * from  db${org_id}.companies`;
-        let url =
-            process.env.AI_AGENT_SERVER_URI +
-            `/run-sql-query?sql_query=${sql_query}&session_id=${session_id}&org_id=${org_id}`;
-        console.log('url', url);
-        const response = await axios.post(url);
-        if (response?.data?.error) {
-            res.status(500).json({ message: response?.data?.error, error: response?.data?.error });
-            return;
-        }
-        res.status(200).json({ data: response.data.result.result_set });
-    } catch (err) {
-        console.log('Err', err);
-        res.status(500).json({ message: 'Internal Server Error', err });
+  try {
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const org_id = req.user.organization.toString();
+    const sql_query = `SELECT * from  db${org_id}.companies`;
+    let url =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${sql_query}&session_id=${session_id}&org_id=${org_id}`;
+    console.log('url', url);
+    const response = await axiosInstance.post(
+      url,
+      {},
+      {
+        timeout: 300000, // 5 minutes
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      }
+    );
+    if (response?.data?.error) {
+      res
+        .status(500)
+        .json({ message: response?.data?.error, error: response?.data?.error });
+      return;
     }
+    res.status(200).json({ data: response.data.result.result_set });
+  } catch (err) {
+    console.log('Err', err);
+    res.status(500).json({ message: 'Internal Server Error', err });
+  }
 };
 
 exports.getCustomerFeatures = async (req, res) => {
-    try {
-        const { customer_id, updated_date, created_date } = req.query;
-        let filter = { feature: { $not: { $regex: /^login$/i } } };
-        if (customer_id) {
-            filter.customer = customer_id;
-        }
-        if (req.externalApiCall && req.organization) {
-            filter.organization = req.organization;
-        }
-        if (updated_date) {
-            const filterDate = new Date(updated_date);
-            filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-            filter['updatedAt'] = { $gt: filterDate };
-        }
-        if (created_date) {
-            const filterDate = new Date(created_date);
-            filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-            searchCondition['createdAt'] = { $gt: filterDate };
-        }
-        const customerLoginDetails = await CustomerFeature.find(filter);
-        res.status(200).json({ data: customerLoginDetails });
-    } catch (error) {
-        res.status(500).json({ message: 'Internal Server Error', error });
+  try {
+    const { customer_id, updated_date, created_date } = req.query;
+    let filter = { feature: { $not: { $regex: /^login$/i } } };
+    if (customer_id) {
+      filter.customer = customer_id;
     }
+    if (req.externalApiCall && req.organization) {
+      filter.organization = req.organization;
+    }
+    if (updated_date) {
+      const filterDate = new Date(updated_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      filter['updatedAt'] = { $gt: filterDate };
+    }
+    if (created_date) {
+      const filterDate = new Date(created_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      searchCondition['createdAt'] = { $gt: filterDate };
+    }
+    const customerLoginDetails = await CustomerFeature.find(filter);
+    res.status(200).json({ data: customerLoginDetails });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
 };

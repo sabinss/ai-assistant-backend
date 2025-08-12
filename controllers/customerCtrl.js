@@ -309,6 +309,15 @@ exports.getHighRiskChurnStats = async (req, res) => {
             ORDER BY month ASC
         `;
 
+    // Fetch risk matrix data for all customers
+    const riskMatrixQuery = `
+            SELECT *
+            FROM db${org_id}.customer_score_view 
+            WHERE churn_risk_score IS NOT NULL 
+              AND renewal_date IS NOT NULL
+            ORDER BY churn_risk_score DESC, renewal_date ASC
+        `;
+
     // Helper function to execute SQL query with retry logic
     const executeSqlQueryWithRetry = async (
       query,
@@ -389,15 +398,23 @@ exports.getHighRiskChurnStats = async (req, res) => {
       'Churn Risk Trend Query'
     );
 
+    console.log('Fetching risk matrix data...');
+    const riskMatrixResponse = await executeSqlQueryWithRetry(
+      riskMatrixQuery,
+      'Risk Matrix Query'
+    );
+
     // Extract data from responses
     const prevMonthData = prevMonthResponse?.data?.result?.result_set || [];
     const prevPrevMonthData =
       prevPrevMonthResponse?.data?.result?.result_set || [];
     const trendData = trendResponse?.data?.result?.result_set || [];
+    const riskMatrixData = riskMatrixResponse?.data?.result?.result_set || [];
 
     console.log(`Previous month records: ${prevMonthData.length}`);
     console.log(`Previous-1 month records: ${prevPrevMonthData.length}`);
     console.log(`Trend data months: ${trendData.length}`);
+    console.log(`Risk matrix data customers: ${riskMatrixData.length}`);
 
     // Process trend data for the line chart
     const processTrendData = (monthlyData) => {
@@ -442,6 +459,71 @@ exports.getHighRiskChurnStats = async (req, res) => {
     };
 
     const trendAnalysis = processTrendData(trendData);
+
+    // Process risk matrix data for scatter plot
+    const processRiskMatrixData = (data) => {
+      if (!data || data.length === 0)
+        return {
+          customers: [],
+          riskDistribution: { critical: 0, high: 0, healthy: 0 },
+        };
+
+      const today = moment();
+      const processedCustomers = [];
+      let criticalCount = 0,
+        highCount = 0,
+        healthyCount = 0;
+
+      data.forEach((row) => {
+        const churnScore = Number(row.churn_risk_score || 0);
+        const renewalDate = moment(row.renewal_date, 'YYYY-MM-DD');
+        const daysToRenewal = renewalDate.diff(today, 'days');
+
+        // Determine risk level based on churn score
+        let riskLevel = '';
+        let riskColor = '';
+
+        if (churnScore >= 81) {
+          riskLevel = 'Critical';
+          riskColor = '#FF0000'; // Red
+          criticalCount++;
+        } else if (churnScore >= 71) {
+          riskLevel = 'High';
+          riskColor = '#FFA500'; // Orange
+          highCount++;
+        } else {
+          riskLevel = 'Healthy';
+          riskColor = '#00FF00'; // Green
+          healthyCount++;
+        }
+
+        processedCustomers.push({
+          customer_id: row.customer_id,
+          customer_name: row.customer_name || row.company_name || 'N/A',
+          churn_risk_score: churnScore,
+          renewal_date: row.renewal_date,
+          days_to_renewal: daysToRenewal,
+          arr: Number(row.arr || 0),
+          monetary_value: Number(row.monetary_value || row.contract_value || 0),
+          risk_level: riskLevel,
+          risk_color: riskColor,
+        });
+      });
+
+      return {
+        customers: processedCustomers,
+        riskDistribution: {
+          critical: criticalCount,
+          high: highCount,
+          healthy: healthyCount,
+        },
+      };
+    };
+
+    const {
+      customers: riskMatrixCustomers,
+      riskDistribution: matrixRiskDistribution,
+    } = processRiskMatrixData(riskMatrixData);
 
     // Custom logic to calculate statistics
     const calculateStats = (data) => {
@@ -666,6 +748,92 @@ exports.getHighRiskChurnStats = async (req, res) => {
               yAxisIndex: 1,
             },
           ],
+        },
+        // Add risk matrix data
+        riskMatrix: {
+          totalCustomers: riskMatrixCustomers.length,
+          customers: riskMatrixCustomers,
+          riskDistribution: matrixRiskDistribution,
+          chartConfig: {
+            title: 'Risk Matrix: Churn Score vs Time to Renewal',
+            xAxis: {
+              type: 'value',
+              name: 'Days to Renewal',
+              nameLocation: 'middle',
+              nameGap: 30,
+            },
+            yAxis: {
+              type: 'value',
+              name: 'Churn Risk Score',
+              nameLocation: 'middle',
+              nameGap: 30,
+            },
+            series: [
+              {
+                name: 'Critical',
+                type: 'scatter',
+                data: riskMatrixCustomers
+                  .filter((c) => c.risk_level === 'Critical')
+                  .map((c) => [
+                    c.days_to_renewal,
+                    c.churn_risk_score,
+                    c.customer_name,
+                  ]),
+                itemStyle: { color: '#FF0000' },
+                symbolSize: 8,
+              },
+              {
+                name: 'High',
+                type: 'scatter',
+                data: riskMatrixCustomers
+                  .filter((c) => c.risk_level === 'High')
+                  .map((c) => [
+                    c.days_to_renewal,
+                    c.churn_risk_score,
+                    c.customer_name,
+                  ]),
+                itemStyle: { color: '#FFA500' },
+                symbolSize: 8,
+              },
+              {
+                name: 'Healthy',
+                type: 'scatter',
+                data: riskMatrixCustomers
+                  .filter((c) => c.risk_level === 'Healthy')
+                  .map((c) => [
+                    c.days_to_renewal,
+                    c.churn_risk_score,
+                    c.customer_name,
+                  ]),
+                itemStyle: { color: '#00FF00' },
+                symbolSize: 8,
+              },
+            ],
+            legend: {
+              data: ['Critical', 'High', 'Healthy'],
+              top: 10,
+              right: 10,
+            },
+            tooltip: {
+              formatter: function (params) {
+                const customer = riskMatrixCustomers.find(
+                  (c) =>
+                    c.days_to_renewal === params.value[0] &&
+                    c.churn_risk_score === params.value[1]
+                );
+                if (customer) {
+                  return `
+                    <strong>${customer.customer_name}</strong><br/>
+                    Churn Score: ${customer.churn_risk_score}<br/>
+                    Days to Renewal: ${customer.days_to_renewal}<br/>
+                    Risk Level: ${customer.risk_level}<br/>
+                    ARR: $${customer.arr.toLocaleString()}
+                  `;
+                }
+                return `${params.seriesName}<br/>Days: ${params.value[0]}, Score: ${params.value[1]}`;
+              },
+            },
+          },
         },
       },
     });

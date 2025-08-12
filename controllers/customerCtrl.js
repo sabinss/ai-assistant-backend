@@ -266,7 +266,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
   try {
     const session_id = Math.floor(1000 + Math.random() * 9000);
     const org_id = req.user.organization.toString();
-    const threshold = Number(req.query.threshold || 60);
+    const threshold = Number(req.query.threshold || 40);
 
     // Get current date info
     const now = new Date();

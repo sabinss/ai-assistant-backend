@@ -266,7 +266,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
   try {
     const session_id = Math.floor(1000 + Math.random() * 9000);
     const org_id = req.user.organization.toString();
-    const threshold = Number(req.query.threshold || 70);
+    const threshold = Number(req.query.threshold || 60);
 
     // Get current date info
     const now = new Date();
@@ -565,7 +565,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
       );
 
       const revenueAtRisk = highRiskCustomers.reduce(
-        (sum, row) => sum + Number(row.churn_risk_score || 0),
+        (sum, row) => sum + Number(row.arr || 0),
         0
       );
 
@@ -740,7 +740,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
               yAxisIndex: 0,
             },
             {
-              name: 'High Risk Customers (>70)',
+              name: 'High Risk Customers (>60)',
               data: trendAnalysis.map((d) => d.highRiskCustomers),
               yAxisIndex: 0,
             },

@@ -411,6 +411,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
     const trendData = trendResponse?.data?.result?.result_set || [];
     const riskMatrixData = riskMatrixResponse?.data?.result?.result_set || [];
 
+    // renewal_date
     console.log(`Previous month records: ${prevMonthData.length}`);
     console.log(`Previous-1 month records: ${prevPrevMonthData.length}`);
     console.log(`Trend data months: ${trendData.length}`);

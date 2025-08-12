@@ -315,6 +315,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
             FROM db${org_id}.customer_score_view 
             WHERE churn_risk_score IS NOT NULL 
               AND renewal_date IS NOT NULL
+              AND  year = ${prevPrevYear} AND month = ${prevPrevMonth}
             ORDER BY churn_risk_score DESC, renewal_date ASC
         `;
 

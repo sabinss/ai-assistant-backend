@@ -28,7 +28,6 @@ module.exports = (app) => {
     authUser,
     ctl.fetchCustomerDetailsFromRedshift
   );
-
   app.get(
     `${process.env.APP_URL}/customer/high-risk-churn-stats`,
     authUser,

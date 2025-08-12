@@ -295,6 +295,20 @@ exports.getHighRiskChurnStats = async (req, res) => {
             WHERE year = ${prevPrevYear} AND month = ${prevPrevMonth}
         `;
 
+    // Fetch churn risk trend data for all months of current year
+    const trendQuery = `
+            SELECT 
+                month,
+                COUNT(DISTINCT customer_id) as total_customers,
+                COUNT(DISTINCT CASE WHEN churn_risk_score > ${threshold} THEN customer_id END) as high_risk_customers,
+                AVG(churn_risk_score) as avg_churn_score,
+                SUM(CASE WHEN churn_risk_score > ${threshold} THEN arr ELSE 0 END) as high_risk_arr
+            FROM db${org_id}.customer_score_view 
+            WHERE year = ${currentYear}
+            GROUP BY month
+            ORDER BY month ASC
+        `;
+
     // Helper function to execute SQL query with retry logic
     const executeSqlQueryWithRetry = async (
       query,
@@ -369,13 +383,65 @@ exports.getHighRiskChurnStats = async (req, res) => {
       'Previous-Previous Month Query'
     );
 
+    console.log('Fetching churn risk trend data...');
+    const trendResponse = await executeSqlQueryWithRetry(
+      trendQuery,
+      'Churn Risk Trend Query'
+    );
+
     // Extract data from responses
     const prevMonthData = prevMonthResponse?.data?.result?.result_set || [];
     const prevPrevMonthData =
       prevPrevMonthResponse?.data?.result?.result_set || [];
+    const trendData = trendResponse?.data?.result?.result_set || [];
 
     console.log(`Previous month records: ${prevMonthData.length}`);
     console.log(`Previous-1 month records: ${prevPrevMonthData.length}`);
+    console.log(`Trend data months: ${trendData.length}`);
+
+    // Process trend data for the line chart
+    const processTrendData = (monthlyData) => {
+      if (!monthlyData || monthlyData.length === 0) return [];
+
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      const processedData = [];
+
+      // Only process months that have actual data
+      monthlyData.forEach((row) => {
+        const month = Number(row.month);
+        if (month >= 1 && month <= 12) {
+          processedData.push({
+            month: month,
+            monthName: monthNames[month - 1],
+            totalCustomers: Number(row.total_customers || 0),
+            highRiskCustomers: Number(row.high_risk_customers || 0),
+            avgChurnScore:
+              Math.round(Number(row.avg_churn_score || 0) * 100) / 100,
+            highRiskARR: Math.round(Number(row.high_risk_arr || 0) * 100) / 100,
+          });
+        }
+      });
+
+      // Sort by month to ensure chronological order
+      processedData.sort((a, b) => a.month - b.month);
+
+      return processedData;
+    };
+
+    const trendAnalysis = processTrendData(trendData);
 
     // Custom logic to calculate statistics
     const calculateStats = (data) => {
@@ -495,6 +561,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
           renewal_days: renewalDate.diff(today, 'days') || 'N/A',
           monetary_value: row.monetary_value || row.contract_value || 'N/A',
           risk_level: riskLevel,
+          arr: row.arr,
         };
       });
     };
@@ -527,6 +594,27 @@ exports.getHighRiskChurnStats = async (req, res) => {
     // Additional insights
     const riskDistribution = prevMonthStats.churnRiskDistribution;
 
+    // Calculate trend summary
+    const trendSummary = {
+      totalMonths: trendAnalysis.length,
+      avgChurnScore:
+        trendAnalysis.length > 0
+          ? Math.round(
+              (trendAnalysis.reduce((sum, d) => sum + d.avgChurnScore, 0) /
+                trendAnalysis.length) *
+                100
+            ) / 100
+          : 0,
+      totalHighRiskCustomers: trendAnalysis.reduce(
+        (sum, d) => sum + d.highRiskCustomers,
+        0
+      ),
+      totalHighRiskARR:
+        Math.round(
+          trendAnalysis.reduce((sum, d) => sum + d.highRiskARR, 0) * 100
+        ) / 100,
+    };
+
     return res.status(200).json({
       data: {
         threshold,
@@ -554,6 +642,31 @@ exports.getHighRiskChurnStats = async (req, res) => {
           },
         },
         highRiskCustomers: highRiskCustomerList,
+        trendData: trendAnalysis,
+        trendSummary: trendSummary,
+        chartConfig: {
+          xAxis: {
+            type: 'category',
+            data: trendAnalysis.map((d) => d.monthName),
+          },
+          series: [
+            {
+              name: 'Average Churn Score',
+              data: trendAnalysis.map((d) => d.avgChurnScore),
+              yAxisIndex: 0,
+            },
+            {
+              name: 'High Risk Customers (>70)',
+              data: trendAnalysis.map((d) => d.highRiskCustomers),
+              yAxisIndex: 0,
+            },
+            {
+              name: 'High Risk ARR',
+              data: trendAnalysis.map((d) => d.highRiskARR),
+              yAxisIndex: 1,
+            },
+          ],
+        },
       },
     });
   } catch (error) {
@@ -594,6 +707,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
     });
   }
 };
+
 exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
   try {
     const session_id = Math.floor(1000 + Math.random() * 9000);

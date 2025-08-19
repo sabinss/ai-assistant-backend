@@ -57,7 +57,7 @@ exports.create = async (req, res) => {
 
     res.json({ message: `Organization created` });
   } catch (error) {
-    res.status(500).json(error);
+    return res.status(500).json(error);
   }
 };
 
@@ -79,7 +79,7 @@ exports.createUser = async (req, res) => {
     await user_data.save();
     res.json({ message: `User created` });
   } catch (error) {
-    res.json({ message: 'Internal server error', error });
+    return res.json({ message: 'Internal server error', error });
   }
 };
 
@@ -93,7 +93,7 @@ exports.findUsers = async (req, res) => {
     ]);
     res.status(200).json({ users });
   } catch (error) {
-    res.json({ message: 'Internal server error', error });
+    return res.json({ message: 'Internal server error', error });
   }
 };
 
@@ -113,7 +113,7 @@ exports.editUser = async (req, res) => {
 
     res.status(200).json({ message: 'User updated' });
   } catch (error) {
-    res.status(500).json({ message: 'Internal Server Error', error });
+    return res.status(500).json({ message: 'Internal Server Error', error });
   }
 };
 
@@ -125,21 +125,22 @@ exports.deleteUser = async (req, res) => {
 
     res.status(201).json({ message: 'User deleted' });
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    return res.status(500).json({ message: 'Internal server error', error });
   }
 };
 
 exports.updateOrgSettings = async (req, res) => {
   try {
     const org = await Organization.findById(id);
-    if (!id) res.status(500).json({ message: 'Organization is is required' });
+    if (!id)
+      return res.status(500).json({ message: 'Organization id is required' });
     if (!org) {
       return res.status(404).json({ message: 'Organization not found' });
     }
 
     return res.json({ org: orgResponsePayload });
   } catch (error) {
-    res.status(500).json({ error });
+    return res.status(500).json({ error });
   }
 };
 
@@ -170,7 +171,8 @@ exports.getOrg = async (req, res) => {
       });
     }
     const org = await Organization.findById(id);
-    if (!id) res.status(500).json({ message: 'Organization is is required' });
+    if (!id)
+      return res.status(500).json({ message: 'Organization id is required' });
     if (!org) {
       return res.status(404).json({ message: 'Organization not found' });
     }
@@ -238,7 +240,7 @@ exports.getOrg = async (req, res) => {
     };
     return res.json({ org: orgResponsePayload });
   } catch (error) {
-    res.status(500).json({ error });
+    return res.status(500).json({ error });
   }
 };
 
@@ -251,7 +253,7 @@ exports.getOrgDetailByPublicApi = async (req, res) => {
     }
     return res.json({ org });
   } catch (error) {
-    res.status(500).json({ error });
+    return res.status(500).json({ error });
   }
 };
 
@@ -323,7 +325,7 @@ exports.editOrg = async (req, res) => {
     );
     return res.json(org);
   } catch (error) {
-    res.status(500).json({ error });
+    return res.status(500).json({ error });
   }
 };
 
@@ -340,7 +342,7 @@ exports.getGreeting_botName = async (req, res) => {
     }
     return res.status(404).json({ message: 'Organization not found' });
   } catch (error) {
-    res.status(500).json({ error });
+    return res.status(500).json({ error });
   }
 };
 
@@ -353,14 +355,16 @@ exports.getCustomerList = async (req, res) => {
 
     res.status(200).json({ organization: org_id, customers: orgCustomers });
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    return res.status(500).json({ message: 'Internal server error', error });
   }
 };
 exports.createOrganizationPrompt = async (req, res) => {
   try {
     const { organizationPrompts = [], deletePromptIds = [] } = req.body;
     if (organizationPrompts?.length == 0) {
-      res.status(400).json({ message: 'Payload is empty', success: false });
+      return res
+        .status(400)
+        .json({ message: 'Payload is empty', success: false });
     }
     const isDirtyRecords = organizationPrompts.filter((x) => x.isDirty);
 
@@ -420,7 +424,7 @@ exports.createOrganizationPrompt = async (req, res) => {
     }
     res.status(200).json({ message: 'Updated successfully', success: true });
   } catch (error) {
-    res
+    return res
       .status(500)
       .json({ message: 'Failed to save organization prompts', error });
   }
@@ -431,7 +435,7 @@ exports.updateOrganizationPromptCategory = async (req, res) => {
     const { orgPromptId, category } = req.body;
 
     if (!orgPromptId || !category) {
-      res
+      return res
         .status(400)
         .json({ message: 'OrgPromptId | category is missing', error });
     }
@@ -442,7 +446,7 @@ exports.updateOrganizationPromptCategory = async (req, res) => {
     );
     res.status(200).json({ message: 'Updated successfully', success: true });
   } catch (err) {
-    res
+    return res
       .status(500)
       .json({ message: 'Failed to update organization prompt category', err });
   }
@@ -450,7 +454,7 @@ exports.updateOrganizationPromptCategory = async (req, res) => {
 exports.getOrganizationPrompt = async (req, res) => {
   try {
     if (!req?.user?.organization) {
-      res.status(500).json({ message: 'Organization is required', err });
+      return res.status(500).json({ message: 'Organization is required', err });
     }
     let organizationPrompts = null;
     const organization = req?.user?.organization;
@@ -470,7 +474,7 @@ exports.getOrganizationPrompt = async (req, res) => {
     }
     res.status(200).json({ organizationPrompts });
   } catch (error) {
-    res
+    return res
       .status(500)
       .json({ message: 'Failed to fetch organization prompts', error });
   }
@@ -537,10 +541,10 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
         data: responsePayload,
       });
     } else {
-      res.status(500).json({ message: 'Internal server error', err });
+      return res.status(500).json({ message: 'Internal server error', err });
     }
   } catch (err) {
-    res.status(500).json({ message: 'Internal server error', err });
+    return res.status(500).json({ message: 'Internal server error', err });
   }
 };
 
@@ -548,7 +552,7 @@ exports.callTaskAgentPythonApi = async (req, res) => {
   try {
     const { task_name, org_id } = req.body;
     if (!task_name || !org_id) {
-      res
+      return res
         .status(400)
         .json({ success: false, message: 'TaskName | OrgId are required' });
     }
@@ -558,7 +562,7 @@ exports.callTaskAgentPythonApi = async (req, res) => {
       data: response?.data,
     });
   } catch (err) {
-    res.status(500).json({ err });
+    return res.status(500).json({ err });
   }
 };
 
@@ -569,7 +573,7 @@ exports.deleteAgentInstruction = async (req, res) => {
     await AgentModel.findByIdAndDelete(id);
     res.status(200).json({ message: 'Agent instruction deleted successfully' });
   } catch (err) {
-    res.status(500).json({ message: 'Internal server error', err });
+    return res.status(500).json({ message: 'Internal server error', err });
   }
 };
 exports.getOrgAgentInstructions = async (req, res) => {
@@ -684,7 +688,7 @@ exports.updateOrgAgentInstructions = async (req, res) => {
     await session.abortTransaction(); // Rollback transaction in case of error
     session.endSession();
     console.error('Error updating agent and instructions:', err);
-    res.status(500).json({ error: err.message || 'Server Error' });
+    return res.status(500).json({ error: err.message || 'Server Error' });
   }
 };
 
@@ -715,7 +719,7 @@ exports.getAgentTaskStatus = async (req, res) => {
 
     return res.status(200).json(tasks);
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Server Error' });
+    return res.status(500).json({ error: err.message || 'Server Error' });
   }
 };
 
@@ -751,7 +755,7 @@ exports.storeAgentTaskExecuteStatus = async (req, res) => {
       data: newTaskStatus,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Server Error' });
+    return res.status(500).json({ error: err.message || 'Server Error' });
   }
 };
 
@@ -787,7 +791,7 @@ exports.getAgentTasksStatus = async (req, res) => {
 
     res.status(200).json({ tasks });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Server Error' });
+    return res.status(500).json({ error: err.message || 'Server Error' });
   }
 };
 
@@ -797,7 +801,7 @@ exports.createOrgAgentInstructions = async (req, res) => {
   try {
     const { id, tasks, ...agentData } = req.body;
     if (!req.user.organization) {
-      res.status(400).json({ message: 'Organization id required' });
+      return res.status(400).json({ message: 'Organization id required' });
     }
     const agent = new AgentModel({
       ...agentData,
@@ -831,7 +835,7 @@ exports.createOrgAgentInstructions = async (req, res) => {
       success: true,
     });
   } catch (err) {
-    res.status(500).json({ err });
+    return res.status(500).json({ err });
   }
 };
 

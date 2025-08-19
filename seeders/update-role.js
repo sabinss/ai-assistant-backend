@@ -2,8 +2,8 @@ const User = require('../models/User');
 
 const updateUserRole = async () => {
   try {
-    const userId = '67e444ff9f9fd0f96daa9d7e'; // Assuming this is a valid ObjectId, otherwise, update it accordingly
-    const roleId = '67e57a47a61ef32411df11fb'; // Assuming this is a valid ObjectId
+    const userId = '68a4a47efc4f54cacb902baf'; // Assuming this is a valid ObjectId, otherwise, update it accordingly
+    const roleId = '68a4a5325c740184cb3f29a5'; // Assuming this is a valid ObjectId
 
     const updatedUser = await User.findOneAndUpdate(
       { _id: userId }, // Find user by ID

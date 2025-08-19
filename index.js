@@ -28,7 +28,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '40mb' }));
 app.use(bodyParser.urlencoded({ extended: false, limit: '40mb' }));
-
+const seedCsvData = require('./seeders/csvReader');
+const addOrginCustomer = require('./seeders/csvReader');
 // app.options('*', cors(corsOptions)); // Preflight request support
 app.use((err, req, res, next) => {
   if (err.code === 'LIMIT_FILE_SIZE') {
@@ -37,7 +38,8 @@ app.use((err, req, res, next) => {
   next(err);
 });
 db.connect();
-
+// seedCsvData();
+// addOrginCustomer();
 app.get('/health-check', async (req, res) => {
   const check = await db.connect();
   if (!check) {

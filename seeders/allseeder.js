@@ -1,7 +1,7 @@
 const User = require('../models/User.js');
 const bcrypt = require('bcrypt');
 const Feedback = require('../models/Feedback.js');
-const {faker} = require('@faker-js/faker');
+const { faker } = require('@faker-js/faker');
 const Role = require('../models/Role.js');
 const Status = require('../models/Status.js');
 const Source = require('../models/Source.js');
@@ -24,7 +24,11 @@ const seedRole = async () => {
   const items = await Role.countDocuments({});
   if (items > 0) return;
   try {
-    const rolesToCreate = [{name: 'admin'}, {name: 'reviewer'}, {name: 'user'}];
+    const rolesToCreate = [
+      { name: 'admin' },
+      { name: 'reviewer' },
+      { name: 'user' },
+    ];
     const roles = await Role.insertMany(rolesToCreate);
     console.log('Seeded roles');
     return roles.map((role) => role._id);
@@ -72,9 +76,9 @@ const seedStatus = async () => {
   if (items > 0) return;
   try {
     const statusToCreate = [
-      {name: 'active'},
-      {name: 'pending'},
-      {name: 'deleted'},
+      { name: 'active' },
+      { name: 'pending' },
+      { name: 'deleted' },
     ];
     const statuses = await Status.insertMany(statusToCreate);
     console.log('Seeded status');
@@ -93,7 +97,7 @@ const createRandomFeedback = (statusIds) => {
     feedback: ['liked', 'disliked'][Math.floor(Math.random() * 2)],
     original_answer: faker.lorem.paragraph(),
     modified_answer: '',
-    frequency: faker.number.int({min: 1, max: 10}),
+    frequency: faker.number.int({ min: 1, max: 10 }),
     status: ['new', 'updated', 'removed'][Math.floor(Math.random() * 3)],
   };
 };
@@ -114,7 +118,7 @@ const createRandomUser = (roleIds, statusIds) => {
 
 const seedUsers = async (roleIds, statusIds) => {
   try {
-    const usersToCreate = Array.from({length: 30}, () =>
+    const usersToCreate = Array.from({ length: 30 }, () =>
       createRandomUser(roleIds, statusIds)
     );
     await User.insertMany(usersToCreate);
@@ -131,7 +135,7 @@ const seedData = async () => {
 
     const feedbackCount = await Feedback.countDocuments({});
     if (feedbackCount === 0) {
-      const feedbackToCreate = Array.from({length: 30}, () =>
+      const feedbackToCreate = Array.from({ length: 30 }, () =>
         createRandomFeedback(statusIds)
       );
       await Feedback.insertMany(feedbackToCreate);
@@ -171,4 +175,4 @@ const seedSession = async () => {
 
 //if there are no sessionsApi in database then seed
 
-module.exports = seedSession;
+module.exports = seedRole;

@@ -37,7 +37,7 @@ module.exports = {
               return res.status(401).json({ message: 'Session Expired' });
             }
           }
-          req.user = user;
+          // req.user = user;
           next();
         }
       }

@@ -8,6 +8,8 @@ const cors = require('cors');
 const app = express();
 const cron = require('node-cron');
 const axios = require('axios');
+const helmet = require('helmet');
+
 //todo chat message sort by created date aila sorting milara ako chainclear
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
@@ -24,6 +26,9 @@ const corsOptions = {
   origin: '*',
   credentials: true,
 };
+// Remove 'X-Powered-By' header (leaks Express info)
+app.disable('x-powered-by');
+app.use(helmet());
 
 app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '40mb' }));

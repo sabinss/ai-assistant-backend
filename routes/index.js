@@ -12,4 +12,5 @@ module.exports = (app) => {
   require('./docs')(app);
   require('./conversation')(app);
   require('./secret')(app);
+  require('./activityLog')(app);
 };

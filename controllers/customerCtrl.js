@@ -88,6 +88,19 @@ exports.createCustomer = async (req, res) => {
         message: 'Missing required fields: name,  organization',
       });
     }
+
+    // Check if customer already exists (case-insensitive)
+    const existingCustomer = await Customer.findOne({
+      name: { $regex: new RegExp(`^${name}$`, 'i') }, // case-insensitive regex match
+    });
+
+    if (existingCustomer) {
+      return res.status(400).json({
+        message: 'Customer already exists',
+        customer: existingCustomer,
+      });
+    }
+
     // Create a new customer with required and optional fields
     const customer = new Customer({
       name,

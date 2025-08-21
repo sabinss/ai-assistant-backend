@@ -937,3 +937,31 @@ exports.getCustomerFeatures = async (req, res) => {
     res.status(500).json({ message: 'Internal Server Error', error });
   }
 };
+
+exports.getAllCustomers = async (req, res) => {
+  try {
+    const { updated_date, created_date } = req.query;
+    let filter = {};
+
+    if (req.externalApiCall && req.organization) {
+      filter.organization = req.organization;
+    }
+
+    if (updated_date) {
+      const filterDate = new Date(updated_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      filter['updatedAt'] = { $gt: filterDate };
+    }
+
+    if (created_date) {
+      const filterDate = new Date(created_date);
+      filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
+      filter['createdAt'] = { $gt: filterDate };
+    }
+
+    const customers = await Customer.find(filter);
+    res.status(200).json({ data: customers });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};

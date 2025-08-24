@@ -9,7 +9,7 @@ module.exports = (app) => {
     authUser,
     ctl.changeSession
   );
-  app.get(`${process.env.APP_URL}/user/profile/`, authUser, ctl.getProfile);
+  app.get(`${process.env.APP_URL}/user/profile`, authUser, ctl.getProfile);
   app.patch(
     `${process.env.APP_URL}/user/profile/update/`,
     authUser,

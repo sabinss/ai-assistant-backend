@@ -32,6 +32,7 @@ module.exports = {
             process.env.JWT_SECRET
           );
           req.user = decoded;
+          req.user._id = req.user?.user_id;
           if (err) {
             if (!user) {
               return res.status(401).json({ message: 'Session Expired' });

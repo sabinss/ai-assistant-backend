@@ -4,52 +4,52 @@ const verifySameOrganization = require('../middleware/verifySameOrganization');
 
 module.exports = (app) => {
   app.get(
-    `${process.env.APP_URL}/customer/login-details`,
+    `/api/v1/customer/login-details`,
     verifySameOrganization,
     ctl.getCustomerLoginDetail
   );
   app.get(
-    `${process.env.APP_URL}/customer/features`,
+    `/api/v1/customer/features`,
     verifySameOrganization,
     ctl.getCustomerFeatures
   );
   app.get(
-    `${process.env.APP_URL}/customer/details`,
+    `/api/v1/customer/details`,
     verifySameOrganization,
     ctl.getCustomerDetail
   );
   app.get(
-    `${process.env.APP_URL}/customer/all`,
+    `/api/v1/customer/all`,
     verifySameOrganization,
     ctl.getAllCustomers
   );
   app.post(
-    `${process.env.APP_URL}/customer`,
+    `/api/v1/customer`,
     verifySameOrganization,
     ctl.createCustomer
   );
   app.get(
-    `${process.env.APP_URL}/customer/redshift`,
+    `/api/v1/customer/redshift`,
     authUser,
     ctl.fetchCustomerDetailsFromRedshift
   );
   app.get(
-    `${process.env.APP_URL}/customer/high-risk-churn-stats`,
+    `/api/v1/customer/high-risk-churn-stats`,
     authUser,
     ctl.getHighRiskChurnStats
   );
   app.put(
-    `${process.env.APP_URL}/customer/:id`,
+    `/api/v1/customer/:id`,
     authUser,
     ctl.updateCustomerDetail
   );
   app.get(
-    `${process.env.APP_URL}/customer/:id/score`,
+    `/api/v1/customer/:id/score`,
     authUser,
     ctl.getCustomerScore
   );
   app.get(
-    `${process.env.APP_URL}/customer/:id/details`,
+    `/api/v1/customer/:id/details`,
     authUser,
     ctl.getCustomerScoreDetails
   );

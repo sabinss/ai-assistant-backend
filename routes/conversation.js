@@ -6,36 +6,36 @@ const verifySameOrganization = require('../middleware/verifySameOrganization');
 const permissonCheck = checkPermissions('chat');
 
 module.exports = app => {
-    app.get(`${process.env.APP_URL}/conversations/whole_organization`, authUser, ctl.getWholeOrgConvo);
+    app.get(`/api/v1/conversations/whole_organization`, authUser, ctl.getWholeOrgConvo);
 
     app.get(
-        `${process.env.APP_URL}/conversations/public/`,
+        `/api/v1/conversations/public/`,
         verifySameOrganization,
         publicChat,
         ctl.getPublicConversationByUserId
     );
 
-    app.post(`${process.env.APP_URL}/conversation/add`, authUser, ctl.addConversation);
+    app.post(`/api/v1/conversation/add`, authUser, ctl.addConversation);
 
     app.post(
-        `${process.env.APP_URL}/conversation/public/add`,
+        `/api/v1/conversation/public/add`,
         verifySameOrganization,
         publicChat,
         ctl.addPublicConversation
     );
 
-    app.post(`${process.env.APP_URL}/conversation/agent/add`, authUser, ctl.addCustomAgentConversation);
-    app.post(`${process.env.APP_URL}/conversation/public/update_like_dislike`, publicChat, ctl.updatePublicLikeDislike);
+    app.post(`/api/v1/conversation/agent/add`, authUser, ctl.addCustomAgentConversation);
+    app.post(`/api/v1/conversation/public/update_like_dislike`, publicChat, ctl.updatePublicLikeDislike);
 
     app.post(
-        `${process.env.APP_URL}/conversation/update_like_dislike`,
+        `/api/v1/conversation/update_like_dislike`,
         authUser,
         permissonCheck,
         ctl.updateLikeDislike
     );
 
     app.get(
-        `${process.env.APP_URL}/conversations`,
+        `/api/v1/conversations`,
         verifySameOrganization,
         authUser,
         permissonCheck,
@@ -43,7 +43,7 @@ module.exports = app => {
     );
 
     app.get(
-        `${process.env.APP_URL}/conversations/customer`,
+        `/api/v1/conversations/customer`,
         (req, res, next) => {
             if (req.query.token) {
                 const tokerParts = req.query.token.split('_');
@@ -60,10 +60,10 @@ module.exports = app => {
         ctl.getConversationByCustomerId
     );
 
-    app.get(`${process.env.APP_URL}/conversations/count`, authUser, permissonCheck, ctl.totalConversations);
+    app.get(`/api/v1/conversations/count`, authUser, permissonCheck, ctl.totalConversations);
 
     app.delete(
-        `${process.env.APP_URL}/conversation/:conversation_id`,
+        `/api/v1/conversation/:conversation_id`,
         authUser,
         permissonCheck,
         ctl.deleteConversation

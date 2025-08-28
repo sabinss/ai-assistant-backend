@@ -5,43 +5,43 @@ const permissonCheck = checkPermissions('users');
 const verifySameOrganization = require('../middleware/verifySameOrganization');
 module.exports = (app) => {
   app.get(
-    `${process.env.APP_URL}/user/profile/changeSession`,
+    `/api/v1/user/profile/changeSession`,
     authUser,
     ctl.changeSession
   );
-  app.get(`${process.env.APP_URL}/user/profile`, authUser, ctl.getProfile);
+  app.get(`/api/v1/user/profile`, authUser, ctl.getProfile);
   app.patch(
-    `${process.env.APP_URL}/user/profile/update/`,
+    `/api/v1/user/profile/update/`,
     authUser,
     ctl.updateProfile
   );
   app.post(
-    `${process.env.APP_URL}/user/add`,
+    `/api/v1/user/add`,
     authUser,
     permissonCheck,
     ctl.addUser
   );
   app.get(
-    `${process.env.APP_URL}/users`,
+    `/api/v1/users`,
     verifySameOrganization,
     authUser,
     permissonCheck,
     ctl.getUsers
   );
   app.get(
-    `${process.env.APP_URL}/user/:user_id`,
+    `/api/v1/user/:user_id`,
     authUser,
     permissonCheck,
     ctl.getUser
   );
   app.patch(
-    `${process.env.APP_URL}/user/:user_id`,
+    `/api/v1/user/:user_id`,
     authUser,
     permissonCheck,
     ctl.update
   );
   app.delete(
-    `${process.env.APP_URL}/user/:user_id`,
+    `/api/v1/user/:user_id`,
     authUser,
     permissonCheck,
     ctl.deleteUser

@@ -17,9 +17,9 @@ const upload = multer({
 const uploadMiddleware = upload.array('files');
 
 module.exports = app => {
-    app.delete(`${process.env.APP_URL}/organization/source`, authUser, ctl.deleteSourceFile),
+    app.delete(`/api/v1/organization/source`, authUser, ctl.deleteSourceFile),
         app.post(
-            `${process.env.APP_URL}/organization/source/upload-pdf`,
+            `/api/v1/organization/source/upload-pdf`,
             authUser,
             (req, res, next) => {
                 uploadMiddleware(req, res, err => {
@@ -37,77 +37,77 @@ module.exports = app => {
             },
             ctl.uploadOrganizationSourceUpload
         );
-    app.get(`${process.env.APP_URL}/organization/source/file/list`, authUser, ctl.fetchSourceFileList);
-    app.get(`${process.env.APP_URL}/customers/`, ctl.getCustomerDetail);
-    app.get(`${process.env.APP_URL}/organization/`, authUser, permissonCheck, ctl.getOrg);
+    app.get(`/api/v1/organization/source/file/list`, authUser, ctl.fetchSourceFileList);
+    app.get(`/api/v1/customers/`, ctl.getCustomerDetail);
+    app.get(`/api/v1/organization/`, authUser, permissonCheck, ctl.getOrg);
 
     app.get(
-        `${process.env.APP_URL}/organization/google-users`,
+        `/api/v1/organization/google-users`,
         // verifySameOrganization,
         verifyGoogleAuthUser,
         ctl.getConnectedGmailsWithOrg
     );
 
-    app.post(`${process.env.APP_URL}/organization/prompts`, authUser, ctl.createOrganizationPrompt);
-    app.get(`${process.env.APP_URL}/organization/prompts`, authUser, ctl.getOrganizationPrompt);
-    app.post(`${process.env.APP_URL}/organization/prompts/category`, authUser, ctl.updateOrganizationPromptCategory);
+    app.post(`/api/v1/organization/prompts`, authUser, ctl.createOrganizationPrompt);
+    app.get(`/api/v1/organization/prompts`, authUser, ctl.getOrganizationPrompt);
+    app.post(`/api/v1/organization/prompts/category`, authUser, ctl.updateOrganizationPromptCategory);
 
-    app.post(`${process.env.APP_URL}/organization/task-agent/trigger`, authUser, ctl.callTaskAgentPythonApi);
+    app.post(`/api/v1/organization/task-agent/trigger`, authUser, ctl.callTaskAgentPythonApi);
 
-    app.post(`${process.env.APP_URL}/organization/agent`, authUser, ctl.createOrgAgentInstructions);
+    app.post(`/api/v1/organization/agent`, authUser, ctl.createOrgAgentInstructions);
 
     app.post(
-        `${process.env.APP_URL}/organization/agent/:agentId/task/:taskId/status`,
+        `/api/v1/organization/agent/:agentId/task/:taskId/status`,
         authUser,
         ctl.storeAgentTaskExecuteStatus
     );
 
-    app.get(`${process.env.APP_URL}/organization/agent/:agentId/task/:taskId/status`, authUser, ctl.getAgentTaskStatus);
+    app.get(`/api/v1/organization/agent/:agentId/task/:taskId/status`, authUser, ctl.getAgentTaskStatus);
 
-    app.put(`${process.env.APP_URL}/organization/agent`, authUser, ctl.updateOrgAgentInstructions);
-    app.get(`${process.env.APP_URL}/organization/agent/instruction`, authUser, ctl.getOrgAgentInstructions);
+    app.put(`/api/v1/organization/agent`, authUser, ctl.updateOrgAgentInstructions);
+    app.get(`/api/v1/organization/agent/instruction`, authUser, ctl.getOrgAgentInstructions);
 
-    app.delete(`${process.env.APP_URL}/organization/agent/:id/instruction`, authUser, ctl.deleteAgentInstruction);
+    app.delete(`/api/v1/organization/agent/:id/instruction`, authUser, ctl.deleteAgentInstruction);
 
     app.get(
-        `${process.env.APP_URL}/organization/agent`,
+        `/api/v1/organization/agent`,
         verifySameOrganization,
         // ctl.getOrganizationAgentSetup
         ctl.getOrgAgentInstructions
     );
 
-    app.get(`${process.env.APP_URL}/organization/:org_id/customers`, authUser, permissonCheck, ctl.getCustomerList);
+    app.get(`/api/v1/organization/:org_id/customers`, authUser, permissonCheck, ctl.getCustomerList);
 
-    app.get(`${process.env.APP_URL}/organization/:org_id/task_agent`, authUser, permissonCheck, ctl.getOrgTaskAgents);
+    app.get(`/api/v1/organization/:org_id/task_agent`, authUser, permissonCheck, ctl.getOrgTaskAgents);
 
-    app.get(`${process.env.APP_URL}/organization/:org_id/task_agent/public`, checkSessionApiKey, ctl.getOrgTaskAgents);
+    app.get(`/api/v1/organization/:org_id/task_agent/public`, checkSessionApiKey, ctl.getOrgTaskAgents);
 
     app.post(
-        `${process.env.APP_URL}/organization/:org_id/task_agent`,
+        `/api/v1/organization/:org_id/task_agent`,
         authUser,
         permissonCheck,
         ctl.createOrgTaskAgents
     );
 
     app.put(
-        `${process.env.APP_URL}/organization/:org_id/task_agent/:taskAgentId`,
+        `/api/v1/organization/:org_id/task_agent/:taskAgentId`,
         authUser,
         permissonCheck,
         ctl.updateOrgTaskAgents
     );
 
-    app.patch(`${process.env.APP_URL}/organization`, authUser, permissonCheck, ctl.editOrg);
-    app.post(`${process.env.APP_URL}/organization`, authUser, permissonCheck, ctl.create);
+    app.patch(`/api/v1/organization`, authUser, permissonCheck, ctl.editOrg);
+    app.post(`/api/v1/organization`, authUser, permissonCheck, ctl.create);
     app.patch(
-        `${process.env.APP_URL}/organization/support-workflow`,
+        `/api/v1/organization/support-workflow`,
         authUser,
         permissonCheck,
         ctl.saveOrgSupportWorkflow
     );
-    app.get(`${process.env.APP_URL}/organization/greeting_botname`, ctl.getGreeting_botName);
-    app.post(`${process.env.APP_URL}/organization/user`, authUser, permitUser, ctl.createUser);
+    app.get(`/api/v1/organization/greeting_botname`, ctl.getGreeting_botName);
+    app.post(`/api/v1/organization/user`, authUser, permitUser, ctl.createUser);
 
-    app.post(`${process.env.APP_URL}/organization/users`, authUser, permitUser, ctl.findUsers);
-    app.patch(`${process.env.APP_URL}/organization/user/:user_id`, authUser, permitUser, ctl.editUser);
-    app.delete(`${process.env.APP_URL}/organization/user/:user_id`, authUser, permitUser, ctl.deleteUser);
+    app.post(`/api/v1/organization/users`, authUser, permitUser, ctl.findUsers);
+    app.patch(`/api/v1/organization/user/:user_id`, authUser, permitUser, ctl.editUser);
+    app.delete(`/api/v1/organization/user/:user_id`, authUser, permitUser, ctl.deleteUser);
 };

@@ -6,48 +6,48 @@ const permissonCheck = checkPermissions('feedbacks');
 
 module.exports = (app) => {
   app.post(
-    `${process.env.APP_URL}/feedback/public/add`,
+    `/api/v1/feedback/public/add`,
     ctl.createPublicFeedback
   );
-  app.post(`${process.env.APP_URL}/feedback/survey`, ctl.createFeedbackSurvey);
+  app.post(`/api/v1/feedback/survey`, ctl.createFeedbackSurvey);
   app.get(
-    `${process.env.APP_URL}/feedback/survey`,
+    `/api/v1/feedback/survey`,
     verifySameOrganization,
     ctl.getFeedbackSurveys
   );
 
   app.post(
-    `${process.env.APP_URL}/feedback/add`,
+    `/api/v1/feedback/add`,
     authUser,
     checkPermissions('feedbacks', 'like-dislike'),
     ctl.createFeedback
   );
   app.get(
-    `${process.env.APP_URL}/feedbacks/count`,
+    `/api/v1/feedbacks/count`,
     authUser,
     permissonCheck,
     ctl.feedbackCounts
   );
   app.get(
-    `${process.env.APP_URL}/feedbacks`,
+    `/api/v1/feedbacks`,
     authUser,
     permissonCheck,
     ctl.getFeedbacks
   );
   app.get(
-    `${process.env.APP_URL}/feedback/:feedback_id`,
+    `/api/v1/feedback/:feedback_id`,
     authUser,
     permissonCheck,
     ctl.getFeedback
   );
   app.patch(
-    `${process.env.APP_URL}/feedback/:feedback_id`,
+    `/api/v1/feedback/:feedback_id`,
     authUser,
     permissonCheck,
     ctl.updateFeedback
   );
   app.delete(
-    `${process.env.APP_URL}/feedback/:feedback_id`,
+    `/api/v1/feedback/:feedback_id`,
     authUser,
     permissonCheck,
     ctl.deleteFeedback

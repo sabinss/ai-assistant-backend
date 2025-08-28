@@ -6,18 +6,18 @@ const verifySameOrganization = require('../middleware/verifySameOrganization.js'
 const {SETTING_CONSTANT} = require('../constants/setting_constant.js');
 
 module.exports = (app) => {
-  app.get(`${process.env.APP_URL}/status`, authUser, async (req, res) => {
+  app.get(`/api/v1/status`, authUser, async (req, res) => {
     const status = await Status.find();
     res.status(200).json(status);
   });
 
-  app.get(`${process.env.APP_URL}/status`, authUser, async (req, res) => {
+  app.get(`/api/v1/status`, authUser, async (req, res) => {
     const status = await Status.find();
     res.status(200).json(status);
   });
 
   app.get(
-    `${process.env.APP_URL}/generate/token`,
+    `/api/v1/generate/token`,
     authUser,
     async (req, res) => {
       const exist = await OrganizationToken.findOne({email: req.user.email});

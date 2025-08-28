@@ -3,7 +3,7 @@ const GptModel = require("../models/GptModel.js");
 const Status = require("../models/Status.js");
 const SessionApi = require("../models/SessionApi.js");
 module.exports = (app) => {
-    app.get(`${process.env.APP_URL}/seed`, async (req, res) => {
+    app.get(`/api/v1/seed`, async (req, res) => {
         await seedRoles();
         await seedGptModels();
         await seedStatus();

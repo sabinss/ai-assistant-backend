@@ -42,6 +42,11 @@ app.use((err, req, res, next) => {
   next(err);
 });
 db.connect();
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none';");
+  next();
+});
 
 app.get('/health-check', async (req, res) => {
   const check = await db.connect();

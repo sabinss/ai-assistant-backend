@@ -295,6 +295,11 @@ exports.getHighRiskChurnStats = async (req, res) => {
     const prevPrevMonth = prevMonth === 1 ? 12 : prevMonth - 1;
     const prevPrevYear = prevMonth === 1 ? prevYear - 1 : prevYear;
 
+    const companyQuery = `
+     SELECT *
+            FROM db${org_id}.companies 
+    `;
+
     // Fetch all data for previous month (current month - 1)
     const prevMonthQuery = `
             SELECT *
@@ -400,6 +405,13 @@ exports.getHighRiskChurnStats = async (req, res) => {
       prevMonthQuery,
       'Previous Month Query'
     );
+
+    const companyResponse = await executeSqlQueryWithRetry(
+      companyQuery,
+      'Company Query'
+    );
+
+    console.log('companyResponse', companyResponse);
 
     console.log('Fetching previous-1 month data...');
     const prevPrevMonthResponse = await executeSqlQueryWithRetry(

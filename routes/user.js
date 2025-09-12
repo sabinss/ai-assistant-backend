@@ -10,7 +10,7 @@ module.exports = (app) => {
     ctl.changeSession
   );
   app.get(`${process.env.APP_URL}/user/profile`, authUser, ctl.getProfile);
-  app.patch(
+  app.put(
     `${process.env.APP_URL}/user/profile/update/`,
     authUser,
     ctl.updateProfile
@@ -34,7 +34,7 @@ module.exports = (app) => {
     permissonCheck,
     ctl.getUser
   );
-  app.patch(
+  app.put(
     `${process.env.APP_URL}/user/:user_id`,
     authUser,
     permissonCheck,

@@ -29,6 +29,11 @@ module.exports = (app) => {
     ctl.createCustomer
   );
   app.get(
+    `${process.env.APP_URL}/customer/alerts`,
+    authUser,
+    ctl.getCustomerAlertData
+  );
+  app.get(
     `${process.env.APP_URL}/customer/redshift`,
     authUser,
     ctl.fetchCustomerDetailsFromRedshift

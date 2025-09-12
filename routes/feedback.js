@@ -40,7 +40,7 @@ module.exports = (app) => {
     permissonCheck,
     ctl.getFeedback
   );
-  app.patch(
+  app.put(
     `${process.env.APP_URL}/feedback/:feedback_id`,
     authUser,
     permissonCheck,

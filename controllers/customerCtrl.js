@@ -89,23 +89,39 @@ exports.createCustomer = async (req, res) => {
       });
     }
 
-    // Check if customer already exists for the same organization (case-insensitive)
-    // const existingCustomer = await Customer.findOne({
-    //   name: { $regex: new RegExp(`^${name}$`, 'i') }, // case-insensitive regex match
-    //   organization: organization,
-    // });
+    const appCompanyId = optionalFields?.app_company_id;
+    // Build query condition dynamically
+    const query = {
+      name: { $regex: new RegExp(`^${name}$`, 'i') }, // case-insensitive
+      organization,
+    };
+    if (appCompanyId) {
+      query.app_company_id = appCompanyId;
+    }
 
-    // if (existingCustomer) {
-    //   return res.status(400).json({
-    //     message: 'Customer already exists for this organization',
-    //     customer: existingCustomer,
-    //   });
-    // }
+    // Check if customer already exists for the same organization (case-insensitive)
+    const existingCustomer = await Customer.findOne(query);
+
+    if (existingCustomer) {
+      return res.status(400).json({
+        message: 'Customer already exists for this organization',
+        customer: existingCustomer,
+      });
+    }
 
     // Create a new customer with required and optional fields
     const customer = new Customer({
       name,
       organization,
+      csm_cust_id: optionalFields?.csm_cust_id
+        ? optionalFields?.csm_cust_id.toString()
+        : '',
+      help_desk_cust_id: optionalFields?.help_desk_cust_id
+        ? optionalFields?.help_desk_cust_id.toString()
+        : '',
+      app_company_id: optionalFields?.app_company_id
+        ? optionalFields?.app_company_id.toString()
+        : '',
       email: optionalFields?.email || '', // Ensure email is explicitly set to null if not provided
       ...optionalFields, // Spread operator adds any additional fields dynamically
     });

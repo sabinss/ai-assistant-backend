@@ -22,10 +22,10 @@ const customerSchema = new mongoose.Schema(
     escalated_ticket: { type: Number },
     closed_ticket_count: { type: Number },
     crm_cust_id: { type: Number },
-    help_desk_cust_id: { type: String },
-    csm_cust_id: { type: String },
+    help_desk_cust_id: { type: String, default: '' },
+    csm_cust_id: { type: String, default: '' },
     accounting_cust_id: { type: Number },
-    app_company_id: { type: String },
+    app_company_id: { type: String, default: '' },
     stage: { type: String },
     organization: {
       type: mongoose.Schema.Types.ObjectId,

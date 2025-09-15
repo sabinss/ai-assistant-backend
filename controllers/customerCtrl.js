@@ -90,17 +90,17 @@ exports.createCustomer = async (req, res) => {
     }
 
     // Check if customer already exists for the same organization (case-insensitive)
-    const existingCustomer = await Customer.findOne({
-      name: { $regex: new RegExp(`^${name}$`, 'i') }, // case-insensitive regex match
-      organization: organization,
-    });
+    // const existingCustomer = await Customer.findOne({
+    //   name: { $regex: new RegExp(`^${name}$`, 'i') }, // case-insensitive regex match
+    //   organization: organization,
+    // });
 
-    if (existingCustomer) {
-      return res.status(400).json({
-        message: 'Customer already exists for this organization',
-        customer: existingCustomer,
-      });
-    }
+    // if (existingCustomer) {
+    //   return res.status(400).json({
+    //     message: 'Customer already exists for this organization',
+    //     customer: existingCustomer,
+    //   });
+    // }
 
     // Create a new customer with required and optional fields
     const customer = new Customer({

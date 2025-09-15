@@ -135,16 +135,19 @@ exports.getOrg = async (req, res) => {
         }
         // 66158fe71bfe10b58cb23eea
         let organizationTokenRecord = null;
-        let organizationEmail = null;
+        let organizationEmail = req?.user?.externalEmail || null;
 
-        if (req.user.organization) {
-            const user = await User.findOne({
-                organization: id
-            });
-            if (user) {
-                organizationEmail = user.email;
+        if (!organizationEmail) {
+            if (req.user.organization) {
+                const user = await User.findOne({
+                    organization: id
+                });
+                if (user) {
+                    organizationEmail = user.email;
+                }
             }
         }
+
         if (req.user?.email || organizationEmail) {
             const email = req.user?.email || organizationEmail;
             organizationTokenRecord = await OrganizationToken.findOne({

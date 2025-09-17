@@ -1600,11 +1600,75 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
   try {
     const session_id = Math.floor(1000 + Math.random() * 9000);
     const org_id = req.user.organization.toString();
-    const sql_query = `SELECT * from  db${org_id}.companies`;
-    let url =
+
+    //pagination
+    const search = req.query.search || '';
+    const page = req.query.page || 1;
+    const limit = req.query.limit || 10;
+    const offset = (page - 1) * limit;
+
+    // Validate pagination parameters
+    if (page < 1) {
+      return res.status(400).json({
+        message: 'Page number must be greater than 0',
+      });
+    }
+
+    if (limit < 1 || limit > 100) {
+      return res.status(400).json({
+        message: 'Limit must be between 1 and 100',
+      });
+    }
+
+    // Get total count for pagination metadata
+    const countQuery = `SELECT COUNT(*) as total FROM db${org_id}.companies`;
+    const countUrl =
       process.env.AI_AGENT_SERVER_URI +
-      `/run-sql-query?sql_query=${sql_query}&session_id=${session_id}&org_id=${org_id}`;
-    console.log('url', url);
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        countQuery
+      )}&session_id=${session_id}&org_id=${org_id}`;
+
+    console.log('Count URL:', countUrl);
+
+    const countResponse = await axiosInstance.post(
+      countUrl,
+      {},
+      {
+        timeout: 300000, // 5 minutes
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    if (countResponse?.data?.error) {
+      return res.status(500).json({
+        message: countResponse?.data?.error,
+        error: countResponse?.data?.error,
+      });
+    }
+
+    const totalRecords = countResponse.data.result.result_set[0]?.total || 0;
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    // Main data query with pagination
+    let base_query = `SELECT * FROM db${org_id}.companies`;
+    let sql_query = '';
+    if (search) {
+      sql_query =
+        base_query +
+        ` WHERE name ILIKE '%${search}%'` +
+        `LIMIT ${limit} OFFSET ${offset}`;
+    } else {
+      sql_query = `${base_query} LIMIT ${limit} OFFSET ${offset}`;
+    }
+    const url =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        sql_query
+      )}&session_id=${session_id}&org_id=${org_id}`;
+    console.log('Data URL:', url);
     const response = await axiosInstance.post(
       url,
       {},
@@ -1622,7 +1686,19 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
         .json({ message: response?.data?.error, error: response?.data?.error });
       return;
     }
-    res.status(200).json({ data: response.data.result.result_set });
+    const data = response.data.result.result_set || [];
+    // Pagination metadata
+    const pagination = {
+      currentPage: page,
+      totalPages: totalPages,
+      totalRecords: totalRecords,
+      limit: limit,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+      nextPage: page < totalPages ? page + 1 : null,
+      prevPage: page > 1 ? page - 1 : null,
+    };
+    res.status(200).json({ data: data, pagination });
   } catch (err) {
     console.log('Err', err);
     res.status(500).json({ message: 'Internal Server Error', err });

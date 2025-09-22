@@ -1698,7 +1698,12 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
       nextPage: page < totalPages ? page + 1 : null,
       prevPage: page > 1 ? page - 1 : null,
     };
-    res.status(200).json({ data: data, pagination });
+    const formattedData = data.map((item) => ({
+      ...item,
+      churn_risk_score: Math.trunc(Number(item.churn_risk_score)),
+      health_score: Math.trunc(Number(item.health_score)),
+    }));
+    res.status(200).json({ data: formattedData, pagination });
   } catch (err) {
     console.log('Err', err);
     res.status(500).json({ message: 'Internal Server Error', err });

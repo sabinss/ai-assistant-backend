@@ -501,6 +501,7 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
       prevPrevMonthResponse?.data?.result?.result_set || [];
     const trendData = trendResponse?.data?.result?.result_set || [];
     const riskMatrixData = riskMatrixResponse?.data?.result?.result_set || [];
+    const companyData = companyResponse?.data?.result?.result_set || [];
 
     // renewal_date
     console.log(`Previous month records: ${prevMonthData.length}`);
@@ -740,7 +741,8 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
       });
     };
 
-    const highRiskCustomerList = getHighRiskCustomerList(prevMonthData);
+    // const highRiskCustomerList = getHighRiskCustomerList(prevMonthData);
+    const highRiskCustomerList = getHighRiskCustomerList(companyData);
 
     // Calculate percentage changes
     const calculatePercentageChange = (current, previous) => {
@@ -1368,7 +1370,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
       });
     };
 
-    const highRiskCustomerList = getHighRiskCustomerList(prevMonthData);
+    const highRiskCustomerList = getHighRiskCustomerList(companyData);
 
     // Calculate percentage changes
     const calculatePercentageChange = (current, previous) => {

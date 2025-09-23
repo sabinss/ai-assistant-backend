@@ -334,7 +334,7 @@ exports.getCustomerScoreDetails = async (req, res) => {
         uniqueData.push(item);
       }
     });
-    return resstatus(200).json({ data: uniqueData });
+    return res.status(200).json({ data: uniqueData });
   } catch (error) {
     console.error('Error fetching customer score details:', error);
     return res.status(500).json({ message: 'Internal Server Error', error });

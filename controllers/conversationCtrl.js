@@ -222,6 +222,10 @@ exports.addCustomAgentConversation = async (req, res) => {
   let isStreaming = false;
   let isCompleted = false;
 
+  // JSON buffering for incomplete messages
+  let jsonBuffer = '';
+  let pendingMessages = [];
+
   const cleanup = () => {
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -259,6 +263,70 @@ exports.addCustomAgentConversation = async (req, res) => {
       );
       res.end();
     }
+  };
+
+  // Helper function to safely parse JSON with buffering
+  const parseJSONWithBuffer = (jsonStr) => {
+    try {
+      // Try to parse the JSON string
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      // If parsing fails, it might be incomplete JSON
+      if (
+        e.name === 'SyntaxError' &&
+        e.message.includes('Unexpected end of JSON input')
+      ) {
+        console.log(`[${requestId}] Incomplete JSON detected, buffering...`, {
+          jsonStr:
+            jsonStr.substring(0, 200) + (jsonStr.length > 200 ? '...' : ''),
+          jsonLength: jsonStr.length,
+          agentName: req.body?.agentName,
+        });
+        return null; // Return null to indicate incomplete JSON
+      }
+      throw e; // Re-throw other errors
+    }
+  };
+
+  // Helper function to process complete JSON messages
+  const processCompleteMessage = (data, msgText) => {
+    dataChunkCount++;
+
+    console.log(`[${requestId}] Parsed data message #${dataChunkCount}`, {
+      agentName: req.body?.agentName,
+      hasSessionId: !!data.session_id,
+      hasMessage: !!data.message,
+      messageLength: data.message?.length || 0,
+      dataKeys: Object.keys(data),
+      timestamp: new Date().toISOString(),
+    });
+
+    // Extract session_id if it exists in the response
+    if (data.session_id && !session_id) {
+      session_id = data.session_id;
+      console.log(`[${requestId}] Updated session_id from response:`, {
+        newSessionId: session_id,
+        agentName: req.body?.agentName,
+      });
+    }
+
+    // Add content to the complete message
+    if (data.message) {
+      completeMessage += data.message;
+      console.log(`[${requestId}] Accumulated message length:`, {
+        currentLength: completeMessage.length,
+        newChunkLength: data.message.length,
+        agentName: req.body?.agentName,
+      });
+    }
+
+    // Ensure proper SSE format with data: prefix and double newline
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+    console.log(`[${requestId}] Forwarded data to client`, {
+      agentName: req.body?.agentName,
+      dataSize: JSON.stringify(data).length,
+    });
   };
 
   try {
@@ -401,67 +469,39 @@ exports.addCustomAgentConversation = async (req, res) => {
 
         for (const msgText of messages) {
           if (msgText.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(msgText.replace('data: ', ''));
-              dataChunkCount++;
+            const jsonStr = msgText.replace('data: ', '');
 
-              console.log(
-                `[${requestId}] Parsed data message #${dataChunkCount}`,
-                {
-                  agentName,
-                  hasSessionId: !!data.session_id,
-                  hasMessage: !!data.message,
-                  messageLength: data.message?.length || 0,
-                  dataKeys: Object.keys(data),
-                  timestamp: new Date().toISOString(),
-                }
-              );
+            // Try to parse the JSON
+            const data = parseJSONWithBuffer(jsonStr);
 
-              // Extract session_id if it exists in the response
-              if (data.session_id && !session_id) {
-                session_id = data.session_id;
-                console.log(
-                  `[${requestId}] Updated session_id from response:`,
-                  {
-                    newSessionId: session_id,
-                    agentName,
-                  }
-                );
-              }
-
-              // Add content to the complete message
-              if (data.message) {
-                completeMessage += data.message;
-                console.log(`[${requestId}] Accumulated message length:`, {
-                  currentLength: completeMessage.length,
-                  newChunkLength: data.message.length,
-                  agentName,
-                });
-              }
-
-              // Ensure proper SSE format with data: prefix and double newline
-              res.write(`data: ${JSON.stringify(data)}\n\n`);
-
-              console.log(`[${requestId}] Forwarded data to client`, {
+            if (data !== null) {
+              // JSON is complete, process it
+              processCompleteMessage(data, msgText);
+            } else {
+              // JSON is incomplete, buffer it
+              jsonBuffer += jsonStr;
+              console.log(`[${requestId}] Buffering incomplete JSON`, {
                 agentName,
-                dataSize: JSON.stringify(data).length,
+                bufferLength: jsonBuffer.length,
+                jsonPreview:
+                  jsonStr.substring(0, 100) +
+                  (jsonStr.length > 100 ? '...' : ''),
+                timestamp: new Date().toISOString(),
               });
-            } catch (e) {
-              errorChunkCount++;
-              console.error(
-                `[${requestId}] Error parsing individual message #${errorChunkCount}:`,
-                {
-                  error: e.message,
-                  agentName,
-                  msgText:
-                    msgText.substring(0, 200) +
-                    (msgText.length > 200 ? '...' : ''),
-                  timestamp: new Date().toISOString(),
-                }
-              );
 
-              // If parsing individual message fails, send as is
-              res.write(`data: ${JSON.stringify({ chunk: msgText })}\n\n`);
+              // Try to parse the buffered JSON
+              const bufferedData = parseJSONWithBuffer(jsonBuffer);
+              if (bufferedData !== null) {
+                // Buffered JSON is now complete
+                console.log(`[${requestId}] Buffered JSON is now complete`, {
+                  agentName,
+                  bufferLength: jsonBuffer.length,
+                  timestamp: new Date().toISOString(),
+                });
+
+                processCompleteMessage(bufferedData, msgText);
+                jsonBuffer = ''; // Clear the buffer
+              }
             }
           } else if (msgText.trim()) {
             console.log(`[${requestId}] Processing non-data message:`, {
@@ -504,8 +544,36 @@ exports.addCustomAgentConversation = async (req, res) => {
         completeMessageLength: completeMessage.length,
         streamTime: `${totalStreamTime}ms`,
         totalRequestTime: `${totalRequestTime}ms`,
+        remainingBuffer: jsonBuffer.length,
         timestamp: new Date().toISOString(),
       });
+
+      // Process any remaining buffered JSON
+      if (jsonBuffer.trim()) {
+        console.log(`[${requestId}] Processing remaining buffered JSON`, {
+          agentName,
+          bufferLength: jsonBuffer.length,
+          bufferPreview:
+            jsonBuffer.substring(0, 200) +
+            (jsonBuffer.length > 200 ? '...' : ''),
+          timestamp: new Date().toISOString(),
+        });
+
+        try {
+          const remainingData = JSON.parse(jsonBuffer);
+          processCompleteMessage(remainingData, `data: ${jsonBuffer}`);
+        } catch (e) {
+          console.error(
+            `[${requestId}] Error parsing remaining buffered JSON:`,
+            {
+              error: e.message,
+              agentName,
+              bufferLength: jsonBuffer.length,
+              timestamp: new Date().toISOString(),
+            }
+          );
+        }
+      }
 
       try {
         isCompleted = true;
@@ -539,9 +607,10 @@ exports.addCustomAgentConversation = async (req, res) => {
             question:
               payload.question?.substring(0, 100) +
               (payload.question?.length > 100 ? '...' : ''),
-            answer:
-              payload.answer?.substring(0, 100) +
-              (payload.answer?.length > 100 ? '...' : ''),
+            answer: answer
+              ? payload.answer?.substring(0, 100) +
+                (payload.answer?.length > 100 ? '...' : '')
+              : '',
           },
           timestamp: new Date().toISOString(),
         });
@@ -1099,7 +1168,6 @@ exports.addPublicConversation = async (req, res) => {
 //   //     res.end();
 //   //   }
 //   // }
-// };
 
 exports.getWholeOrgConvo = async (req, res) => {
   const { startDate, endDate, customer_id } = req.query;

@@ -17,7 +17,7 @@ const UserConversation = new mongoose.Schema(
     },
     answer: {
       type: String,
-      required: true,
+      required: false,
     },
     liked_disliked: {
       type: String,

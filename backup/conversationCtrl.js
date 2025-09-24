@@ -246,6 +246,11 @@ exports.addCustomAgentConversation = async (req, res) => {
         // Handle multiple SSE messages that might be in a single chunk
         const messages = chunkStr.split('\n\n').filter((m) => m.trim());
         console.log(`*** Messages for agent ${agentName} `, messages);
+        if (!messages || messages?.length === 0) {
+          console.log('***** Message not received from python API', messages);
+        } else {
+          console.log('***** Message received from python API', messages);
+        }
 
         for (const msgText of messages) {
           if (msgText.startsWith('data: ')) {

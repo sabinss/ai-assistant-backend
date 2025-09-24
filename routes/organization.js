@@ -22,6 +22,11 @@ module.exports = (app) => {
     authUser,
     ctl.deleteSourceFile
   ),
+    app.get(
+      `${process.env.APP_URL}/organization/agent/:id/start`,
+      authUser,
+      ctl.triggerAgent
+    ),
     app.post(
       `${process.env.APP_URL}/organization/source/upload-pdf`,
       authUser,

@@ -1056,6 +1056,8 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
       }
     );
 
+    console.log('totalCustomerResponse', totalCustomerResponse);
+
     if (totalCustomerResponse?.data?.error) {
       return res.status(500).json({
         message: totalCustomerResponse?.data?.error,

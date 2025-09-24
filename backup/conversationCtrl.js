@@ -2,15 +2,6 @@ const Conversation = require('../models/UserConversation');
 const http = require('../helper/http');
 const axios = require('axios');
 
-// Configuration for timeout and retry handling
-const AGENT_CONFIG = {
-  MAX_RETRIES: 3,
-  TIMEOUT_MS: 300000, // 5 minutes
-  RETRY_DELAY_MS: 2000, // 2 seconds
-  CONNECTION_TIMEOUT_MS: 10000, // 10 seconds
-  STREAMING_TIMEOUT_MS: 60000, // 1 minute for streaming
-};
-
 // Add conversation
 exports.addConversation = async (req, res) => {
   try {
@@ -206,78 +197,11 @@ exports.addConversation = async (req, res) => {
   }
 };
 
-// Add custom agent conversation with comprehensive logging and proper timeout handling
+// Add custom agent conversation
 exports.addCustomAgentConversation = async (req, res) => {
-  const startTime = Date.now();
-  const requestId = `req_${Date.now()}_${Math.random()
-    .toString(36)
-    .substr(2, 9)}`;
-
-  // Use AGENT_CONFIG values
-  const { TIMEOUT_MS, CONNECTION_TIMEOUT_MS, STREAMING_TIMEOUT_MS } =
-    AGENT_CONFIG;
-
-  let timeoutId = null;
-  let streamingTimeoutId = null;
-  let isStreaming = false;
-  let isCompleted = false;
-
-  const cleanup = () => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-    if (streamingTimeoutId) {
-      clearTimeout(streamingTimeoutId);
-      streamingTimeoutId = null;
-    }
-  };
-
-  const handleTimeout = (type) => {
-    const currentTime = Date.now();
-    const totalTime = currentTime - startTime;
-
-    console.error(`[${requestId}] ${type} timeout after ${totalTime}ms:`, {
-      agentName: req.body?.agentName,
-      timeoutType: type,
-      totalTime: `${totalTime}ms`,
-      isStreaming,
-      isCompleted,
-      timestamp: new Date().toISOString(),
-    });
-
-    cleanup();
-
-    if (!res.writableEnded) {
-      res.write(
-        `data: ${JSON.stringify({
-          error: `${type} timeout - request took too long`,
-          timeout: true,
-          timeoutType: type,
-          totalTime: totalTime,
-        })}\n\n`
-      );
-      res.end();
-    }
-  };
-
   try {
     const { question, chatSession, agentName } = req.body;
     let session_id = req.body?.sessionId ? req.body?.sessionId : null;
-
-    console.log(`[${requestId}] Starting agent conversation request`, {
-      agentName,
-      question:
-        question?.substring(0, 100) + (question?.length > 100 ? '...' : ''),
-      chatSession,
-      sessionId: session_id,
-      userId: req.user?._id || req.user?.user_id,
-      organization: req.user.organization,
-      timeoutMs: TIMEOUT_MS,
-      connectionTimeoutMs: CONNECTION_TIMEOUT_MS,
-      streamingTimeoutMs: STREAMING_TIMEOUT_MS,
-      timestamp: new Date().toISOString(),
-    });
 
     // Build URL for the Python API endpoint
     let url = `${
@@ -290,14 +214,7 @@ exports.addCustomAgentConversation = async (req, res) => {
     if (session_id) {
       url += `&session_id=${encodeURIComponent(session_id)}`;
     }
-
-    console.log(`[${requestId}] Python API URL constructed:`, {
-      url: url,
-      agentName,
-      orgId: req.user.organization,
-      hasSessionId: !!session_id,
-    });
-
+    console.log('**Agent conversation URI', url);
     // Set proper headers for SSE
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -306,185 +223,57 @@ exports.addCustomAgentConversation = async (req, res) => {
       'X-Accel-Buffering': 'no', // Disable buffering for Nginx
     });
 
-    console.log(
-      `[${requestId}] SSE headers set, making request to Python API...`
-    );
-
-    // Set up main timeout
-    timeoutId = setTimeout(() => {
-      handleTimeout('Request');
-    }, TIMEOUT_MS);
-
-    // Make streaming request to Python API with proper timeout configuration
+    // Make streaming request to Python API
     const pythonResponse = await axios({
       method: 'get',
       url: url,
       responseType: 'stream',
-      timeout: TIMEOUT_MS,
-      // Add connection timeout
-      httpAgent: new (require('http').Agent)({
-        timeout: CONNECTION_TIMEOUT_MS,
-        keepAlive: true,
-        maxSockets: 10,
-      }),
-      httpsAgent: new (require('https').Agent)({
-        timeout: CONNECTION_TIMEOUT_MS,
-        keepAlive: true,
-        maxSockets: 10,
-      }),
-      // Add additional headers for better connection handling
-      headers: {
-        Connection: 'keep-alive',
-        'Keep-Alive': 'timeout=300, max=1000',
-      },
     });
 
-    const responseTime = Date.now() - startTime;
-    console.log(`[${requestId}] Python API response received`, {
-      status: pythonResponse.status,
-      statusText: pythonResponse.statusText,
-      headers: pythonResponse.headers,
-      responseTime: `${responseTime}ms`,
-      agentName,
-      timestamp: new Date().toISOString(),
-    });
+    console.log(
+      `*** Python API response for agent ${agentName} `,
+      pythonResponse
+    );
 
     let completeMessage = '';
-    let chunkCount = 0;
-    let dataChunkCount = 0;
-    let errorChunkCount = 0;
-    const streamStartTime = Date.now();
-
-    // Set up streaming timeout
-    streamingTimeoutId = setTimeout(() => {
-      handleTimeout('Streaming');
-    }, STREAMING_TIMEOUT_MS);
 
     // Forward the stream from Python API to client
     pythonResponse.data.on('data', (chunk) => {
-      // Reset streaming timeout on each data chunk
-      if (streamingTimeoutId) {
-        clearTimeout(streamingTimeoutId);
-        streamingTimeoutId = setTimeout(() => {
-          handleTimeout('Streaming');
-        }, STREAMING_TIMEOUT_MS);
-      }
-
-      isStreaming = true;
-      chunkCount++;
       const chunkStr = chunk.toString();
-      const chunkSize = chunk.length;
-
-      console.log(`[${requestId}] Received data chunk #${chunkCount}`, {
-        chunkSize,
-        agentName,
-        chunkPreview:
-          chunkStr.substring(0, 200) + (chunkStr.length > 200 ? '...' : ''),
-        timestamp: new Date().toISOString(),
-      });
 
       // Clean up the string and try to parse JSON
       try {
         // Handle multiple SSE messages that might be in a single chunk
         const messages = chunkStr.split('\n\n').filter((m) => m.trim());
-
-        console.log(
-          `[${requestId}] Processing ${messages.length} messages from chunk #${chunkCount}`,
-          {
-            agentName,
-            messageCount: messages.length,
-            messages: messages.map(
-              (msg) => msg.substring(0, 100) + (msg.length > 100 ? '...' : '')
-            ),
-          }
-        );
+        console.log(`*** Messages for agent ${agentName} `, messages);
 
         for (const msgText of messages) {
           if (msgText.startsWith('data: ')) {
             try {
               const data = JSON.parse(msgText.replace('data: ', ''));
-              dataChunkCount++;
-
-              console.log(
-                `[${requestId}] Parsed data message #${dataChunkCount}`,
-                {
-                  agentName,
-                  hasSessionId: !!data.session_id,
-                  hasMessage: !!data.message,
-                  messageLength: data.message?.length || 0,
-                  dataKeys: Object.keys(data),
-                  timestamp: new Date().toISOString(),
-                }
-              );
 
               // Extract session_id if it exists in the response
               if (data.session_id && !session_id) {
                 session_id = data.session_id;
-                console.log(
-                  `[${requestId}] Updated session_id from response:`,
-                  {
-                    newSessionId: session_id,
-                    agentName,
-                  }
-                );
               }
 
               // Add content to the complete message
               if (data.message) {
                 completeMessage += data.message;
-                console.log(`[${requestId}] Accumulated message length:`, {
-                  currentLength: completeMessage.length,
-                  newChunkLength: data.message.length,
-                  agentName,
-                });
               }
 
               // Ensure proper SSE format with data: prefix and double newline
               res.write(`data: ${JSON.stringify(data)}\n\n`);
-
-              console.log(`[${requestId}] Forwarded data to client`, {
-                agentName,
-                dataSize: JSON.stringify(data).length,
-              });
             } catch (e) {
-              errorChunkCount++;
-              console.error(
-                `[${requestId}] Error parsing individual message #${errorChunkCount}:`,
-                {
-                  error: e.message,
-                  agentName,
-                  msgText:
-                    msgText.substring(0, 200) +
-                    (msgText.length > 200 ? '...' : ''),
-                  timestamp: new Date().toISOString(),
-                }
-              );
-
               // If parsing individual message fails, send as is
               res.write(`data: ${JSON.stringify({ chunk: msgText })}\n\n`);
             }
           } else if (msgText.trim()) {
-            console.log(`[${requestId}] Processing non-data message:`, {
-              agentName,
-              msgText:
-                msgText.substring(0, 100) + (msgText.length > 100 ? '...' : ''),
-              timestamp: new Date().toISOString(),
-            });
-
             // For non-data prefixed lines, add the prefix
             res.write(`data: ${JSON.stringify({ chunk: msgText })}\n\n`);
           }
         }
       } catch (e) {
-        errorChunkCount++;
-        console.error(`[${requestId}] Error processing chunk #${chunkCount}:`, {
-          error: e.message,
-          agentName,
-          chunkStr:
-            chunkStr.substring(0, 200) + (chunkStr.length > 200 ? '...' : ''),
-          timestamp: new Date().toISOString(),
-        });
-
         // If overall parsing fails, send raw chunk
         res.write(`data: ${JSON.stringify({ chunk: chunkStr })}\n\n`);
       }
@@ -492,34 +281,10 @@ exports.addCustomAgentConversation = async (req, res) => {
 
     // When the stream ends, update the conversation with the complete answer
     pythonResponse.data.on('end', async () => {
-      const streamEndTime = Date.now();
-      const totalStreamTime = streamEndTime - streamStartTime;
-      const totalRequestTime = streamEndTime - startTime;
-
-      console.log(`[${requestId}] Python API stream ended`, {
-        agentName,
-        totalChunks: chunkCount,
-        dataChunks: dataChunkCount,
-        errorChunks: errorChunkCount,
-        completeMessageLength: completeMessage.length,
-        streamTime: `${totalStreamTime}ms`,
-        totalRequestTime: `${totalRequestTime}ms`,
-        timestamp: new Date().toISOString(),
-      });
-
       try {
-        isCompleted = true;
-        cleanup(); // Clear all timeouts
+        // Send end event
 
         const answer = completeMessage; // Use the accumulated message
-
-        console.log(`[${requestId}] Final answer received:`, {
-          agentName,
-          answerLength: answer.length,
-          answerPreview:
-            answer.substring(0, 200) + (answer.length > 200 ? '...' : ''),
-          timestamp: new Date().toISOString(),
-        });
 
         // Create payload for saving conversation
         let payload = {
@@ -531,37 +296,14 @@ exports.addCustomAgentConversation = async (req, res) => {
           session_id: session_id, // Use the potentially updated session_id
           agent_name: agentName ? agentName : 'Onboarding Agent', // Track the agent used
         };
-
-        console.log(`[${requestId}] Saving conversation to database:`, {
-          agentName,
-          payload: {
-            ...payload,
-            question:
-              payload.question?.substring(0, 100) +
-              (payload.question?.length > 100 ? '...' : ''),
-            answer:
-              payload.answer?.substring(0, 100) +
-              (payload.answer?.length > 100 ? '...' : ''),
-          },
-          timestamp: new Date().toISOString(),
-        });
+        console.log('Saving agent conversation payload:', payload);
 
         // Create a new conversation record
         const newConversation = new Conversation(payload);
 
         // Save the conversation to database
-        const dbStartTime = Date.now();
         let c = await newConversation.save();
-        const dbEndTime = Date.now();
-
-        console.log(`[${requestId}] Agent conversation saved successfully`, {
-          agentName,
-          conversationId: c._id,
-          dbSaveTime: `${dbEndTime - dbStartTime}ms`,
-          totalRequestTime: `${Date.now() - startTime}ms`,
-          timestamp: new Date().toISOString(),
-        });
-
+        console.log('Agent conversation saved successfully.');
         res.write(
           `data: ${JSON.stringify({
             done: true,
@@ -570,23 +312,9 @@ exports.addCustomAgentConversation = async (req, res) => {
           })}\n\n`
         );
 
-        console.log(`[${requestId}] Final response sent to client`, {
-          agentName,
-          conversationId: c._id,
-          sessionId: session_id,
-          timestamp: new Date().toISOString(),
-        });
-
         res.end(); // End the response stream
       } catch (error) {
-        console.error(`[${requestId}] Error saving agent conversation:`, {
-          error: error.message,
-          stack: error.stack,
-          agentName,
-          completeMessageLength: completeMessage.length,
-          timestamp: new Date().toISOString(),
-        });
-
+        console.error('Error saving agent conversation:', error);
         // Attempt to send an error event if stream is still open, otherwise just log
         if (!res.writableEnded) {
           res.write(
@@ -601,24 +329,7 @@ exports.addCustomAgentConversation = async (req, res) => {
 
     // Handle errors in the Python API response
     pythonResponse.data.on('error', (err) => {
-      const errorTime = Date.now();
-      const totalRequestTime = errorTime - startTime;
-
-      console.error(`[${requestId}] Error in Python API agent stream:`, {
-        error: err.message,
-        errorCode: err.code,
-        errorStack: err.stack,
-        agentName,
-        totalRequestTime: `${totalRequestTime}ms`,
-        chunkCount,
-        dataChunkCount,
-        errorChunkCount,
-        completeMessageLength: completeMessage.length,
-        timestamp: new Date().toISOString(),
-      });
-
-      cleanup(); // Clear timeouts on error
-
+      console.error('Error in Python API agent stream:', err);
       // Attempt to send an error event if stream is still open
       if (!res.writableEnded) {
         res.write(
@@ -630,20 +341,7 @@ exports.addCustomAgentConversation = async (req, res) => {
       }
     });
   } catch (err) {
-    const errorTime = Date.now();
-    const totalRequestTime = errorTime - startTime;
-
-    console.error(`[${requestId}] Error handling agent conversation:`, {
-      error: err.message,
-      errorCode: err.code,
-      errorStack: err.stack,
-      agentName: req.body?.agentName,
-      totalRequestTime: `${totalRequestTime}ms`,
-      timestamp: new Date().toISOString(),
-    });
-
-    cleanup(); // Clear timeouts on error
-
+    console.error('Error handling agent conversation:', err);
     // Check if headers have already been sent before sending a status code
     if (!res.headersSent) {
       res.status(500).json({ error: err.message });

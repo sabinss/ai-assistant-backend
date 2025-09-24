@@ -214,7 +214,7 @@ exports.addCustomAgentConversation = async (req, res) => {
     if (session_id) {
       url += `&session_id=${encodeURIComponent(session_id)}`;
     }
-
+    console.log('**Agent conversation URI', url);
     // Set proper headers for SSE
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -230,6 +230,11 @@ exports.addCustomAgentConversation = async (req, res) => {
       responseType: 'stream',
     });
 
+    console.log(
+      `*** Python API response for agent ${agentName} `,
+      pythonResponse
+    );
+
     let completeMessage = '';
 
     // Forward the stream from Python API to client
@@ -240,6 +245,7 @@ exports.addCustomAgentConversation = async (req, res) => {
       try {
         // Handle multiple SSE messages that might be in a single chunk
         const messages = chunkStr.split('\n\n').filter((m) => m.trim());
+        console.log(`*** Messages for agent ${agentName} `, messages);
 
         for (const msgText of messages) {
           if (msgText.startsWith('data: ')) {

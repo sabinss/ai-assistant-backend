@@ -1069,8 +1069,10 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
         error: countResponse?.data?.error,
       });
     }
-    const totalCustomerData = totalCustomerResponse.data.result.result_set[0];
-
+    // const totalCustomerData = totalCustomerResponse.data.result.result_set[0];
+    const totalCustomerData =
+      totalCustomerResponse?.data?.result?.result_set?.[0] ?? null;
+    console.log('totalCustomerData', totalCustomerData);
     const totalRecords = countResponse.data.result.result_set[0]?.total || 0;
     const totalPages = Math.ceil(totalRecords / limit);
 

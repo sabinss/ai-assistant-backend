@@ -161,6 +161,319 @@ exports.getCustomerLoginDetail = async (req, res) => {
   }
 };
 
+exports.getChurnRiskTrend = async (req, res) => {
+  try {
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const org_id = req.user.organization.toString();
+    const threshold = Number(req.query.threshold || 40);
+
+    // Get current date info
+    const now = new Date();
+    const currentYear = now.getFullYear();
+
+    // Fetch churn risk trend data for all months of current year
+    const trendQuery = `
+            SELECT 
+                month,
+                COUNT(DISTINCT customer_id) as total_customers,
+                COUNT(DISTINCT CASE WHEN churn_risk_score > ${threshold} THEN customer_id END) as high_risk_customers,
+                AVG(churn_risk_score) as avg_churn_score,
+                SUM(CASE WHEN churn_risk_score > ${threshold} THEN arr ELSE 0 END) as high_risk_arr
+            FROM db${org_id}.customer_score_view 
+            WHERE year = ${currentYear}
+            GROUP BY month
+            ORDER BY month ASC
+        `;
+
+    // Helper function to execute SQL query with retry logic
+    const executeSqlQueryWithRetry = async (
+      query,
+      queryName,
+      maxRetries = 3
+    ) => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`🔄 ${queryName} - Attempt ${attempt}/${maxRetries}`);
+
+          const response = await axiosInstance.post(
+            `${
+              process.env.AI_AGENT_SERVER_URI
+            }/run-sql-query?sql_query=${encodeURIComponent(
+              query
+            )}&session_id=${session_id}&org_id=${org_id}`,
+            {},
+            {
+              timeout: 300000, // 5 minutes
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+            }
+          );
+
+          // Check for API-level errors
+          if (response?.data?.error) {
+            throw new Error(`API Error: ${response.data.error}`);
+          }
+
+          // Check for query execution status
+          if (response?.data?.result?.metadata?.status === 'FAILED') {
+            throw new Error(
+              `Query execution failed: ${
+                response.data.result.metadata.message || 'Unknown error'
+              }`
+            );
+          }
+
+          console.log(`✅ ${queryName} - Success on attempt ${attempt}`);
+          return response;
+        } catch (error) {
+          console.error(
+            `❌ ${queryName} - Attempt ${attempt} failed:`,
+            error.message
+          );
+
+          if (attempt === maxRetries) {
+            throw new Error(
+              `${queryName} failed after ${maxRetries} attempts: ${error.message}`
+            );
+          }
+
+          // Wait before retrying (exponential backoff)
+          const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Max 10 seconds
+          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+    };
+
+    console.log('Fetching churn risk trend data...');
+    const trendResponse = await executeSqlQueryWithRetry(
+      trendQuery,
+      'Churn Risk Trend Query'
+    );
+
+    // Extract data from response
+    const trendData = trendResponse?.data?.result?.result_set || [];
+
+    // Process trend data for the line chart
+    const processTrendData = (monthlyData) => {
+      if (!monthlyData || monthlyData.length === 0) return [];
+
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      const processedData = [];
+
+      // Only process months that have actual data
+      monthlyData.forEach((row) => {
+        const month = Number(row.month);
+        if (month >= 1 && month <= 12) {
+          processedData.push({
+            month: month,
+            monthName: monthNames[month - 1],
+            totalCustomers: Number(row.total_customers || 0),
+            highRiskCustomers: Number(row.high_risk_customers || 0),
+            avgChurnScore:
+              Math.round(Number(row.avg_churn_score || 0) * 100) / 100,
+            highRiskARR: Math.round(Number(row.high_risk_arr || 0) * 100) / 100,
+          });
+        }
+      });
+
+      // Sort by month to ensure chronological order
+      processedData.sort((a, b) => a.month - b.month);
+
+      return processedData;
+    };
+
+    const trendAnalysis = processTrendData(trendData);
+
+    // Calculate trend summary
+    const trendSummary = {
+      totalMonths: trendAnalysis.length,
+      avgChurnScore:
+        trendAnalysis.length > 0
+          ? Math.round(
+              (trendAnalysis.reduce((sum, d) => sum + d.avgChurnScore, 0) /
+                trendAnalysis.length) *
+                100
+            ) / 100
+          : 0,
+      totalHighRiskCustomers: trendAnalysis.reduce(
+        (sum, d) => sum + d.highRiskCustomers,
+        0
+      ),
+      totalHighRiskARR:
+        Math.round(
+          trendAnalysis.reduce((sum, d) => sum + d.highRiskARR, 0) * 100
+        ) / 100,
+    };
+
+    return res.status(200).json({
+      data: {
+        threshold,
+        currentYear,
+        trendData: trendAnalysis,
+        trendSummary: trendSummary,
+        chartConfig: {
+          xAxis: {
+            type: 'category',
+            data: trendAnalysis.map((d) => d.monthName),
+          },
+          series: [
+            {
+              name: 'Average Churn Score',
+              data: trendAnalysis.map((d) => d.avgChurnScore),
+              yAxisIndex: 0,
+            },
+            {
+              name: 'High Risk Customers',
+              data: trendAnalysis.map((d) => d.highRiskCustomers),
+              yAxisIndex: 0,
+            },
+            {
+              name: 'High Risk ARR',
+              data: trendAnalysis.map((d) => d.highRiskARR),
+              yAxisIndex: 1,
+            },
+          ],
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching churn risk trend:', error);
+
+    // Handle specific socket hang up and connection errors
+    if (error.code === 'ECONNABORTED') {
+      return res.status(504).json({
+        message: 'Request timeout - SQL query took too long to execute',
+        error: 'Gateway Timeout',
+        suggestion: 'Try again or contact support if the issue persists',
+      });
+    } else if (error.code === 'ECONNRESET') {
+      return res.status(503).json({
+        message:
+          'Connection reset - AI Agent Server connection was interrupted',
+        error: 'Service Unavailable',
+        suggestion: 'The server may be experiencing issues. Please try again.',
+      });
+    } else if (error.code === 'ENOTFOUND') {
+      return res.status(502).json({
+        message: 'AI Agent Server not found - Check server configuration',
+        error: 'Bad Gateway',
+        suggestion: 'Verify AI_AGENT_SERVER_URI environment variable',
+      });
+    } else if (error.code === 'ECONNREFUSED') {
+      return res.status(502).json({
+        message: 'AI Agent Server connection refused - Server may be down',
+        error: 'Bad Gateway',
+        suggestion: 'Check if the AI Agent Server is running and accessible',
+      });
+    }
+
+    return res.status(500).json({
+      message: 'Internal Server Error',
+      error: error.message,
+      suggestion: 'Please try again or contact support if the issue persists',
+    });
+  }
+};
+
+exports.getChurnRiskDistribution = async (req, res) => {
+  try {
+    const org_id = req.user.organization.toString();
+    const sql_query = `
+        SELECT
+          CASE
+              WHEN churn_risk_score BETWEEN 0 AND 20 THEN '0-20'
+              WHEN churn_risk_score BETWEEN 21 AND 40 THEN '21-40'
+              WHEN churn_risk_score BETWEEN 41 AND 60 THEN '41-60'
+              WHEN churn_risk_score BETWEEN 61 AND 80 THEN '61-80'
+              WHEN churn_risk_score BETWEEN 81 AND 100 THEN '81-100'
+              ELSE 'Other'
+          END AS churn_risk_bucket,
+          SUM(arr) AS total_arr
+      FROM db${org_id}.active_companies
+      GROUP BY 1
+      ORDER BY churn_risk_bucket;
+      `;
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const churn_query =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        sql_query
+      )}&session_id=${session_id}&org_id=${org_id}`;
+    const response = await axiosInstance.post(
+      `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${churn_query}&org_id=${org_id}`
+    );
+    res.status(200).json({ data: response?.data?.result?.result_set || null });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};
+
+exports.getImmediateActions = async (req, res) => {
+  try {
+    const threashold = 60;
+    const org_id = req.user.organization.toString();
+    let base_query = `SELECT * FROM db${org_id}.active_companies`;
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const immediate_actions_query =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        base_query
+      )}&session_id=${session_id}&org_id=${org_id}`;
+    const response = await axiosInstance.post(
+      `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${immediate_actions_query}&org_id=${org_id}`
+    );
+
+    const immediate_actions_data =
+      response?.data?.result?.result_set?.map((x) => ({
+        ...x,
+        scoreLabel: x.churn_risk_score >= threashold ? 'High Risk' : 'Low Risk',
+      })) ?? [];
+    res.status(200).json({ data: immediate_actions_data || null });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};
+
+exports.getCustomerScoreDashboard = async (req, res) => {
+  try {
+    const org_id = req.user.organization.toString();
+    const totalCustomerQuery = `
+    SELECT
+        * 
+    FROM db${org_id}.customer_score_dashboard;
+      `;
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const score_query =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        totalCustomerQuery
+      )}&session_id=${session_id}&org_id=${org_id}`;
+    const response = await axiosInstance.post(
+      `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${score_query}&org_id=${org_id}`
+    );
+    res
+      .status(200)
+      .json({ data: response?.data?.result?.result_set[0] || null });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};
 exports.updateCustomerDetail = async (req, res) => {
   try {
     const { id } = req.params; // Customer ID
@@ -365,11 +678,13 @@ exports.getHighRiskChurnStats = async (req, res) => {
       FROM db${org_id}.customer_score_dashboard;
     `;
 
+    // fetch from active companies
     const companyQuery = `
      SELECT *
             FROM db${org_id}.companies 
     `;
 
+    //
     // Fetch all data for previous month (current month - 1)
     const prevMonthQuery = `
             SELECT *
@@ -399,6 +714,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
         `;
 
     // Fetch risk matrix data for all customers
+    // fetch from active_companies
     const riskMatrixQuery = `
             SELECT *
             FROM db${org_id}.customer_score_view 

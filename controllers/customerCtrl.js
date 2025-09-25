@@ -161,6 +161,89 @@ exports.getCustomerLoginDetail = async (req, res) => {
   }
 };
 
+exports.getChurnRiskDistribution = async (req, res) => {
+  try {
+    const org_id = req.user.organization.toString();
+    const sql_query = `
+        SELECT
+          CASE
+              WHEN churn_risk_score BETWEEN 0 AND 20 THEN '0-20'
+              WHEN churn_risk_score BETWEEN 21 AND 40 THEN '21-40'
+              WHEN churn_risk_score BETWEEN 41 AND 60 THEN '41-60'
+              WHEN churn_risk_score BETWEEN 61 AND 80 THEN '61-80'
+              WHEN churn_risk_score BETWEEN 81 AND 100 THEN '81-100'
+              ELSE 'Other'
+          END AS churn_risk_bucket,
+          SUM(arr) AS total_arr
+      FROM db${org_id}.active_companies
+      GROUP BY 1
+      ORDER BY churn_risk_bucket;
+      `;
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const churn_query =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        sql_query
+      )}&session_id=${session_id}&org_id=${org_id}`;
+    const response = await axiosInstance.post(
+      `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${churn_query}&org_id=${org_id}`
+    );
+    res.status(200).json({ data: response?.data?.result?.result_set || null });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};
+
+exports.getImmediateActions = async (req, res) => {
+  try {
+    const threashold = 60;
+    const org_id = req.user.organization.toString();
+    let base_query = `SELECT * FROM db${org_id}.active_companies`;
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const immediate_actions_query =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        base_query
+      )}&session_id=${session_id}&org_id=${org_id}`;
+    const response = await axiosInstance.post(
+      `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${immediate_actions_query}&org_id=${org_id}`
+    );
+
+    const immediate_actions_data =
+      response?.data?.result?.result_set?.map((x) => ({
+        ...x,
+        scoreLabel: x.churn_risk_score >= threashold ? 'High Risk' : 'Low Risk',
+      })) ?? [];
+    res.status(200).json({ data: immediate_actions_data || null });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};
+
+exports.getCustomerScoreDashboard = async (req, res) => {
+  try {
+    const org_id = req.user.organization.toString();
+    const totalCustomerQuery = `
+    SELECT
+        * 
+    FROM db${org_id}.customer_score_dashboard;
+      `;
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const score_query =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        totalCustomerQuery
+      )}&session_id=${session_id}&org_id=${org_id}`;
+    const response = await axiosInstance.post(
+      `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${score_query}&org_id=${org_id}`
+    );
+    res
+      .status(200)
+      .json({ data: response?.data?.result?.result_set[0] || null });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};
 exports.updateCustomerDetail = async (req, res) => {
   try {
     const { id } = req.params; // Customer ID
@@ -365,11 +448,13 @@ exports.getHighRiskChurnStats = async (req, res) => {
       FROM db${org_id}.customer_score_dashboard;
     `;
 
+    // fetch from active companies
     const companyQuery = `
      SELECT *
             FROM db${org_id}.companies 
     `;
 
+    //
     // Fetch all data for previous month (current month - 1)
     const prevMonthQuery = `
             SELECT *
@@ -399,6 +484,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
         `;
 
     // Fetch risk matrix data for all customers
+    // fetch from active_companies
     const riskMatrixQuery = `
             SELECT *
             FROM db${org_id}.customer_score_view 

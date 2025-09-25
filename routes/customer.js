@@ -49,6 +49,22 @@ module.exports = (app) => {
     ctl.updateCustomerDetail
   );
   app.get(
+    `${process.env.APP_URL}/customer/score-dashboard`,
+    authUser,
+    ctl.getCustomerScoreDashboard
+  );
+
+  app.get(
+    `${process.env.APP_URL}/customer/immediate-actions`,
+    authUser,
+    ctl.getImmediateActions
+  );
+  app.get(
+    `${process.env.APP_URL}/customer/churn-risk-distribution`,
+    authUser,
+    ctl.getChurnRiskDistribution
+  );
+  app.get(
     `${process.env.APP_URL}/customer/:id/score`,
     authUser,
     ctl.getCustomerScore

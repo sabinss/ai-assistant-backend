@@ -65,6 +65,11 @@ module.exports = (app) => {
     ctl.getChurnRiskDistribution
   );
   app.get(
+    `${process.env.APP_URL}/customer/churn-risk-trend`,
+    authUser,
+    ctl.getChurnRiskTrend
+  );
+  app.get(
     `${process.env.APP_URL}/customer/:id/score`,
     authUser,
     ctl.getCustomerScore

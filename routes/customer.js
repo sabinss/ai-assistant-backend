@@ -49,6 +49,11 @@ module.exports = (app) => {
     ctl.updateCustomerDetail
   );
   app.get(
+    `${process.env.APP_URL}/customer/customer-score-analysis`,
+    authUser,
+    ctl.getCustomerScoreAnalysis
+  );
+  app.get(
     `${process.env.APP_URL}/customer/score-dashboard`,
     authUser,
     ctl.getCustomerScoreDashboard

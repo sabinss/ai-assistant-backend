@@ -434,7 +434,7 @@ exports.getImmediateActions = async (req, res) => {
     // Pagination parameters
     const search = req.query.search || '';
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 5;
     const offset = (page - 1) * limit;
 
     // Validate pagination parameters
@@ -464,9 +464,9 @@ exports.getImmediateActions = async (req, res) => {
     const countQuery = `SELECT COUNT(*) as total FROM db${org_id}.active_companies WHERE churn_risk_score > ${threashold}${
       search ? ` AND name ILIKE '%${search}%'` : ''
     }`;
-
+    //
     // Main data query with pagination
-    const dataQuery = `${base_query} ORDER BY churn_risk_score DESC LIMIT ${limit} OFFSET ${offset}`;
+    const dataQuery = `${base_query} ORDER BY churn_risk_score DESC  LIMIT ${limit} OFFSET ${offset}`;
 
     // Helper function to execute SQL query with retry logic
     const executeSqlQueryWithRetry = async (
@@ -1550,7 +1550,6 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
     // const totalCustomerData = totalCustomerResponse.data.result.result_set[0];
     const totalCustomerData =
       totalCustomerResponse?.data?.result?.result_set?.[0] ?? null;
-    console.log('totalCustomerData', totalCustomerData);
     const totalRecords = countResponse.data.result.result_set[0]?.total || 0;
     const totalPages = Math.ceil(totalRecords / limit);
 

@@ -84,4 +84,10 @@ module.exports = (app) => {
     authUser,
     ctl.getCustomerScoreDetails
   );
+
+  app.get(
+    `${process.env.APP_URL}/customer/usage-funnel`,
+    authUser,
+    ctl.getUsageFunnel
+  );
 };

@@ -757,6 +757,191 @@ exports.getCustomerScore = async (req, res) => {
   }
 };
 
+exports.getUsageFunnel = async (req, res) => {
+  try {
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const org_id = req.user.organization.toString();
+    const customer_id = req.params.id || req.query.id;
+
+    // Pagination parameters
+    const search = req.query.search || '';
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Validate pagination parameters
+    if (page < 1) {
+      return res.status(400).json({
+        message: 'Page number must be greater than 0',
+      });
+    }
+
+    if (limit < 1 || limit > 100) {
+      return res.status(400).json({
+        message: 'Limit must be between 1 and 100',
+      });
+    }
+
+    // Base query for usage funnel data
+    let base_query = `SELECT * FROM db${org_id}.usage_funnel_view`;
+
+    // Add customer filter if provided
+    if (customer_id) {
+      base_query += ` WHERE customer_id = '${customer_id}'`;
+    }
+
+    // Add search filter if provided
+    if (search) {
+      const searchCondition = customer_id ? ' AND' : ' WHERE';
+      base_query += `${searchCondition} (customer_name ILIKE '%${search}%' OR customer_id ILIKE '%${search}%')`;
+    }
+
+    // Count query for pagination metadata
+    const countQuery = `SELECT COUNT(*) as total FROM db${org_id}.usage_funnel_view${
+      customer_id ? ` WHERE customer_id = '${customer_id}'` : ''
+    }${
+      search
+        ? `${
+            customer_id ? ' AND' : ' WHERE'
+          } (customer_name ILIKE '%${search}%' OR customer_id ILIKE '%${search}%')`
+        : ''
+    }`;
+
+    // Main data query with pagination
+    const dataQuery = `${base_query}  LIMIT ${limit} OFFSET ${offset}`;
+
+    // Helper function to execute SQL query with retry logic
+    const executeSqlQueryWithRetry = async (
+      query,
+      queryName,
+      maxRetries = 3
+    ) => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`🔄 ${queryName} - Attempt ${attempt}/${maxRetries}`);
+
+          const response = await axiosInstance.post(
+            `${
+              process.env.AI_AGENT_SERVER_URI
+            }/run-sql-query?sql_query=${encodeURIComponent(
+              query
+            )}&session_id=${session_id}&org_id=${org_id}`,
+            {},
+            {
+              timeout: 300000, // 5 minutes
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+            }
+          );
+
+          // Check for API-level errors
+          if (response?.data?.error) {
+            throw new Error(`API Error: ${response.data.error}`);
+          }
+
+          // Check for query execution status
+          if (response?.data?.result?.metadata?.status === 'FAILED') {
+            throw new Error(
+              `Query execution failed: ${
+                response.data.result.metadata.message || 'Unknown error'
+              }`
+            );
+          }
+
+          console.log(`✅ ${queryName} - Success on attempt ${attempt}`);
+          return response;
+        } catch (error) {
+          console.error(
+            `❌ ${queryName} - Attempt ${attempt} failed:`,
+            error.message
+          );
+
+          if (attempt === maxRetries) {
+            throw new Error(
+              `${queryName} failed after ${maxRetries} attempts: ${error.message}`
+            );
+          }
+
+          // Wait before retrying (exponential backoff)
+          const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Max 10 seconds
+          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+    };
+
+    // Execute count query and data query in parallel
+    console.log('Fetching usage funnel data...');
+    const [countResponse, dataResponse] = await Promise.all([
+      executeSqlQueryWithRetry(countQuery, 'Count Query'),
+      executeSqlQueryWithRetry(dataQuery, 'Data Query'),
+    ]);
+
+    // Extract data from responses
+    const totalRecords =
+      countResponse?.data?.result?.result_set?.[0]?.total || 0;
+    const usageFunnelData = dataResponse?.data?.result?.result_set || [];
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalRecords / limit);
+    const pagination = {
+      currentPage: page,
+      totalPages: totalPages,
+      totalRecords: totalRecords,
+      limit: limit,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+      nextPage: page < totalPages ? page + 1 : null,
+      prevPage: page > 1 ? page - 1 : null,
+    };
+
+    res.status(200).json({
+      data: usageFunnelData,
+      pagination,
+      search: search || null,
+      customer_id: customer_id || null,
+    });
+  } catch (error) {
+    console.error('Error fetching usage funnel:', error);
+
+    // Handle specific socket hang up and connection errors
+    if (error.code === 'ECONNABORTED') {
+      return res.status(504).json({
+        message: 'Request timeout - SQL query took too long to execute',
+        error: 'Gateway Timeout',
+        suggestion: 'Try again or contact support if the issue persists',
+      });
+    } else if (error.code === 'ECONNRESET') {
+      return res.status(503).json({
+        message:
+          'Connection reset - AI Agent Server connection was interrupted',
+        error: 'Service Unavailable',
+        suggestion: 'The server may be experiencing issues. Please try again.',
+      });
+    } else if (error.code === 'ENOTFOUND') {
+      return res.status(502).json({
+        message: 'AI Agent Server not found - Check server configuration',
+        error: 'Bad Gateway',
+        suggestion: 'Verify AI_AGENT_SERVER_URI environment variable',
+      });
+    } else if (error.code === 'ECONNREFUSED') {
+      return res.status(502).json({
+        message: 'AI Agent Server connection refused - Server may be down',
+        error: 'Bad Gateway',
+        suggestion: 'Check if the AI Agent Server is running and accessible',
+      });
+    }
+
+    return res.status(500).json({
+      message: 'Internal Server Error',
+      error: error.message,
+      suggestion: 'Please try again or contact support if the issue persists',
+    });
+  }
+};
+
 exports.getCustomerScoreDetails = async (req, res) => {
   try {
     const session_id = Math.floor(1000 + Math.random() * 9000);

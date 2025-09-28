@@ -792,23 +792,18 @@ exports.getUsageFunnel = async (req, res) => {
 
     // Add search filter if provided
     if (search) {
-      const searchCondition = customer_id ? ' AND' : ' WHERE';
-      base_query += `${searchCondition} (customer_name ILIKE '%${search}%' OR customer_id ILIKE '%${search}%')`;
+      base_query += ` WHERE company_name ILIKE '%${search}%'`;
     }
 
     // Count query for pagination metadata
-    const countQuery = `SELECT COUNT(*) as total FROM db${org_id}.usage_funnel_view${
-      customer_id ? ` WHERE customer_id = '${customer_id}'` : ''
-    }${
-      search
-        ? `${
-            customer_id ? ' AND' : ' WHERE'
-          } (customer_name ILIKE '%${search}%' OR customer_id ILIKE '%${search}%')`
-        : ''
-    }`;
+    let countQuery = `SELECT COUNT(*) as total FROM db${org_id}.usage_funnel_view`;
+
+    if (search) {
+      countQuery = countQuery + ` WHERE company_name ILIKE '%${search}%'`;
+    }
 
     // Main data query with pagination
-    const dataQuery = `${base_query}  LIMIT ${limit} OFFSET ${offset}`;
+    let dataQuery = `${base_query}  LIMIT ${limit} OFFSET ${offset}`;
 
     // Helper function to execute SQL query with retry logic
     const executeSqlQueryWithRetry = async (
@@ -884,6 +879,19 @@ exports.getUsageFunnel = async (req, res) => {
       countResponse?.data?.result?.result_set?.[0]?.total || 0;
     const usageFunnelData = dataResponse?.data?.result?.result_set || [];
 
+    // Step 1: derive column names dynamically from first row
+    const allKeys =
+      usageFunnelData.length > 0 ? Object.keys(usageFunnelData[0]) : [];
+    // Step 2: arrange column order
+    const orderedKeys = [
+      'company_name',
+      'month_week',
+      ...allKeys.filter(
+        (k) =>
+          !['company_name', 'month_week', 'stage', 'company_id'].includes(k)
+      ),
+    ];
+
     // Calculate pagination metadata
     const totalPages = Math.ceil(totalRecords / limit);
     const pagination = {
@@ -899,6 +907,7 @@ exports.getUsageFunnel = async (req, res) => {
 
     res.status(200).json({
       data: usageFunnelData,
+      columns: orderedKeys,
       pagination,
       search: search || null,
       customer_id: customer_id || null,

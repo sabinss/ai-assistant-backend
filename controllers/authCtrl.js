@@ -29,13 +29,11 @@ exports.verifyOrganization = async (req, res) => {
       .status(404)
       .json({ message: 'Organization not found', isAuthenticated: false });
   } catch (err) {
-    return res
-      .status(404)
-      .json({
-        message: 'Organization not found',
-        isAuthenticated: false,
-        error: err,
-      });
+    return res.status(404).json({
+      message: 'Organization not found',
+      isAuthenticated: false,
+      error: err,
+    });
   }
 };
 exports.signup = async (req, res) => {
@@ -336,8 +334,8 @@ const sendEmail = async (email, token, isReset = true) => {
   });
 
   const mailOptions = {
-    from: 'theagilemove@gmail.com',
-    // from: process.env.MAIL_API_EMAIL,
+    // from: 'theagilemove@gmail.com',
+    from: process.env.MAIL_API_EMAIL,
     to: email,
     subject: isReset ? 'Reset Password' : 'Email Confirmation',
     html: `

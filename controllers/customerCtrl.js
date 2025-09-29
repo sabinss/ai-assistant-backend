@@ -711,8 +711,8 @@ exports.getCustomerScore = async (req, res) => {
     const sql_query = `
         SELECT * FROM db${org_id}.customer_score_view 
         WHERE customer_id = '${customer_id}' 
-          AND year = EXTRACT(YEAR FROM DATEADD(MONTH, -1, CURRENT_DATE)) 
-          AND month = EXTRACT(MONTH FROM DATEADD(MONTH, -1, CURRENT_DATE))
+          AND year = EXTRACT(YEAR FROM DATEADD(MONTH, 0, CURRENT_DATE)) 
+          AND month = EXTRACT(MONTH FROM DATEADD(MONTH, 0, CURRENT_DATE))
       `;
 
     const url = `${

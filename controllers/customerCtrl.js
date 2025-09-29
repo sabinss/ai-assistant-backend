@@ -885,10 +885,16 @@ exports.getUsageFunnel = async (req, res) => {
     // Step 2: arrange column order
     const orderedKeys = [
       'company_name',
-      'month_week',
+      // 'month_week',
       ...allKeys.filter(
         (k) =>
-          !['company_name', 'month_week', 'stage', 'company_id'].includes(k)
+          ![
+            'company_name',
+            'month_week',
+            'stage',
+            'company_id',
+            'app_company_id',
+          ].includes(k)
       ),
     ];
 
@@ -964,8 +970,8 @@ exports.getCustomerScoreDetails = async (req, res) => {
     const sql_query = `
         SELECT * FROM db${org_id}.score_details_view 
         WHERE customer_id = '${customer_id}' 
-          AND year = EXTRACT(YEAR FROM DATEADD(MONTH, -1, CURRENT_DATE)) 
-          AND month = EXTRACT(MONTH FROM DATEADD(MONTH, -1, CURRENT_DATE))
+          AND year = EXTRACT(YEAR FROM DATEADD(MONTH, 0, CURRENT_DATE)) 
+          AND month = EXTRACT(MONTH FROM DATEADD(MONTH, 0, CURRENT_DATE))
       `;
 
     const url = `${

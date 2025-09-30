@@ -428,7 +428,7 @@ exports.getImmediateActions = async (req, res) => {
   try {
     // 61-80 = high
     // 81-100 = critical
-    const threashold = 61;
+    const threashold = 60;
     const org_id = req.user.organization.toString();
 
     // Pagination parameters
@@ -670,6 +670,7 @@ exports.getCustomerAlertData = async (req, res) => {
     const session_id = Math.floor(1000 + Math.random() * 9000);
     const org_id = req.user.organization.toString();
     const sql_query = `SELECT * from  db${org_id}.alert_log_view`;
+    // WHERE created_date >= NOW() - INTERVAL 7 DAY ORDER BY created_date DESC
     let url =
       process.env.AI_AGENT_SERVER_URI +
       `/run-sql-query?sql_query=${sql_query}&session_id=${session_id}&org_id=${org_id}`;
@@ -1666,12 +1667,6 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
     const session_id = Math.floor(1000 + Math.random() * 9000);
     const org_id = req.user.organization.toString();
 
-    const totalCustomerQuery = `
-      SELECT
-          * 
-      FROM db${org_id}.customer_score_dashboard;
-        `;
-
     //pagination
     const search = req.query.search || '';
     const page = req.query.page || 1;
@@ -1700,14 +1695,6 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
         countQuery
       )}&session_id=${session_id}&org_id=${org_id}`;
 
-    const totalCustomerUrl =
-      process.env.AI_AGENT_SERVER_URI +
-      `/run-sql-query?sql_query=${encodeURIComponent(
-        totalCustomerQuery
-      )}&session_id=${session_id}&org_id=${org_id}`;
-
-    console.log('Count URL:', countUrl);
-
     const countResponse = await axiosInstance.post(
       countUrl,
       {},
@@ -1719,27 +1706,6 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
         },
       }
     );
-
-    const totalCustomerResponse = await axiosInstance.post(
-      totalCustomerUrl,
-      {},
-      {
-        timeout: 300000, // 5 minutes
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-      }
-    );
-
-    console.log('totalCustomerResponse', totalCustomerResponse);
-
-    if (totalCustomerResponse?.data?.error) {
-      return res.status(500).json({
-        message: totalCustomerResponse?.data?.error,
-        error: totalCustomerResponse?.data?.error,
-      });
-    }
 
     if (countResponse?.data?.error) {
       return res.status(500).json({
@@ -1806,7 +1772,6 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
     }));
     res.status(200).json({
       data: formattedData,
-      scoreDashboardData: totalCustomerData,
       pagination,
     });
   } catch (err) {

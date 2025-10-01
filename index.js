@@ -26,7 +26,7 @@ const corsOptions = {
   origin: '*',
   credentials: true,
 };
-// Remove 'X-Powered-By' header (leaks Express info)
+// Remove 'X-Powered-By' header (leaks Express info
 app.disable('x-powered-by');
 app.use(helmet());
 

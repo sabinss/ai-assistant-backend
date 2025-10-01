@@ -1714,8 +1714,8 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
       });
     }
     // const totalCustomerData = totalCustomerResponse.data.result.result_set[0];
-    const totalCustomerData =
-      totalCustomerResponse?.data?.result?.result_set?.[0] ?? null;
+    // const totalCustomerData =
+    //   totalCustomerResponse?.data?.result?.result_set?.[0] ?? null;
     const totalRecords = countResponse.data.result.result_set[0]?.total || 0;
     const totalPages = Math.ceil(totalRecords / limit);
 

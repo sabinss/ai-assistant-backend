@@ -265,7 +265,9 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
 
   try {
     const { question, chatSession, agentName } = req.body;
-    let session_id = req.body?.sessionId ? req.body?.sessionId : null;
+    let session_id = req.body?.sessionId
+      ? req.body?.sessionId
+      : Math.floor(100000 + Math.random() * 900000);
 
     console.log(`[${requestId}] Starting agent conversation request`, {
       agentName,

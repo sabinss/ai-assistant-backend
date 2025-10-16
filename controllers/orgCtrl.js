@@ -1008,7 +1008,8 @@ exports.createOrgTaskAgents = async (req, res) => {
 exports.triggerAgent = async (req, res) => {
   try {
     const { agent_name, org_id, query } = req.query;
-    const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent_name}&org_id=${org_id}&query='run'`;
+    let session_id = Math.floor(100000 + Math.random() * 900000);
+    const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent_name}&org_id=${org_id}&query='run'&session_id=${session_id}`;
     axios.get(pythonServerUri);
     res.status(200).json({ message: 'Agent triggered successfully' });
   } catch (error) {

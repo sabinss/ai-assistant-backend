@@ -41,6 +41,13 @@ const agentModel = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    schedule_time: {
+      type: String,
+    },
+    time_zone: {
+      type: String,
+      default: 'EST',
+    },
     batch_scope: {
       type: String,
       default: null,

@@ -24,7 +24,9 @@ exports.addConversation = async (req, res) => {
     //     apiTypeValue = '';
     // }
 
-    let session_id = req.body?.sessionId ? req.body?.sessionId : null;
+    let session_id = req.body?.sessionId
+      ? req.body?.sessionId
+      : Math.floor(100000 + Math.random() * 900000);
 
     // if (apiType === 'Customer Information') {
     //   apiTypeValue = 'insights';
@@ -661,7 +663,9 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
 exports.addCustomAgentConversation = async (req, res) => {
   try {
     const { question, chatSession, agentName } = req.body;
-    let session_id = req.body?.sessionId ? req.body?.sessionId : null;
+    let session_id = req.body?.sessionId
+      ? req.body?.sessionId
+      : Math.floor(100000 + Math.random() * 900000);
 
     // Build URL for the Python API endpoint
     let url = `${

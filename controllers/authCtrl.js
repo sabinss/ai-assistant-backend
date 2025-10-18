@@ -334,7 +334,7 @@ const sendEmail = async (email, token, isReset = true) => {
   });
 
   const mailOptions = {
-    // from: 'theagilemove@gmail.com',
+    // from: 'theagilemove@gmail.com',,
     from: process.env.MAIL_API_EMAIL,
     to: email,
     subject: isReset ? 'Reset Password' : 'Email Confirmation',

@@ -310,13 +310,130 @@ exports.forgotPassword = async (req, res) => {
     await resetTokenData.save();
 
     // Send email with the reset token
-    await sendEmail(email, resetToken, true);
+    const emailResult = await sendEmail(email, resetToken, true);
+    if (!emailResult.success) {
+      console.error('Failed to send reset password email:', emailResult.error);
+      return res.status(500).json({
+        message: 'Failed to send reset password email. Please try again later.',
+      });
+    }
     res.status(200).json({
       message: 'The reset password link has been sent to your email.',
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Helper function to send error notification email to admin
+const sendErrorNotificationEmail = async (originalEmail, error, emailType) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.MAIL_API_EMAIL,
+        pass: process.env.MAIL_API_PASSWORD,
+      },
+    });
+
+    const errorMailOptions = {
+      from: process.env.MAIL_API_EMAIL,
+      to: 'sabin@gmail.com',
+      subject: 'Email Sending Failed - System Notification',
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Email Sending Failed</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              background-color: #f4f4f4;
+              color: #333;
+              padding: 20px;
+            }
+            .container {
+              background-color: #fff;
+              border-radius: 5px;
+              box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+              padding: 20px;
+              max-width: 600px;
+              margin: 0 auto;
+            }
+            h1 {
+              color: #e74c3c;
+              text-align: center;
+            }
+            .error-details {
+              background-color: #f8d7da;
+              border: 1px solid #f5c6cb;
+              border-radius: 5px;
+              padding: 15px;
+              margin: 15px 0;
+            }
+            .info-row {
+              margin: 10px 0;
+              padding: 5px 0;
+              border-bottom: 1px solid #eee;
+            }
+            .label {
+              font-weight: bold;
+              color: #2c3e50;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🚨 Email Sending Failed</h1>
+            <div class="error-details">
+              <div class="info-row">
+                <span class="label">From:</span> ${process.env.MAIL_API_EMAIL}
+              </div>
+              <div class="info-row">
+                <span class="label">To:</span> ${originalEmail}
+              </div>
+              <div class="info-row">
+                <span class="label">Email Type:</span> ${emailType}
+              </div>
+              <div class="info-row">
+                <span class="label">Timestamp:</span> ${new Date().toISOString()}
+              </div>
+              <div class="info-row">
+                <span class="label">Error Message:</span> ${
+                  error.message || 'Unknown error'
+                }
+              </div>
+              <div class="info-row">
+                <span class="label">Error Code:</span> ${error.code || 'N/A'}
+              </div>
+              <div class="info-row">
+                <span class="label">Full Error:</span> ${JSON.stringify(
+                  error,
+                  null,
+                  2
+                )}
+              </div>
+            </div>
+            <p>Please investigate and resolve this email sending issue.</p>
+            <p>Best regards,<br>System Notification</p>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    await transporter.sendMail(errorMailOptions);
+    console.log('Error notification email sent to sabin@gmail.com');
+  } catch (notificationError) {
+    console.error(
+      'Failed to send error notification email:',
+      notificationError
+    );
   }
 };
 
@@ -396,12 +513,16 @@ const sendEmail = async (email, token, isReset = true) => {
       </html>
     `,
   };
-  console.log('mailOptions', mailOptions);
   try {
     const mailResponse = await transporter.sendMail(mailOptions);
     console.log('mailResponse', mailResponse);
+    return { success: true, response: mailResponse };
   } catch (err) {
     console.log('Send Email error', err);
+    // Send error notification email to admin
+    const emailType = isReset ? 'Password Reset' : 'Email Confirmation';
+    await sendErrorNotificationEmail(email, err, emailType);
+    return { success: false, error: err };
   }
 };
 
@@ -439,7 +560,13 @@ exports.sendConfirmEmailToken = async (req, res) => {
 
     await confirmTokenData.save();
     console.log('Sending Email');
-    await sendEmail(email, token, false);
+    const emailResult = await sendEmail(email, token, false);
+    if (!emailResult.success) {
+      console.error('Failed to send verification email:', emailResult.error);
+      return res.status(500).json({
+        message: 'Failed to send verification email. Please try again later.',
+      });
+    }
     res
       .status(200)
       .json({ message: 'Verification code has been sent to your email.' });

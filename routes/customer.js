@@ -18,6 +18,11 @@ module.exports = (app) => {
     verifySameOrganization,
     ctl.getCustomerDetail
   );
+  app.put(
+    `${process.env.APP_URL}/customer/alert/:alert_id/address`,
+    authUser,
+    ctl.updateCustomerAlertAddress
+  );
   app.get(
     `${process.env.APP_URL}/customer/all`,
     verifySameOrganization,

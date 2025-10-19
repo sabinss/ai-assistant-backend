@@ -214,6 +214,7 @@ exports.verifyGoogleLogin = async (req, res) => {
 };
 
 exports.signin = async (req, res) => {
+  // await this.sendEmailTest('sabinshrestha292@gmail.com', '123456');
   const { email, password } = req.body;
 
   if (!email || !password)
@@ -391,6 +392,98 @@ const sendEmail = async (email, token, isReset = true) => {
           <p>If you did not request this, please ignore this email.</p>
           <p>Best regards,<br>CoWrkr Team <br< Agilemove Inc.</p>
 
+        </div>
+      </body>
+      </html>
+    `,
+  };
+  console.log('mailOptions', mailOptions);
+  try {
+    const mailResponse = await transporter.sendMail(mailOptions);
+    console.log('mailResponse', mailResponse);
+  } catch (err) {
+    console.log('Send Email error', err);
+  }
+};
+
+exports.sendEmailTest = async (email, token, isReset = true) => {
+  const transporter = nodemailer.createTransport({
+    // service: "gmail",
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.MAIL_API_EMAIL,
+      pass: process.env.MAIL_API_PASSWORD,
+    },
+  });
+
+  const emailId = Math.floor(1000 + Math.random() * 9000);
+
+  const mailOptions = {
+    // from: 'theagilemove@gmail.com',,
+    from: process.env.MAIL_API_EMAIL,
+    to: 'sabinshrestha292@gmail.com',
+    subject: 'Test Email for CoWrkr',
+    html: `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${isReset ? 'Password Reset' : 'Email Confirmation'}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            padding: 20px;
+          }
+          .container {
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+          }
+          h1 {
+            color: #2c3e50;
+            text-align: center;
+          }
+          p {
+            line-height: 1.6;
+          }
+          .token {
+            background-color: #f1c40f;
+            color: #2c3e50;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>${isReset ? 'Reset Password' : 'Email Confirmation'}</h1>
+          <p>Dear User,</p>
+          <p> ${
+            isReset
+              ? ' You have requested to reset your password Please use the following token to proceed:'
+              : 'Thank you for singing up for CoWrkr! To complete your registration, please use the following token .'
+          }. </p>
+          <div class="token">${token}</div>
+          <p>Note: This token is only valid for 5 minutes.</p>
+          <p>If you did not request this, please ignore this email.</p>
+          <p>Best regards,<br>CoWrkr Team <br< Agilemove Inc.</p>
+<p>
+   <a href="http://localhost:3000/mainapp/chat?query=good morning&emailId=${emailId}"
+   style="display:inline-block; padding:10px 20px; background-color:#007bff; color:#fff; text-decoration:none; border-radius:5px;">
+  Open Chat
+</a>
+
+  </p>
         </div>
       </body>
       </html>

@@ -634,6 +634,87 @@ exports.getCustomerScoreDashboard = async (req, res) => {
     res.status(500).json({ message: 'Internal Server Error', error });
   }
 };
+
+exports.updateCustomerAlertAddress = async (req, res) => {
+  try {
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const org_id = req.user.organization.toString();
+    const alert_id = req.params.alert_id;
+    const { addressed } = req.body; // Fields to update
+
+    // Input validation
+    if (!alert_id) {
+      return res.status(400).json({ message: 'Alert ID is required' });
+    }
+    if (addressed === undefined || addressed === null) {
+      return res.status(400).json({ message: 'Addressed field is required' });
+    }
+
+    // Validate that addressed is a boolean
+    if (typeof addressed !== 'boolean') {
+      return res
+        .status(400)
+        .json({ message: 'Addressed must be true or false' });
+    }
+
+    // Properly escape the alert_id and use boolean value for addressed
+    const escapedAlertId = alert_id.replace(/'/g, "''"); // Escape single quotes for SQL
+    const sql_query = `UPDATE main.alert_log_table SET addressed = ${addressed} WHERE alert_id = '${escapedAlertId}'`;
+
+    const url = `${
+      process.env.AI_AGENT_SERVER_URI
+    }/run-sql-query?sql_query=${encodeURIComponent(
+      sql_query
+    )}&session_id=${session_id}&org_id=${org_id}`;
+
+    console.log('Executing SQL query:', sql_query);
+    console.log('Request URL:', url);
+
+    const response = await axiosInstance.post(
+      url,
+      {},
+      {
+        timeout: 300000, // 5 minutes
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    console.log('Response status:', response.status);
+    console.log('Response data:', JSON.stringify(response.data, null, 2));
+
+    if (response?.data?.error) {
+      console.error('Redshift error:', response.data.error);
+      return res.status(500).json({
+        message: 'Database error occurred',
+        error: response.data.error,
+        query: sql_query,
+        alert_id: alert_id,
+      });
+    }
+
+    // Check if the update actually affected any rows
+    const affectedRows = response.data?.result?.result_set?.length || 0;
+    if (affectedRows === 0) {
+      return res.status(200).json({
+        message: 'No alert found with the provided alert_id',
+        alert_id: alert_id,
+        query: sql_query,
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Customer alert address updated successfully',
+      data: response.data.result.result_set,
+      affected_rows: affectedRows,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};
+
 exports.updateCustomerDetail = async (req, res) => {
   try {
     const { id } = req.params; // Customer ID

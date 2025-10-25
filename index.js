@@ -3,13 +3,13 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpecs = require('./routes/swagger');
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 5001;
 const cors = require('cors');
 const app = express();
 const cron = require('node-cron');
 const axios = require('axios');
 const helmet = require('helmet');
-
+const client = require('prom-client');
 //todo chat message sort by created date aila sorting milara ako chainclear
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require('./helper/db');
@@ -21,6 +21,8 @@ const User = require('./models/User');
 app.use(express.json());
 const { v4: uuidv4 } = require('uuid');
 const AgentCronLogSchema = require('./models/AgentCronLogSchema');
+const responseTimeTracker = require('./middleware/monitoring/responseTimeTracker');
+const requestCount = require('./middleware/monitoring/requestCount');
 
 const corsOptions = {
   origin: '*',
@@ -29,6 +31,9 @@ const corsOptions = {
 // Remove 'X-Powered-By' header (leaks Express info)
 app.disable('x-powered-by');
 app.use(helmet());
+
+app.use(responseTimeTracker);
+app.use(requestCount);
 
 app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '40mb' }));
@@ -71,6 +76,12 @@ app.get('/webhook', (req, res) => {
   } else {
     res.sendStatus(403);
   }
+});
+// this is for prometheus metrics
+app.get('/metrics', async (req, res) => {
+  const metrics = await client.register.metrics();
+  res.set('Content-Type', client.register.contentType);
+  res.end(metrics);
 });
 const processedMessages = new Set(); // Use Redis or DB for production
 const sessions = new Map(); // In-memory map: { senderNumber => sessionId }

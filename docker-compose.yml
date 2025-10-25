@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  node-app:
+    build: ./
+    ports:
+      - '5001:5001'
+    env_file:
+      - .env
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    networks:
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./:/etc/prometheus
+    ports:
+      - '9090:9090'
+    networks:
+      - monitoring
+    depends_on:
+      - node-app
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - '3001:3000'
+    networks:
+      - monitoring
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+
+networks:
+  monitoring:

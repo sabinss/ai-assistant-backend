@@ -1,4 +1,5 @@
 const client = require('prom-client');
+const logger = require('../../helper/logger');
 
 const responseTimeHistogram = new client.Histogram({
   name: 'http_request_duration_seconds',
@@ -9,13 +10,27 @@ const responseTimeHistogram = new client.Histogram({
 
 const responseTimeTracker = (req, res, next) => {
   const start = Date.now();
-  console.log(`${req.method} ${req.url} started at ${start}`);
+  const requestId = Math.random().toString(36).substr(2, 9);
+
+  // Add request ID to request object for correlation
+  req.requestId = requestId;
+
+  // Log request start
+  logger.info('Request started', {
+    requestId,
+    method: req.method,
+    url: req.url,
+    path: req.path,
+    userAgent: req.get('User-Agent'),
+    ip: req.ip || req.connection.remoteAddress,
+  });
 
   res.on('finish', () => {
     const end = Date.now();
     const durationMs = end - start;
     const durationSec = durationMs / 1000;
 
+    // Update Prometheus metrics
     responseTimeHistogram.observe(
       {
         method: req.method,
@@ -25,11 +40,8 @@ const responseTimeTracker = (req, res, next) => {
       durationSec
     );
 
-    console.log(
-      `${req.method} ${
-        req.url
-      } completed in ${durationMs} ms | ${durationSec.toFixed(2)} sec`
-    );
+    // Use the logger's built-in request logging
+    logger.logRequest(req, res, durationMs);
   });
 
   next();

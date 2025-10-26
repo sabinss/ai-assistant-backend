@@ -1,0 +1,14 @@
+{"timestamp":"2025-10-25T15:00:08.397Z","level":"INFO","message":"Auth login_success","event":"login_success","userId":"user123","email":"user@example.com","ip":"192.168.1.100","userAgent":"Mozilla/5.0..."}
+{"timestamp":"2025-10-25T15:00:08.403Z","level":"INFO","message":"API request started","method":"GET","url":"/api/users","requestId":"req_001","userId":"user123"}
+{"timestamp":"2025-10-25T15:00:08.408Z","level":"INFO","message":"Database select","operation":"select","table":"users","duration":45,"query":"SELECT * FROM users WHERE id = ?","userId":"user123"}
+{"timestamp":"2025-10-25T15:00:08.409Z","level":"INFO","message":"API request completed","method":"GET","url":"/api/users","requestId":"req_001","statusCode":200,"durationMs":150,"userId":"user123"}
+{"timestamp":"2025-10-25T15:00:08.412Z","level":"ERROR","message":"Database connection failed","error":"Connection timeout","database":"postgres","host":"localhost:5432","duration":5000}
+{"timestamp":"2025-10-25T15:00:08.413Z","level":"INFO","message":"Payment processed","transactionId":"txn_456789","amount":99.99,"currency":"USD","userId":"user123","paymentMethod":"credit_card"}
+{"timestamp":"2025-10-25T15:00:08.417Z","level":"WARN","message":"High memory usage detected","memoryUsage":"85%","processId":12345}
+{"timestamp":"2025-10-25T15:04:50.544Z","level":"INFO","message":"Auth login_success","event":"login_success","userId":"user123","email":"user@example.com","ip":"192.168.1.100","userAgent":"Mozilla/5.0..."}
+{"timestamp":"2025-10-25T15:04:50.550Z","level":"INFO","message":"API request started","method":"GET","url":"/api/users","requestId":"req_001","userId":"user123"}
+{"timestamp":"2025-10-25T15:04:50.556Z","level":"INFO","message":"Database select","operation":"select","table":"users","duration":45,"query":"SELECT * FROM users WHERE id = ?","userId":"user123"}
+{"timestamp":"2025-10-25T15:04:50.557Z","level":"INFO","message":"API request completed","method":"GET","url":"/api/users","requestId":"req_001","statusCode":200,"durationMs":150,"userId":"user123"}
+{"timestamp":"2025-10-25T15:04:50.561Z","level":"ERROR","message":"Database connection failed","error":"Connection timeout","database":"postgres","host":"localhost:5432","duration":5000}
+{"timestamp":"2025-10-25T15:04:50.561Z","level":"INFO","message":"Payment processed","transactionId":"txn_456789","amount":99.99,"currency":"USD","userId":"user123","paymentMethod":"credit_card"}
+{"timestamp":"2025-10-25T15:04:50.568Z","level":"WARN","message":"High memory usage detected","memoryUsage":"85%","processId":12345}

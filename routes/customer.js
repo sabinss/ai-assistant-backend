@@ -44,6 +44,11 @@ module.exports = (app) => {
     ctl.fetchCustomerDetailsFromRedshift
   );
   app.get(
+    `${process.env.APP_URL}/customer/stage-list`,
+    authUser,
+    ctl.fetchCustomerStageList
+  );
+  app.get(
     `${process.env.APP_URL}/customer/high-risk-churn-stats`,
     authUser,
     ctl.getHighRiskChurnStats

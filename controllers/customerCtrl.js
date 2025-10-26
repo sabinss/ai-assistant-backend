@@ -1791,9 +1791,19 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
       });
     }
 
-    // Get total count for pagination metadata
-    // const countQuery = `SELECT COUNT(*) as total FROM db${org_id}.companies`;
-    const countQuery = `SELECT COUNT(*) as total FROM db${org_id}.active_companies`;
+    // Get total count for pagination metadata with same filters as main query
+    let countQuery = `SELECT COUNT(*) as total FROM db${org_id}.active_companies`;
+    let countConditions = [];
+    if (stage) {
+      countConditions.push(`stage = '${stage}'`);
+    }
+    if (search) {
+      countConditions.push(`name ILIKE '%${search}%'`);
+    }
+    // Apply same filters to count query
+    if (countConditions.length > 0) {
+      countQuery += ' WHERE ' + countConditions.join(' AND ');
+    }
     const countUrl =
       process.env.AI_AGENT_SERVER_URI +
       `/run-sql-query?sql_query=${encodeURIComponent(

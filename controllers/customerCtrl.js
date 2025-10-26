@@ -1,3 +1,4 @@
+const { strategies } = require('passport');
 const Customer = require('../models/Customer');
 const CustomerFeature = require('../models/CustomerFeature');
 const axios = require('axios');
@@ -1743,6 +1744,28 @@ exports.getHighRiskChurnStats = async (req, res) => {
   }
 };
 
+exports.fetchCustomerStageList = async (req, res) => {
+  try {
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const org_id = req.user.organization.toString();
+    let sql_query = `SELECT DISTINCT stage FROM db${org_id}.active_companies `;
+    const url =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        sql_query
+      )}&session_id=${session_id}&org_id=${org_id}`;
+    const response = await axiosInstance.post(url, {}, { timeout: 300000 });
+    return res.status(200).json({
+      data: response.data.result.result_set.filter(
+        (item) => item.stage !== null
+      ),
+    });
+  } catch (error) {
+    console.error('Error fetching customer stage list:', error);
+    return res.status(500).json({ message: 'Internal Server Error', error });
+  }
+};
+
 exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
   try {
     const session_id = Math.floor(1000 + Math.random() * 9000);
@@ -1753,6 +1776,7 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
     const page = req.query.page || 1;
     const limit = req.query.limit || 10;
     const offset = (page - 1) * limit;
+    const stage = req.query.stage || '';
 
     // Validate pagination parameters
     if (page < 1) {
@@ -1802,15 +1826,30 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
 
     // Main data query with pagination
     let base_query = `SELECT * FROM db${org_id}.active_companies`;
-    let sql_query = '';
-    if (search) {
-      sql_query =
-        base_query +
-        ` WHERE name ILIKE '%${search}%'` +
-        `LIMIT ${limit} OFFSET ${offset}`;
-    } else {
-      sql_query = `${base_query} LIMIT ${limit} OFFSET ${offset}`;
+    let conditions = [];
+    if (stage) {
+      conditions.push(`stage = '${stage}'`);
     }
+    if (search) {
+      conditions.push(`name ILIKE '%${search}%'`);
+    }
+    // Combine filters if any exist
+    if (conditions.length > 0) {
+      base_query += ' WHERE ' + conditions.join(' AND ');
+    }
+    // Add pagination
+    sql_query = `${base_query} LIMIT ${limit} OFFSET ${offset}`;
+    // let sql_query = '';
+
+    // if (search) {
+    //   sql_query =
+    //     base_query +
+    //     ` WHERE name ILIKE '%${search}%'` +
+    //     `LIMIT ${limit} OFFSET ${offset}`;
+    // } else {
+    //   sql_query = `${base_query} LIMIT ${limit} OFFSET ${offset}`;
+    // }
+
     const url =
       process.env.AI_AGENT_SERVER_URI +
       `/run-sql-query?sql_query=${encodeURIComponent(

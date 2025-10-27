@@ -21,6 +21,10 @@ const userSchema = new mongoose.Schema(
       ref: 'Status',
       default: null,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
     chatSession: {
       type: String,
       default: '001',

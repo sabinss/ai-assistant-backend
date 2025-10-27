@@ -224,7 +224,7 @@ exports.signin = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Email not found' });
     if (!user.isVerified)
       return res
-        .status(400)
+        .status(200)
         .json({ message: 'User is not verified', isVerified: user.isVerified });
 
     const role = (await Role.findById(user.role)) || { name: 'user' };
@@ -634,7 +634,9 @@ exports.verifyEmail = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     user.isVerified = true;
     await user.save();
-    res.status(200).json({ message: 'Email confirmed successfully' });
+    res
+      .status(200)
+      .json({ message: 'Email confirmed successfully', success: true });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Internal server error' });

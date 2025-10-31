@@ -1,6 +1,6 @@
-const Conversation = require('../models/UserConversation');
-const http = require('../helper/http');
-const axios = require('axios');
+const Conversation = require("../models/UserConversation");
+const http = require("../helper/http");
+const axios = require("axios");
 
 // Configuration for timeout and retry handling
 const AGENT_CONFIG = {
@@ -15,9 +15,9 @@ const AGENT_CONFIG = {
 exports.addConversation = async (req, res) => {
   try {
     let ans;
-    let apiTypeValue = 'insights';
+    let apiTypeValue = "insights";
 
-    const defaultCustomerId = '0000';
+    const defaultCustomerId = "0000";
     const { question, chatSession, apiType, customer, fromCustomer, message } =
       req.body;
     // if (fromCustomer) {
@@ -49,37 +49,37 @@ exports.addConversation = async (req, res) => {
     }
 
     // Use streaming only for "insights" API type
-    if (apiTypeValue === 'insights') {
+    if (apiTypeValue === "insights") {
       // Set proper headers for SSE
       res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
-        Connection: 'keep-alive',
-        'X-Accel-Buffering': 'no', // Disable buffering for Nginx
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no", // Disable buffering for Nginx
       });
 
       // Make streaming request to Python API
       const pythonResponse = await axios({
-        method: 'get',
+        method: "get",
         url: url,
-        responseType: 'stream',
+        responseType: "stream",
       });
 
-      let completeMessage = '';
+      let completeMessage = "";
 
       // Forward the stream from Python API to client
-      pythonResponse.data.on('data', (chunk) => {
+      pythonResponse.data.on("data", (chunk) => {
         const chunkStr = chunk.toString();
 
         // Clean up the string and try to parse JSON
         try {
           // Handle multiple SSE messages that might be in a single chunk
-          const messages = chunkStr.split('\n\n').filter((m) => m.trim());
+          const messages = chunkStr.split("\n\n").filter((m) => m.trim());
 
           for (const msgText of messages) {
-            if (msgText.startsWith('data: ')) {
+            if (msgText.startsWith("data: ")) {
               try {
-                const data = JSON.parse(msgText.replace('data: ', ''));
+                const data = JSON.parse(msgText.replace("data: ", ""));
 
                 // Extract session_id if it exists in the response
                 if (data.session_id && !session_id) {
@@ -109,7 +109,7 @@ exports.addConversation = async (req, res) => {
       });
 
       // When the stream ends, update the conversation with the complete answer
-      pythonResponse.data.on('end', async () => {
+      pythonResponse.data.on("end", async () => {
         try {
           // Send end even
           let payload = null;
@@ -135,7 +135,7 @@ exports.addConversation = async (req, res) => {
             };
           }
 
-          console.log('payload', payload);
+          console.log("payload", payload);
 
           const newConversation = new Conversation(payload);
           await newConversation.save();
@@ -150,17 +150,17 @@ exports.addConversation = async (req, res) => {
 
           res.end();
         } catch (error) {
-          console.error('Error updating conversation:', error);
+          console.error("Error updating conversation:", error);
           res.end();
         }
       });
 
       // Handle errors in the Python API response
-      pythonResponse.data.on('error', (err) => {
-        console.error('Error in Python API stream:', err);
+      pythonResponse.data.on("error", (err) => {
+        console.error("Error in Python API stream:", err);
         res.write(
           `data: ${JSON.stringify({
-            error: 'Error in streaming response',
+            error: "Error in streaming response",
           })}\n\n`
         );
         res.end();
@@ -195,7 +195,7 @@ exports.addConversation = async (req, res) => {
         session_id,
         customer,
       };
-      console.log('payload', payload);
+      console.log("payload", payload);
 
       const newConversation = new Conversation(payload);
       const savedConversation = await newConversation.save();
@@ -272,7 +272,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
     console.log(`[${requestId}] Starting agent conversation request`, {
       agentName,
       question:
-        question?.substring(0, 100) + (question?.length > 100 ? '...' : ''),
+        question?.substring(0, 100) + (question?.length > 100 ? "..." : ""),
       chatSession,
       sessionId: session_id,
       userId: req.user?._id || req.user?.user_id,
@@ -304,10 +304,10 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
 
     // Set proper headers for SSE
     res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no', // Disable buffering for Nginx
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no", // Disable buffering for Nginx
     });
 
     console.log(
@@ -316,30 +316,30 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
 
     // Set up main timeout
     timeoutId = setTimeout(() => {
-      handleTimeout('Request');
+      handleTimeout("Request");
     }, TIMEOUT_MS);
 
     // Make streaming request to Python API with proper timeout configuration
     const pythonResponse = await axios({
-      method: 'get',
+      method: "get",
       url: url,
-      responseType: 'stream',
+      responseType: "stream",
       timeout: TIMEOUT_MS,
       // Add connection timeout
-      httpAgent: new (require('http').Agent)({
+      httpAgent: new (require("http").Agent)({
         timeout: CONNECTION_TIMEOUT_MS,
         keepAlive: true,
         maxSockets: 10,
       }),
-      httpsAgent: new (require('https').Agent)({
+      httpsAgent: new (require("https").Agent)({
         timeout: CONNECTION_TIMEOUT_MS,
         keepAlive: true,
         maxSockets: 10,
       }),
       // Add additional headers for better connection handling
       headers: {
-        Connection: 'keep-alive',
-        'Keep-Alive': 'timeout=300, max=1000',
+        Connection: "keep-alive",
+        "Keep-Alive": "timeout=300, max=1000",
       },
     });
 
@@ -353,7 +353,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
       timestamp: new Date().toISOString(),
     });
 
-    let completeMessage = '';
+    let completeMessage = "";
     let chunkCount = 0;
     let dataChunkCount = 0;
     let errorChunkCount = 0;
@@ -361,16 +361,16 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
 
     // Set up streaming timeout
     streamingTimeoutId = setTimeout(() => {
-      handleTimeout('Streaming');
+      handleTimeout("Streaming");
     }, STREAMING_TIMEOUT_MS);
 
     // Forward the stream from Python API to client
-    pythonResponse.data.on('data', (chunk) => {
+    pythonResponse.data.on("data", (chunk) => {
       // Reset streaming timeout on each data chunk
       if (streamingTimeoutId) {
         clearTimeout(streamingTimeoutId);
         streamingTimeoutId = setTimeout(() => {
-          handleTimeout('Streaming');
+          handleTimeout("Streaming");
         }, STREAMING_TIMEOUT_MS);
       }
 
@@ -383,14 +383,14 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
         chunkSize,
         agentName,
         chunkPreview:
-          chunkStr.substring(0, 200) + (chunkStr.length > 200 ? '...' : ''),
+          chunkStr.substring(0, 200) + (chunkStr.length > 200 ? "..." : ""),
         timestamp: new Date().toISOString(),
       });
 
       // Clean up the string and try to parse JSON
       try {
         // Handle multiple SSE messages that might be in a single chunk
-        const messages = chunkStr.split('\n\n').filter((m) => m.trim());
+        const messages = chunkStr.split("\n\n").filter((m) => m.trim());
 
         console.log(
           `[${requestId}] Processing ${messages.length} messages from chunk #${chunkCount}`,
@@ -398,15 +398,15 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
             agentName,
             messageCount: messages.length,
             messages: messages.map(
-              (msg) => msg.substring(0, 100) + (msg.length > 100 ? '...' : '')
+              (msg) => msg.substring(0, 100) + (msg.length > 100 ? "..." : "")
             ),
           }
         );
 
         for (const msgText of messages) {
-          if (msgText.startsWith('data: ')) {
+          if (msgText.startsWith("data: ")) {
             try {
-              const data = JSON.parse(msgText.replace('data: ', ''));
+              const data = JSON.parse(msgText.replace("data: ", ""));
               dataChunkCount++;
 
               console.log(
@@ -459,7 +459,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
                   agentName,
                   msgText:
                     msgText.substring(0, 200) +
-                    (msgText.length > 200 ? '...' : ''),
+                    (msgText.length > 200 ? "..." : ""),
                   timestamp: new Date().toISOString(),
                 }
               );
@@ -471,7 +471,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
             console.log(`[${requestId}] Processing non-data message:`, {
               agentName,
               msgText:
-                msgText.substring(0, 100) + (msgText.length > 100 ? '...' : ''),
+                msgText.substring(0, 100) + (msgText.length > 100 ? "..." : ""),
               timestamp: new Date().toISOString(),
             });
 
@@ -485,7 +485,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
           error: e.message,
           agentName,
           chunkStr:
-            chunkStr.substring(0, 200) + (chunkStr.length > 200 ? '...' : ''),
+            chunkStr.substring(0, 200) + (chunkStr.length > 200 ? "..." : ""),
           timestamp: new Date().toISOString(),
         });
 
@@ -495,7 +495,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
     });
 
     // When the stream ends, update the conversation with the complete answer
-    pythonResponse.data.on('end', async () => {
+    pythonResponse.data.on("end", async () => {
       const streamEndTime = Date.now();
       const totalStreamTime = streamEndTime - streamStartTime;
       const totalRequestTime = streamEndTime - startTime;
@@ -521,7 +521,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
           agentName,
           answerLength: answer.length,
           answerPreview:
-            answer.substring(0, 200) + (answer.length > 200 ? '...' : ''),
+            answer.substring(0, 200) + (answer.length > 200 ? "..." : ""),
           timestamp: new Date().toISOString(),
         });
 
@@ -533,7 +533,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
           organization: req.user.organization,
           chatSession,
           session_id: session_id, // Use the potentially updated session_id
-          agent_name: agentName ? agentName : 'Onboarding Agent', // Track the agent used
+          agent_name: agentName ? agentName : "Onboarding Agent", // Track the agent used
         };
 
         console.log(`[${requestId}] Saving conversation to database:`, {
@@ -542,10 +542,10 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
             ...payload,
             question:
               payload.question?.substring(0, 100) +
-              (payload.question?.length > 100 ? '...' : ''),
+              (payload.question?.length > 100 ? "..." : ""),
             answer:
               payload.answer?.substring(0, 100) +
-              (payload.answer?.length > 100 ? '...' : ''),
+              (payload.answer?.length > 100 ? "..." : ""),
           },
           timestamp: new Date().toISOString(),
         });
@@ -595,7 +595,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
         if (!res.writableEnded) {
           res.write(
             `data: ${JSON.stringify({
-              error: 'Error saving conversation',
+              error: "Error saving conversation",
             })}\n\n`
           );
           res.end();
@@ -604,7 +604,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
     });
 
     // Handle errors in the Python API response
-    pythonResponse.data.on('error', (err) => {
+    pythonResponse.data.on("error", (err) => {
       const errorTime = Date.now();
       const totalRequestTime = errorTime - startTime;
 
@@ -627,7 +627,7 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
       if (!res.writableEnded) {
         res.write(
           `data: ${JSON.stringify({
-            error: 'Error in streaming agent response',
+            error: "Error in streaming agent response",
           })}\n\n`
         );
         res.end();
@@ -655,13 +655,15 @@ exports.addCustomAgentConversationBackup = async (req, res) => {
       // If streaming has started, try sending an error event
       res.write(
         `data: ${JSON.stringify({
-          error: 'Server error during streaming',
+          error: "Server error during streaming",
         })}\n\n`
       );
       res.end();
     }
   }
 };
+
+// Custom agent chat (Active)
 exports.addCustomAgentConversation = async (req, res) => {
   try {
     const { question, chatSession, agentName } = req.body;
@@ -676,25 +678,25 @@ exports.addCustomAgentConversation = async (req, res) => {
       agentName
     )}&query=${encodeURIComponent(question)}&org_id=${req.user.organization}`;
 
-    console.log('*** Agent Python API url**', url);
+    console.log("*** Agent Python API url**", url);
     // Add session ID if provided
     if (session_id) {
       url += `&session_id=${encodeURIComponent(session_id)}`;
     }
-    console.log('**Agent conversation URI', url);
+    console.log("**Agent conversation URI", url);
     // Set proper headers for SSE
     res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no', // Disable buffering for Nginx
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no", // Disable buffering for Nginx
     });
 
     // Make streaming request to Python API
     const pythonResponse = await axios({
-      method: 'get',
+      method: "get",
       url: url,
-      responseType: 'stream',
+      responseType: "stream",
     });
 
     console.log(
@@ -702,22 +704,22 @@ exports.addCustomAgentConversation = async (req, res) => {
       pythonResponse
     );
 
-    let completeMessage = '';
+    let completeMessage = "";
 
     // Forward the stream from Python API to client
-    pythonResponse.data.on('data', (chunk) => {
+    pythonResponse.data.on("data", (chunk) => {
       const chunkStr = chunk.toString();
 
       // Clean up the string and try to parse JSON
       try {
         // Handle multiple SSE messages that might be in a single chunk
-        const messages = chunkStr.split('\n\n').filter((m) => m.trim());
+        const messages = chunkStr.split("\n\n").filter((m) => m.trim());
         console.log(`*** Messages for agent ${agentName} `);
 
         for (const msgText of messages) {
-          if (msgText.startsWith('data: ')) {
+          if (msgText.startsWith("data: ")) {
             try {
-              const data = JSON.parse(msgText.replace('data: ', ''));
+              const data = JSON.parse(msgText.replace("data: ", ""));
 
               // Extract session_id if it exists in the response
               if (data.session_id && !session_id) {
@@ -747,7 +749,7 @@ exports.addCustomAgentConversation = async (req, res) => {
     });
 
     // When the stream ends, update the conversation with the complete answer
-    pythonResponse.data.on('end', async () => {
+    pythonResponse.data.on("end", async () => {
       try {
         // Send end event
 
@@ -761,16 +763,16 @@ exports.addCustomAgentConversation = async (req, res) => {
           organization: req.user.organization,
           chatSession,
           session_id: session_id, // Use the potentially updated session_id
-          agent_name: agentName ? agentName : 'Onboarding Agent', // Track the agent used
+          agent_name: agentName ? agentName : "Onboarding Agent", // Track the agent used
         };
-        console.log('Saving agent conversation payload:', payload);
+        console.log("Saving agent conversation payload:", payload);
 
         // Create a new conversation record
         const newConversation = new Conversation(payload);
 
         // Save the conversation to database
         let c = await newConversation.save();
-        console.log('Agent conversation saved successfully.');
+        console.log("Agent conversation saved successfully.");
         res.write(
           `data: ${JSON.stringify({
             done: true,
@@ -781,12 +783,12 @@ exports.addCustomAgentConversation = async (req, res) => {
 
         res.end(); // End the response stream
       } catch (error) {
-        console.error('Error saving agent conversation:', error);
+        console.error("Error saving agent conversation:", error);
         // Attempt to send an error event if stream is still open, otherwise just log
         if (!res.writableEnded) {
           res.write(
             `data: ${JSON.stringify({
-              error: 'Error saving conversation',
+              error: "Error saving conversation",
             })}\n\n`
           );
           res.end();
@@ -807,18 +809,18 @@ exports.addCustomAgentConversation = async (req, res) => {
     //     res.end();
     //   }
     // });
-    pythonResponse.data.on('error', (err) => {
-      console.error('Error in Python API agent stream:');
+    pythonResponse.data.on("error", (err) => {
+      console.error("Error in Python API agent stream:");
 
       if (err instanceof Error) {
-        console.error('Message:', err.message);
-        console.error('Stack:', err.stack);
+        console.error("Message:", err.message);
+        console.error("Stack:", err.stack);
       } else {
         // Fallback for non-Error objects (could be plain object, buffer, string, etc.)
         try {
-          console.error('Error JSON:', JSON.stringify(err, null, 2));
+          console.error("Error JSON:", JSON.stringify(err, null, 2));
         } catch (e) {
-          console.error('Error (raw):', err);
+          console.error("Error (raw):", err);
         }
       }
 
@@ -826,14 +828,14 @@ exports.addCustomAgentConversation = async (req, res) => {
       if (!res.writableEnded) {
         res.write(
           `data: ${JSON.stringify({
-            error: 'Error in streaming agent response',
+            error: "Error in streaming agent response",
           })}\n\n`
         );
         res.end();
       }
     });
   } catch (err) {
-    console.error('Error handling agent conversation:', err);
+    console.error("Error handling agent conversation:", err);
     // Check if headers have already been sent before sending a status code
     if (!res.headersSent) {
       res.status(500).json({ error: err.message });
@@ -841,7 +843,7 @@ exports.addCustomAgentConversation = async (req, res) => {
       // If streaming has started, try sending an error event
       res.write(
         `data: ${JSON.stringify({
-          error: 'Server error during streaming',
+          error: "Server error during streaming",
         })}\n\n`
       );
       res.end();
@@ -856,10 +858,10 @@ exports.deleteConversation = async (req, res) => {
     const deletedConversation = await Conversation.findByIdAndDelete(id);
 
     if (!deletedConversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
+      return res.status(404).json({ error: "Conversation not found" });
     }
 
-    res.json({ message: 'Conversation deleted successfully' });
+    res.json({ message: "Conversation deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -881,7 +883,7 @@ exports.getConversationByUserId = async (req, res) => {
     // Check if user_id is provided
     if (!req.user?._id && !user_id && !customer_id) {
       return res.status(400).json({
-        error: 'Either user_id, or customer_id is required',
+        error: "Either user_id, or customer_id is required",
       });
     }
     let searchCondition = {};
@@ -896,7 +898,7 @@ exports.getConversationByUserId = async (req, res) => {
     // }
 
     if (externalApiCall && req.organization) {
-      searchCondition['organization'] = req.organization._id;
+      searchCondition["organization"] = req.organization._id;
     }
 
     if (customer_id) {
@@ -907,12 +909,12 @@ exports.getConversationByUserId = async (req, res) => {
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      searchCondition['updatedAt'] = { $gt: filterDate };
+      searchCondition["updatedAt"] = { $gt: filterDate };
     }
     if (created_date) {
       const filterDate = new Date(created_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      searchCondition['createdAt'] = { $gt: filterDate };
+      searchCondition["createdAt"] = { $gt: filterDate };
     }
     // Add additional search conditions based on provided parameters
     if (chatSession) {
@@ -930,8 +932,8 @@ exports.getConversationByUserId = async (req, res) => {
     //   createdAt: -1,
     // });
     const conversation = await Conversation.find(searchCondition)
-      .populate('customer') // Populate the 'customer' field
-      .populate('user_id') // Populate the 'customer' field
+      .populate("customer") // Populate the 'customer' field
+      .populate("user_id") // Populate the 'customer' field
       .sort({ createdAt: 1 }) // Sort by createdAt in descending order
       .exec(); // Execute the query
 
@@ -949,7 +951,7 @@ exports.getConversationByCustomerId = async (req, res) => {
     if (!user_id && !customer_id) {
       return res
         .status(400)
-        .json({ error: 'user_id or customer_id is required' });
+        .json({ error: "user_id or customer_id is required" });
     }
 
     let searchCondition = {};
@@ -984,7 +986,7 @@ exports.getConversationByCustomerId = async (req, res) => {
     if (!conversation || conversation.length === 0) {
       return res.status(404).json({
         error: `Conversation not found for the provided ${
-          customer_id ? 'customer_id' : 'user_id'
+          customer_id ? "customer_id" : "user_id"
         }`,
       });
     }
@@ -1001,13 +1003,13 @@ exports.updateLikeDislike = async (req, res) => {
     const conversation = await Conversation.findById(id);
 
     if (!conversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
+      return res.status(404).json({ error: "Conversation not found" });
     }
 
     conversation.liked_disliked = liked_disliked;
     const updatedConversation = await conversation.save();
     res.json({
-      message: 'Conversation updated successfully',
+      message: "Conversation updated successfully",
       updatedConversation,
     });
   } catch (err) {
@@ -1053,13 +1055,13 @@ exports.updatePublicLikeDislike = async (req, res) => {
     const conversation = await Conversation.findById(id);
 
     if (!conversation) {
-      return res.status(404).json({ error: 'Conversation not found' });
+      return res.status(404).json({ error: "Conversation not found" });
     }
 
     conversation.liked_disliked = liked_disliked;
     const updatedConversation = await conversation.save();
     res.json({
-      message: 'Conversation updated successfully',
+      message: "Conversation updated successfully",
       updatedConversation,
     });
   } catch (err) {
@@ -1092,7 +1094,7 @@ exports.addPublicConversation = async (req, res) => {
     }
 
     const response = await axios.get(url);
-    console.log('chat response==', response.data);
+    console.log("chat response==", response.data);
 
     const answer = response.data.message;
     console.log(answer);
@@ -1117,7 +1119,7 @@ exports.addPublicConversation = async (req, res) => {
     res.status(500).json({
       error:
         err.message +
-        ' SOMETWTHING WENT WRONG ' +
+        " SOMETWTHING WENT WRONG " +
         err +
         process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT +
         process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT_KEY,
@@ -1296,7 +1298,7 @@ exports.getWholeOrgConvo = async (req, res) => {
 
   let searchCondition = {};
   const customerId =
-    customer_id === 'null' || customer_id === 'undefined' ? null : customer_id;
+    customer_id === "null" || customer_id === "undefined" ? null : customer_id;
 
   if (customerId) {
     searchCondition = {

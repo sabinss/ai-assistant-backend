@@ -63,9 +63,65 @@ exports.addConversation = async (req, res) => {
       });
 
       let completeMessage = "";
+      let clientDisconnected = false;
+
+      // Handle client disconnect
+      res.on("close", async () => {
+        if (clientDisconnected) return; // Prevent duplicate handling
+        clientDisconnected = true;
+
+        console.log(`Client disconnected for session ${session_id}, saving partial message`);
+
+        // Save partial message if we have any content
+        if (completeMessage && completeMessage.trim()) {
+          try {
+            let payload = null;
+            const answer = completeMessage;
+
+            if (fromCustomer) {
+              payload = {
+                user_id: req.user?._id || req.user?.user_id,
+                question: message,
+                answer,
+                organization: req.user.organization,
+                chatSession,
+                session_id,
+                customer,
+                incomplete: true, // Mark as incomplete
+              };
+            } else {
+              payload = {
+                user_id: req.user?._id || req.user?.user_id,
+                question,
+                answer,
+                organization: req.user.organization,
+                chatSession,
+                session_id,
+                incomplete: true, // Mark as incomplete
+              };
+            }
+
+            const newConversation = new Conversation(payload);
+            await newConversation.save();
+            console.log(`Partial message saved for session ${session_id}`);
+          } catch (error) {
+            console.error("Error saving partial conversation:", error);
+          }
+        }
+
+        // Clean up Python stream
+        if (pythonResponse && pythonResponse.data) {
+          pythonResponse.data.destroy();
+        }
+      });
 
       // Forward the stream from Python API to client
       pythonResponse.data.on("data", (chunk) => {
+        // Stop processing if client disconnected
+        if (clientDisconnected) {
+          return;
+        }
+
         const chunkStr = chunk.toString();
 
         // Clean up the string and try to parse JSON
@@ -107,6 +163,12 @@ exports.addConversation = async (req, res) => {
 
       // When the stream ends, update the conversation with the complete answer
       pythonResponse.data.on("end", async () => {
+        // Don't save if client already disconnected
+        if (clientDisconnected) {
+          console.log(`Stream ended but client already disconnected for session ${session_id}`);
+          return;
+        }
+
         try {
           // Send end even
           let payload = null;
@@ -242,9 +304,53 @@ exports.addCustomAgentConversation = async (req, res) => {
     console.log(`*** Python API response for agent ${agentName} `, pythonResponse);
 
     let completeMessage = "";
+    let clientDisconnected = false;
+
+    // Handle client disconnect
+    res.on("close", async () => {
+      if (clientDisconnected) return; // Prevent duplicate handling
+      clientDisconnected = true;
+
+      console.log(
+        `Client disconnected for agent ${agentName} session ${session_id}, saving partial message`
+      );
+
+      // Save partial message if we have any content
+      if (completeMessage && completeMessage.trim()) {
+        try {
+          const answer = completeMessage;
+          const payload = {
+            user_id: req.user?._id || req.user?.user_id,
+            question,
+            answer,
+            organization: req.user.organization,
+            chatSession,
+            session_id: session_id,
+            agent_name: agentName ? agentName : "Onboarding Agent",
+            incomplete: true, // Mark as incomplete
+          };
+
+          const newConversation = new Conversation(payload);
+          await newConversation.save();
+          console.log(`Partial agent message saved for session ${session_id}`);
+        } catch (error) {
+          console.error("Error saving partial agent conversation:", error);
+        }
+      }
+
+      // Clean up Python stream
+      if (pythonResponse && pythonResponse.data) {
+        pythonResponse.data.destroy();
+      }
+    });
 
     // Forward the stream from Python API to client
     pythonResponse.data.on("data", (chunk) => {
+      // Stop processing if client disconnected
+      if (clientDisconnected) {
+        return;
+      }
+
       const chunkStr = chunk.toString();
 
       // Clean up the string and try to parse JSON
@@ -287,6 +393,14 @@ exports.addCustomAgentConversation = async (req, res) => {
 
     // When the stream ends, update the conversation with the complete answer
     pythonResponse.data.on("end", async () => {
+      // Don't save if client already disconnected
+      if (clientDisconnected) {
+        console.log(
+          `Stream ended but client already disconnected for agent ${agentName} session ${session_id}`
+        );
+        return;
+      }
+
       try {
         // Send end event
 

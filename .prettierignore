@@ -1,0 +1,12 @@
+# Ignore artifacts:
+node_modules
+coverage
+dist
+build
+logs
+uploads
+*.log
+.env
+.env.local
+.env.*.local
+

@@ -57,7 +57,7 @@ app.get('/health-check', async (req, res) => {
 });
 
 app.get('/api/sessions/oauth/google', googleOauthHandler);
-// app.use('/webhook', webhookRoute);
+// app.use('/webhook', webhookRoute);;
 app.get('/webhook', (req, res) => {
   const VERIFY_TOKEN = 'my_verify_token'; // same as what you'll enter on Meta
 

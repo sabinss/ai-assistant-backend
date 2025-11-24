@@ -61,17 +61,12 @@ exports.signup = async (req, res) => {
       name: organization_name,
       assistant_name: ai_assistant_name,
     });
-
     await newOrg.save();
 
     const role = await Role.findOne({ name: 'admin' });
     const status = await Status.findOne({ name: 'active' });
     const role_id = role ? role._id : null;
     const status_id = status ? status._id : null;
-
-    const existingUser = await User.findOne({ email: email });
-    if (existingUser)
-      return res.status(409).json({ message: 'Email is already in use' });
 
     const hashed_password = bcrypt.hashSync(password, 10);
 
@@ -227,6 +222,10 @@ exports.signin = async (req, res) => {
   try {
     const user = await User.findOne({ email: email });
     if (!user) return res.status(404).json({ message: 'Email not found' });
+    if (!user.isVerified)
+      return res
+        .status(200)
+        .json({ message: 'User is not verified', isVerified: user.isVerified });
 
     const role = (await Role.findById(user.role)) || { name: 'user' };
     const isValidUser = await bcrypt.compare(password, user.password);
@@ -521,16 +520,97 @@ exports.verifyPasswordResetToken = async (req, res) => {
 };
 
 exports.sendConfirmEmailToken = async (req, res) => {
-  const { email } = req.body;
   console.log('sendConfirmEmailToken called');
   try {
+    const {
+      email,
+      first_name,
+      last_name,
+      organization_name,
+      ai_assistant_name,
+      password,
+    } = req.body;
+
+    // Check if user already exists
+    const isUserExist = await User.findOne({ email });
+    const isUserVerified = isUserExist ? isUserExist.isVerified : false;
+
+    // If user exists and is verified, return error
+    if (isUserExist && isUserVerified) {
+      return res
+        .status(400)
+        .json({ message: 'User already exists and is verified' });
+    }
+
     const token = Math.floor(Math.random() * 100000 + 1);
     const confirmTokenData = new ConfirmToken({
-      email,
+      email: email,
       token,
     });
 
     await confirmTokenData.save();
+
+    // Create organization if provided
+    let organizationId = null;
+    if (organization_name) {
+      const existingOrg = await Organization.findOne({
+        name: organization_name,
+      });
+      if (existingOrg) {
+        return res
+          .status(409)
+          .json({ message: 'Organization name already taken.' });
+      }
+
+      const newOrg = new Organization({
+        name: organization_name,
+        assistant_name: ai_assistant_name,
+      });
+      await newOrg.save();
+      organizationId = newOrg._id;
+    }
+
+    // Get role and status
+    const role = await Role.findOne({ name: 'user' }); // Default to 'user' role
+    const status = await Status.findOne({ name: 'active' });
+    const role_id = role ? role._id : null;
+    const status_id = status ? status._id : null;
+
+    // Create or update user with isVerified: false
+    const hashed_password = password ? bcrypt.hashSync(password, 10) : null;
+
+    // If user exists but is not verified, update the user
+    if (isUserExist && !isUserVerified) {
+      isUserExist.first_name = first_name || isUserExist.first_name;
+      isUserExist.last_name = last_name || isUserExist.last_name;
+      if (password) {
+        isUserExist.password = hashed_password;
+      }
+      if (organizationId) {
+        isUserExist.organization = organizationId;
+      }
+      isUserExist.role = role_id;
+      isUserExist.status = status_id;
+      isUserExist.isVerified = false;
+      await isUserExist.save();
+      console.log('User updated successfully with isVerified: false');
+    } else {
+      // Create new user
+      const newUser = new User({
+        organization: organizationId,
+        email,
+        first_name: first_name || null,
+        last_name: last_name || null,
+        password: hashed_password,
+        role: role_id,
+        status: status_id,
+        isVerified: false,
+      });
+
+      await newUser.save();
+      console.log('User created successfully with isVerified: false');
+    }
+
     console.log('Sending Email');
     await sendEmail(email, token, false);
     res
@@ -550,7 +630,13 @@ exports.verifyEmail = async (req, res) => {
     if (!tokenInDb) return res.status(400).json({ message: 'Invalid token' });
 
     await ConfirmToken.findOneAndDelete({ email, token });
-    res.status(200).json({ message: 'Email confirmed successfully' });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.isVerified = true;
+    await user.save();
+    res
+      .status(200)
+      .json({ message: 'Email confirmed successfully', success: true });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Internal server error' });

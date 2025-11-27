@@ -1,19 +1,16 @@
-const User = require('../models/User');
-const Organization = require('../models/Organization');
-const Role = require('../models/Role');
-const Status = require('../models/Status');
-const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
-const jwt = require('jsonwebtoken');
-const ResetToken = require('../models/ResetToken');
-const ConfirmToken = require('../models/ConfirmToken');
-const rolePermission = require('../helper/rolePermission');
-const GoogleUser = require('../models/GoogleUser');
-const axios = require('axios');
-const {
-  getGoogleAuthTokens,
-  getGoogleUser,
-} = require('../service/userService');
+const User = require("../models/User");
+const Organization = require("../models/Organization");
+const Role = require("../models/Role");
+const Status = require("../models/Status");
+const bcrypt = require("bcrypt");
+const nodemailer = require("nodemailer");
+const jwt = require("jsonwebtoken");
+const ResetToken = require("../models/ResetToken");
+const ConfirmToken = require("../models/ConfirmToken");
+const rolePermission = require("../helper/rolePermission");
+const GoogleUser = require("../models/GoogleUser");
+const axios = require("axios");
+const { getGoogleAuthTokens, getGoogleUser } = require("../service/userService");
 
 exports.verifyOrganization = async (req, res) => {
   try {
@@ -21,41 +18,29 @@ exports.verifyOrganization = async (req, res) => {
     const organization = await Organization.findById(organizationId);
     if (organization) {
       return res.status(200).json({
-        message: 'Organization found',
+        message: "Organization found",
         isAuthenticated: true,
       });
     }
-    return res
-      .status(404)
-      .json({ message: 'Organization not found', isAuthenticated: false });
+    return res.status(404).json({ message: "Organization not found", isAuthenticated: false });
   } catch (err) {
     return res.status(404).json({
-      message: 'Organization not found',
+      message: "Organization not found",
       isAuthenticated: false,
       error: err,
     });
   }
 };
 exports.signup = async (req, res) => {
-  const {
-    first_name,
-    last_name,
-    email,
-    organization_name,
-    ai_assistant_name,
-    password,
-  } = req.body;
+  const { first_name, last_name, email, organization_name, ai_assistant_name, password } = req.body;
 
   try {
     const isUserExist = await User.findOne({ email });
     if (isUserExist) {
-      return res.status(400).json({ message: 'User aleady exist' });
+      return res.status(400).json({ message: "User aleady exist" });
     }
     const existingOrg = await Organization.findOne({ name: organization_name });
-    if (existingOrg)
-      return res
-        .status(409)
-        .json({ message: 'Organization name already taken.' });
+    if (existingOrg) return res.status(409).json({ message: "Organization name already taken." });
 
     const newOrg = new Organization({
       name: organization_name,
@@ -63,8 +48,8 @@ exports.signup = async (req, res) => {
     });
     await newOrg.save();
 
-    const role = await Role.findOne({ name: 'admin' });
-    const status = await Status.findOne({ name: 'active' });
+    const role = await Role.findOne({ name: "admin" });
+    const status = await Status.findOne({ name: "active" });
     const role_id = role ? role._id : null;
     const status_id = status ? status._id : null;
 
@@ -81,29 +66,27 @@ exports.signup = async (req, res) => {
     });
 
     await newUser.save();
-    res.status(201).json({ message: 'User created successfully' });
+    res.status(201).json({ message: "User created successfully" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 const revokeGoogleToken = async (refreshToken) => {
   try {
     await axios.post(
-      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(
-        refreshToken
-      )}`,
+      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(refreshToken)}`,
       {},
       {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          "Content-Type": "application/x-www-form-urlencoded",
         },
       }
     );
-    console.log('Token revoked');
+    console.log("Token revoked");
     return true;
   } catch (err) {
-    console.error('Failed to revoke token:', err.response?.data || err.message);
+    console.error("Failed to revoke token:", err.response?.data || err.message);
     return false;
   }
 };
@@ -119,9 +102,9 @@ exports.googleOauthCodeExchange = async (req, res) => {
       id_token: emailCredential.id_token,
       access_token: emailCredential.access_token,
     });
-    console.log('googleUser', googleUser);
+    console.log("googleUser", googleUser);
     if (!googleUser || !googleUser.email) {
-      console.log('Failed to retrieve google user details');
+      console.log("Failed to retrieve google user details");
     }
     const existingUser = await User.findOne({
       email: googleUser.email,
@@ -138,18 +121,18 @@ exports.googleOauthCodeExchange = async (req, res) => {
     if (orgId) {
       googleUserPayload.organization = orgId;
     }
-    console.log('Google user payload', googleUserPayload);
+    console.log("Google user payload", googleUserPayload);
     const newGoogleUser = await GoogleUser.findOneAndUpdate(
       { email: googleUser.email },
       googleUserPayload,
       { new: true, upsert: true }
     );
-    console.log('newGoogleUser', newGoogleUser);
+    console.log("newGoogleUser", newGoogleUser);
     //redirect back to client
     // res.redirect(process.env.CLIENT_URI);
     res.status(200).json({
       success: true,
-      message: 'Google oauth success',
+      message: "Google oauth success",
     });
   } catch (err) {}
 };
@@ -158,7 +141,7 @@ exports.disconnectOrgGoogleUser = async (req, res) => {
   try {
     const organization = req.user?.organization;
     if (!organization) {
-      res.status(500).json({ message: 'Organization is required', err });
+      res.status(500).json({ message: "Organization is required", err });
     }
 
     const googleUserRecord = await GoogleUser.findOne({
@@ -166,16 +149,15 @@ exports.disconnectOrgGoogleUser = async (req, res) => {
     });
 
     const refreshToken = googleUserRecord.emailCredential.access_token;
-    console.log('refresh token', googleUserRecord.emailCredential.access_token);
-    refreshToken &&
-      (await revokeGoogleToken(googleUserRecord.emailCredential.access_token));
+    console.log("refresh token", googleUserRecord.emailCredential.access_token);
+    refreshToken && (await revokeGoogleToken(googleUserRecord.emailCredential.access_token));
     await GoogleUser.deleteOne({ organization: organization });
     return res.status(200).json({
-      message: 'Disconnected google user successfully',
+      message: "Disconnected google user successfully",
       success: true,
     });
   } catch (err) {
-    res.status(500).json({ message: 'Internal server error', err });
+    res.status(500).json({ message: "Internal server error", err });
   }
 };
 
@@ -191,20 +173,20 @@ exports.verifyGoogleLogin = async (req, res) => {
     // .limit(1); // get only one
     if (googleLoginUser) {
       return res.status(200).json({
-        message: 'User successfully logged in as google user',
+        message: "User successfully logged in as google user",
         success: true,
         data: googleLoginUser,
       });
     } else {
       return res.status(200).json({
-        message: 'Google user not found',
+        message: "Google user not found",
         success: false,
         googleEmail: null,
       });
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -212,25 +194,19 @@ exports.signin = async (req, res) => {
   // await this.sendEmailTest('sabinshrestha292@gmail.com', '123456');
   const { email, password } = req.body;
 
-  if (!email || !password)
-    return res.status(400).json({ message: 'Please fill all details' });
+  if (!email || !password) return res.status(400).json({ message: "Please fill all details" });
   if (password.length < 6)
-    return res
-      .status(400)
-      .json({ message: 'Password must be at least 6 characters long' });
+    return res.status(400).json({ message: "Password must be at least 6 characters long" });
 
   try {
     const user = await User.findOne({ email: email });
-    if (!user) return res.status(404).json({ message: 'Email not found' });
+    if (!user) return res.status(404).json({ message: "Email not found" });
     if (!user.isVerified)
-      return res
-        .status(200)
-        .json({ message: 'User is not verified', isVerified: user.isVerified });
+      return res.status(200).json({ message: "User is not verified", isVerified: user.isVerified });
 
-    const role = (await Role.findById(user.role)) || { name: 'user' };
+    const role = (await Role.findById(user.role)) || { name: "user" };
     const isValidUser = await bcrypt.compare(password, user.password);
-    if (!isValidUser)
-      return res.status(401).json({ message: 'Invalid password' });
+    if (!isValidUser) return res.status(401).json({ message: "Invalid password" });
 
     const userDetails = {
       user_id: user._id,
@@ -243,19 +219,19 @@ exports.signin = async (req, res) => {
     };
 
     const accessToken = jwt.sign(userDetails, process.env.JWT_SECRET, {
-      expiresIn: '365d',
+      expiresIn: "365d",
     });
 
     return res.status(200).json({
       access_token: accessToken,
-      message: 'User logged in successfully',
+      message: "User logged in successfully",
       user_details: userDetails,
       rolePermission: rolePermission[role.name],
       chatSession: user.chatSession,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -264,23 +240,19 @@ exports.changePassword = async (req, res) => {
 
   try {
     const user = await User.findById(user_id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const isPasswordCorrect = await bcrypt.compare(
-      current_password,
-      user.password
-    );
-    if (!isPasswordCorrect)
-      return res.status(401).json({ message: 'Incorrect current password' });
+    const isPasswordCorrect = await bcrypt.compare(current_password, user.password);
+    if (!isPasswordCorrect) return res.status(401).json({ message: "Incorrect current password" });
 
     const hashedPassword = bcrypt.hashSync(new_password, 10);
     user.password = hashedPassword;
     await user.save();
 
-    res.status(200).json({ message: 'Password changed successfully' });
+    res.status(200).json({ message: "Password changed successfully" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -290,7 +262,7 @@ exports.forgotPassword = async (req, res) => {
   try {
     // Find the user by email
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'Email not found' });
+    if (!user) return res.status(404).json({ message: "Email not found" });
 
     // Check if a reset token already exists for the user
     let resetTokenData = await ResetToken.findOne({ userRef: user._id });
@@ -312,11 +284,11 @@ exports.forgotPassword = async (req, res) => {
     // Send email with the reset token
     await sendEmail(email, resetToken, true);
     res.status(200).json({
-      message: 'The reset password link has been sent to your email.',
+      message: "The reset password link has been sent to your email.",
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -324,7 +296,7 @@ const sendEmail = async (email, token, isReset = true) => {
   console.log(process.env.MAIL_API_EMAIL, process.env.MAIL_API_PASSWORD);
   const transporter = nodemailer.createTransport({
     // service: "gmail",
-    host: 'smtp.gmail.com',
+    host: "smtp.gmail.com",
     port: 587,
     secure: false,
     auth: {
@@ -337,14 +309,14 @@ const sendEmail = async (email, token, isReset = true) => {
     // from: 'theagilemove@gmail.com',,
     from: process.env.MAIL_API_EMAIL,
     to: email,
-    subject: isReset ? 'Reset Password' : 'Email Confirmation',
+    subject: isReset ? "Reset Password" : "Email Confirmation",
     html: `
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${isReset ? 'Password Reset' : 'Email Confirmation'}</title>
+        <title>${isReset ? "Password Reset" : "Email Confirmation"}</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -379,12 +351,12 @@ const sendEmail = async (email, token, isReset = true) => {
       </head>
       <body>
         <div class="container">
-          <h1>${isReset ? 'Reset Password' : 'Email Confirmation'}</h1>
+          <h1>${isReset ? "Reset Password" : "Email Confirmation"}</h1>
           <p>Dear User,</p>
           <p> ${
             isReset
-              ? ' You have requested to reset your password Please use the following token to proceed:'
-              : 'Thank you for singing up for CoWrkr! To complete your registration, please use the following token .'
+              ? " You have requested to reset your password Please use the following token to proceed:"
+              : "Thank you for singing up for CoWrkr! To complete your registration, please use the following token ."
           }. </p>
           <div class="token">${token}</div>
           <p>Note: This token is only valid for 5 minutes.</p>
@@ -396,19 +368,19 @@ const sendEmail = async (email, token, isReset = true) => {
       </html>
     `,
   };
-  console.log('mailOptions', mailOptions);
+  console.log("mailOptions", mailOptions);
   try {
     const mailResponse = await transporter.sendMail(mailOptions);
-    console.log('mailResponse', mailResponse);
+    console.log("mailResponse", mailResponse);
   } catch (err) {
-    console.log('Send Email error', err);
+    console.log("Send Email error", err);
   }
 };
 
 exports.sendEmailTest = async (email, token, isReset = true) => {
   const transporter = nodemailer.createTransport({
     // service: "gmail",
-    host: 'smtp.gmail.com',
+    host: "smtp.gmail.com",
     port: 587,
     secure: false,
     auth: {
@@ -422,15 +394,15 @@ exports.sendEmailTest = async (email, token, isReset = true) => {
   const mailOptions = {
     // from: 'theagilemove@gmail.com',,
     from: process.env.MAIL_API_EMAIL,
-    to: 'sabinshrestha292@gmail.com',
-    subject: 'Test Email for CoWrkr',
+    to: "sabinshrestha292@gmail.com",
+    subject: "Test Email for CoWrkr",
     html: `
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${isReset ? 'Password Reset' : 'Email Confirmation'}</title>
+        <title>${isReset ? "Password Reset" : "Email Confirmation"}</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -465,12 +437,12 @@ exports.sendEmailTest = async (email, token, isReset = true) => {
       </head>
       <body>
         <div class="container">
-          <h1>${isReset ? 'Reset Password' : 'Email Confirmation'}</h1>
+          <h1>${isReset ? "Reset Password" : "Email Confirmation"}</h1>
           <p>Dear User,</p>
           <p> ${
             isReset
-              ? ' You have requested to reset your password Please use the following token to proceed:'
-              : 'Thank you for singing up for CoWrkr! To complete your registration, please use the following token .'
+              ? " You have requested to reset your password Please use the following token to proceed:"
+              : "Thank you for singing up for CoWrkr! To complete your registration, please use the following token ."
           }. </p>
           <div class="token">${token}</div>
           <p>Note: This token is only valid for 5 minutes.</p>
@@ -488,12 +460,12 @@ exports.sendEmailTest = async (email, token, isReset = true) => {
       </html>
     `,
   };
-  console.log('mailOptions', mailOptions);
+  console.log("mailOptions", mailOptions);
   try {
     const mailResponse = await transporter.sendMail(mailOptions);
-    console.log('mailResponse', mailResponse);
+    console.log("mailResponse", mailResponse);
   } catch (err) {
-    console.log('Send Email error', err);
+    console.log("Send Email error", err);
   }
 };
 
@@ -502,34 +474,27 @@ exports.verifyPasswordResetToken = async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     const tokenInDb = await ResetToken.findOne({ resetToken: token });
-    if (!tokenInDb) return res.status(400).json({ message: 'Invalid token' });
+    if (!tokenInDb) return res.status(400).json({ message: "Invalid token" });
 
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
     user.password = hashedPassword;
     await user.save();
 
     await ResetToken.findOneAndDelete({ resetToken: token });
-    res.status(200).json({ message: 'Password changed successfully' });
+    res.status(200).json({ message: "Password changed successfully" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
 exports.sendConfirmEmailToken = async (req, res) => {
-  console.log('sendConfirmEmailToken called');
   try {
-    const {
-      email,
-      first_name,
-      last_name,
-      organization_name,
-      ai_assistant_name,
-      password,
-    } = req.body;
+    const { email, first_name, last_name, organization_name, ai_assistant_name, password } =
+      req.body;
 
     // Check if user already exists
     const isUserExist = await User.findOne({ email });
@@ -537,9 +502,7 @@ exports.sendConfirmEmailToken = async (req, res) => {
 
     // If user exists and is verified, return error
     if (isUserExist && isUserVerified) {
-      return res
-        .status(400)
-        .json({ message: 'User already exists and is verified' });
+      return res.status(400).json({ message: "User already exists and is verified" });
     }
 
     const token = Math.floor(Math.random() * 100000 + 1);
@@ -557,9 +520,7 @@ exports.sendConfirmEmailToken = async (req, res) => {
         name: organization_name,
       });
       if (existingOrg) {
-        return res
-          .status(409)
-          .json({ message: 'Organization name already taken.' });
+        return res.status(409).json({ message: "Organization name already taken." });
       }
 
       const newOrg = new Organization({
@@ -571,8 +532,8 @@ exports.sendConfirmEmailToken = async (req, res) => {
     }
 
     // Get role and status
-    const role = await Role.findOne({ name: 'user' }); // Default to 'user' role
-    const status = await Status.findOne({ name: 'active' });
+    const role = await Role.findOne({ name: "user" }); // Default to 'user' role
+    const status = await Status.findOne({ name: "active" });
     const role_id = role ? role._id : null;
     const status_id = status ? status._id : null;
 
@@ -593,7 +554,7 @@ exports.sendConfirmEmailToken = async (req, res) => {
       isUserExist.status = status_id;
       isUserExist.isVerified = false;
       await isUserExist.save();
-      console.log('User updated successfully with isVerified: false');
+      console.log("User updated successfully with isVerified: false");
     } else {
       // Create new user
       const newUser = new User({
@@ -608,17 +569,15 @@ exports.sendConfirmEmailToken = async (req, res) => {
       });
 
       await newUser.save();
-      console.log('User created successfully with isVerified: false');
+      console.log("User created successfully with isVerified: false");
     }
 
-    console.log('Sending Email');
+    console.log("Sending Email");
     await sendEmail(email, token, false);
-    res
-      .status(200)
-      .json({ message: 'Verification code has been sent to your email.' });
+    res.status(200).json({ message: "Verification code has been sent to your email." });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -627,18 +586,16 @@ exports.verifyEmail = async (req, res) => {
 
   try {
     const tokenInDb = await ConfirmToken.findOne({ email, token });
-    if (!tokenInDb) return res.status(400).json({ message: 'Invalid token' });
+    if (!tokenInDb) return res.status(400).json({ message: "Invalid token" });
 
     await ConfirmToken.findOneAndDelete({ email, token });
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
     user.isVerified = true;
     await user.save();
-    res
-      .status(200)
-      .json({ message: 'Email confirmed successfully', success: true });
+    res.status(200).json({ message: "Email confirmed successfully", success: true });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: "Internal server error" });
   }
 };

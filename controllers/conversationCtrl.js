@@ -263,7 +263,18 @@ exports.addConversation = async (req, res) => {
     }
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: err.message });
+    // Check if headers have already been sent before sending a status code
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    } else if (!res.writableEnded) {
+      // If streaming has started, try sending an error event
+      res.write(
+        `data: ${JSON.stringify({
+          error: "Server error during streaming",
+        })}\n\n`
+      );
+      res.end();
+    }
   }
 };
 
@@ -286,6 +297,12 @@ exports.addCustomAgentConversation = async (req, res) => {
       url += `&session_id=${encodeURIComponent(session_id)}`;
     }
     console.log("**Agent conversation URI", url);
+    console.log("*** Starting addCustomAgentConversation ***");
+    console.log(`Agent Name: ${agentName}`);
+    console.log(`Question: ${question?.substring(0, 200)}${question?.length > 200 ? "..." : ""}`);
+    console.log(`Question Length: ${question?.length || 0} characters`);
+    console.log(`Session ID: ${session_id}`);
+    console.log(`Chat Session: ${chatSession}`);
     // Set proper headers for SSE
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -301,7 +318,10 @@ exports.addCustomAgentConversation = async (req, res) => {
       responseType: "stream",
     });
 
-    console.log(`*** Python API response for agent ${agentName} `, pythonResponse);
+    console.log(`*** Python API response received for agent ${agentName} ***`);
+    console.log(`Status: ${pythonResponse.status} ${pythonResponse.statusText}`);
+    console.log(`Headers:`, JSON.stringify(pythonResponse.headers, null, 2));
+    console.log(`Response Type: ${pythonResponse.responseType}`);
 
     let completeMessage = "";
     let clientDisconnected = false;
@@ -345,24 +365,45 @@ exports.addCustomAgentConversation = async (req, res) => {
     });
 
     // Forward the stream from Python API to client
+    let chunkCounter = 0;
+    let buffer = ""; // Buffer to handle incomplete SSE messages across chunks
+
     pythonResponse.data.on("data", (chunk) => {
       // Stop processing if client disconnected
       if (clientDisconnected) {
         return;
       }
 
+      chunkCounter++;
       const chunkStr = chunk.toString();
+
+      // Append new chunk to buffer to handle messages split across chunks
+      buffer += chunkStr;
 
       // Clean up the string and try to parse JSON
       try {
-        // Handle multiple SSE messages that might be in a single chunk
-        const messages = chunkStr.split("\n\n").filter((m) => m.trim());
-        console.log(`*** Messages for agent ${agentName} `);
+        // Split by double newline (SSE message separator)
+        // Keep the last part in buffer if it doesn't end with \n\n (incomplete message)
+        const parts = buffer.split("\n\n");
 
-        for (const msgText of messages) {
-          if (msgText.startsWith("data: ")) {
+        // If buffer doesn't end with \n\n, the last part is incomplete - keep it in buffer
+        const isComplete = buffer.endsWith("\n\n");
+        const messagesToProcess = isComplete ? parts : parts.slice(0, -1);
+        buffer = isComplete ? "" : parts[parts.length - 1]; // Keep incomplete message in buffer
+
+        console.log(
+          `*** Messages for agent ${agentName} - Chunk #${chunkCounter} - ${
+            messagesToProcess.length
+          } complete messages${!isComplete ? " (1 incomplete in buffer)" : ""}`
+        );
+
+        for (const msgText of messagesToProcess) {
+          const trimmedMsg = msgText.trim();
+          if (!trimmedMsg) continue; // Skip empty messages
+
+          if (trimmedMsg.startsWith("data: ")) {
             try {
-              const data = JSON.parse(msgText.replace("data: ", ""));
+              const data = JSON.parse(trimmedMsg.replace("data: ", ""));
 
               // Extract session_id if it exists in the response
               if (data.session_id && !session_id) {
@@ -371,23 +412,66 @@ exports.addCustomAgentConversation = async (req, res) => {
 
               // Add content to the complete message
               if (data.message) {
+                const messageLength = data.message.length;
+                const previousLength = completeMessage.length;
                 completeMessage += data.message;
+                console.log(
+                  `*** Python API Chunk #${chunkCounter} - Message fragment: ${messageLength} chars | Total accumulated: ${completeMessage.length} chars`
+                );
+                console.log(
+                  `*** Message fragment preview: ${data.message.substring(0, 100)}${
+                    data.message.length > 100 ? "..." : ""
+                  }`
+                );
               }
+
+              // Log all data fields from Python response
+              console.log(
+                `*** Python API Response Data (Chunk #${chunkCounter}):`,
+                JSON.stringify(
+                  {
+                    ...data,
+                    message: data.message
+                      ? `${data.message.substring(0, 50)}... (${data.message.length} chars)`
+                      : null,
+                  },
+                  null,
+                  2
+                )
+              );
 
               // Ensure proper SSE format with data: prefix and double newline
               res.write(`data: ${JSON.stringify(data)}\n\n`);
             } catch (e) {
+              console.error(`*** Error parsing message in chunk #${chunkCounter}:`, e.message);
+              console.error(`*** Failed message text:`, trimmedMsg.substring(0, 200));
               // If parsing individual message fails, send as is
-              res.write(`data: ${JSON.stringify({ chunk: msgText })}\n\n`);
+              res.write(`data: ${JSON.stringify({ chunk: trimmedMsg })}\n\n`);
             }
-          } else if (msgText.trim()) {
+          } else if (trimmedMsg) {
             // For non-data prefixed lines, add the prefix
-            res.write(`data: ${JSON.stringify({ chunk: msgText })}\n\n`);
+            console.log(
+              `*** Non-data message in chunk #${chunkCounter}:`,
+              trimmedMsg.substring(0, 100)
+            );
+            res.write(`data: ${JSON.stringify({ chunk: trimmedMsg })}\n\n`);
           }
         }
+
+        // Log buffer state if there's an incomplete message
+        if (buffer && !isComplete) {
+          console.log(
+            `*** Incomplete message buffered (${buffer.length} chars): ${buffer.substring(0, 100)}${
+              buffer.length > 100 ? "..." : ""
+            }`
+          );
+        }
       } catch (e) {
+        console.error(`*** Error processing chunk #${chunkCounter}:`, e.message);
+        console.error(`*** Chunk content:`, chunkStr.substring(0, 200));
         // If overall parsing fails, send raw chunk
         res.write(`data: ${JSON.stringify({ chunk: chunkStr })}\n\n`);
+        buffer = ""; // Clear buffer on error
       }
     });
 
@@ -402,9 +486,66 @@ exports.addCustomAgentConversation = async (req, res) => {
       }
 
       try {
+        // Process any remaining data in buffer (incomplete message at end of stream)
+        if (buffer && buffer.trim()) {
+          console.log(
+            `*** Processing final buffered message (${buffer.length} chars): ${buffer.substring(
+              0,
+              200
+            )}`
+          );
+
+          const trimmedBuffer = buffer.trim();
+          if (trimmedBuffer.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(trimmedBuffer.replace("data: ", ""));
+
+              // Extract session_id if it exists in the response
+              if (data.session_id && !session_id) {
+                session_id = data.session_id;
+              }
+
+              // Add content to the complete message
+              if (data.message) {
+                completeMessage += data.message;
+                console.log(
+                  `*** Final buffered message fragment: ${data.message.length} chars | Total accumulated: ${completeMessage.length} chars`
+                );
+              }
+
+              // Send to client
+              res.write(`data: ${JSON.stringify(data)}\n\n`);
+            } catch (e) {
+              console.error(`*** Error parsing final buffered message:`, e.message);
+              console.error(`*** Buffer content:`, buffer);
+            }
+          }
+          buffer = ""; // Clear buffer
+        }
+
         // Send end event
 
         const answer = completeMessage; // Use the accumulated message
+
+        // ========== COMPREHENSIVE LOGGING OF FINAL PYTHON RESPONSE ==========
+        console.log("\n" + "=".repeat(80));
+        console.log("*** FINAL PYTHON API RESPONSE - COMPLETE MESSAGE ***");
+        console.log("=".repeat(80));
+        console.log(`Agent Name: ${agentName}`);
+        console.log(`Session ID: ${session_id}`);
+        console.log(`Total Chunks Received: ${chunkCounter}`);
+        console.log(`Complete Message Length: ${answer.length} characters`);
+        console.log(`Complete Message Length (bytes): ${Buffer.byteLength(answer, "utf8")} bytes`);
+        console.log("-".repeat(80));
+        console.log("*** FULL COMPLETE MESSAGE FROM PYTHON API (START) ***");
+        console.log("-".repeat(80));
+        console.log(answer);
+        console.log("-".repeat(80));
+        console.log("*** FULL COMPLETE MESSAGE FROM PYTHON API (END) ***");
+        console.log("-".repeat(80));
+        console.log(`First 500 characters: ${answer.substring(0, 500)}`);
+        console.log(`Last 500 characters: ${answer.substring(Math.max(0, answer.length - 500))}`);
+        console.log("=".repeat(80) + "\n");
 
         // Create payload for saving conversation
         let payload = {
@@ -416,25 +557,56 @@ exports.addCustomAgentConversation = async (req, res) => {
           session_id: session_id, // Use the potentially updated session_id
           agent_name: agentName ? agentName : "Onboarding Agent", // Track the agent used
         };
-        console.log("Saving agent conversation payload:", payload);
+        console.log("*** Saving agent conversation payload ***");
+        console.log(`Payload question length: ${payload.question?.length || 0} chars`);
+        console.log(`Payload answer length: ${payload.answer?.length || 0} chars`);
+        console.log(
+          `Payload answer preview: ${payload.answer?.substring(0, 200)}${
+            payload.answer?.length > 200 ? "..." : ""
+          }`
+        );
+        console.log(
+          "Full payload:",
+          JSON.stringify(
+            {
+              ...payload,
+              question:
+                payload.question?.substring(0, 100) + (payload.question?.length > 100 ? "..." : ""),
+              answer:
+                payload.answer?.substring(0, 100) + (payload.answer?.length > 100 ? "..." : ""),
+            },
+            null,
+            2
+          )
+        );
 
         // Create a new conversation record
         const newConversation = new Conversation(payload);
 
         // Save the conversation to database
         let c = await newConversation.save();
-        console.log("Agent conversation saved successfully.");
-        res.write(
-          `data: ${JSON.stringify({
-            done: true,
-            session_id: session_id,
-            id: c._id,
-          })}\n\n`
+        console.log(`*** Agent conversation saved successfully. ID: ${c._id} ***`);
+
+        // Log what we're sending in the final SSE response
+        const finalResponse = {
+          done: true,
+          session_id: session_id,
+          id: c._id,
+        };
+        console.log(
+          "*** Final SSE response being sent to frontend:",
+          JSON.stringify(finalResponse, null, 2)
         );
+
+        res.write(`data: ${JSON.stringify(finalResponse)}\n\n`);
 
         res.end(); // End the response stream
       } catch (error) {
-        console.error("Error saving agent conversation:", error);
+        console.error("*** Error saving agent conversation:", error);
+        console.error(
+          `*** Complete message that failed to save (length: ${completeMessage.length}):`,
+          completeMessage.substring(0, 500)
+        );
         // Attempt to send an error event if stream is still open, otherwise just log
         if (!res.writableEnded) {
           res.write(

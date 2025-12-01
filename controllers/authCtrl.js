@@ -228,6 +228,7 @@ exports.signin = async (req, res) => {
       user_details: userDetails,
       rolePermission: rolePermission[role.name],
       chatSession: user.chatSession,
+      role: role.name,
     });
   } catch (error) {
     console.error(error);
@@ -493,8 +494,15 @@ exports.verifyPasswordResetToken = async (req, res) => {
 
 exports.sendConfirmEmailToken = async (req, res) => {
   try {
-    const { email, first_name, last_name, organization_name, ai_assistant_name, password } =
-      req.body;
+    const {
+      email,
+      first_name,
+      last_name,
+      organization_name,
+      ai_assistant_name,
+      password,
+      account_type = null,
+    } = req.body;
 
     // Check if user already exists
     const isUserExist = await User.findOne({ email });
@@ -532,7 +540,12 @@ exports.sendConfirmEmailToken = async (req, res) => {
     }
 
     // Get role and status
-    const role = await Role.findOne({ name: "user" }); // Default to 'user' role
+    let role = null;
+    if (account_type === "individual") {
+      role = await Role.findOne({ name: "individual" });
+    } else {
+      role = await Role.findOne({ name: "user" });
+    }
     const status = await Status.findOne({ name: "active" });
     const role_id = role ? role._id : null;
     const status_id = status ? status._id : null;

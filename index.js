@@ -21,7 +21,6 @@ const User = require("./models/User");
 app.use(express.json());
 const { v4: uuidv4 } = require("uuid");
 const AgentCronLogSchema = require("./models/AgentCronLogSchema");
-
 const corsOptions = {
   origin: "*",
   credentials: true,
@@ -55,7 +54,6 @@ app.get("/health-check", async (req, res) => {
   }
   res.status(200).send("CoWrkr API running..");
 });
-
 app.get("/api/sessions/oauth/google", googleOauthHandler);
 // app.use('/webhook', webhookRoute);;
 app.get("/webhook", (req, res) => {

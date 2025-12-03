@@ -11,6 +11,10 @@ const rolePermission = require("../helper/rolePermission");
 const GoogleUser = require("../models/GoogleUser");
 const axios = require("axios");
 const { getGoogleAuthTokens, getGoogleUser } = require("../service/userService");
+const AgentModel = require("../models/AgentModel");
+const AgentTask = require("../models/AgentTask");
+const INDIVIDUAL_USER_DEFAULT_AGENT = require("../constants/individual-user-default-agent");
+const mongoose = require("mongoose");
 
 exports.verifyOrganization = async (req, res) => {
   try {
@@ -534,6 +538,9 @@ exports.sendConfirmEmailToken = async (req, res) => {
       const newOrg = new Organization({
         name: organization_name,
         assistant_name: ai_assistant_name,
+        ...(account_type === "individual"
+          ? { redshit_work_space: "default", redshift_db: "default", database_name: "default" }
+          : {}),
       });
       await newOrg.save();
       organizationId = newOrg._id;
@@ -594,6 +601,76 @@ exports.sendConfirmEmailToken = async (req, res) => {
   }
 };
 
+const createDefaultAgentForIndividualUser = async (user) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Check if user is an individual user
+    const role = await Role.findById(user.role);
+    if (!role || role.name !== "individual") {
+      await session.abortTransaction();
+      session.endSession();
+      return; // Not an individual user, skip
+    }
+
+    // Ensure user has an organization (create one if they don't)
+    let organizationId = user.organization;
+    if (!organizationId) {
+      await session.abortTransaction();
+      session.endSession();
+      return;
+    }
+
+    // Create agent from INDIVIDUAL_USER_DEFAULT_AGENT
+    // Exclude agentInstructions and tasks as they will be handled separately
+    const { agentInstructions, tasks, ...agentData } = INDIVIDUAL_USER_DEFAULT_AGENT;
+    const agent = new AgentModel({
+      ...agentData,
+      organization: organizationId,
+      agentInstructions: [], // Will be populated after tasks are created
+    });
+
+    await agent.save({ session });
+
+    // Create tasks if they exist
+    let agentTaskIds = [];
+    if (tasks && tasks.length > 0) {
+      // Filter out tasks with "N/A" values
+      const validTasks = tasks.filter(
+        (task) => task.name !== "N/A" && task.instruction !== "N/A" && task.tools !== "N/A"
+      );
+
+      if (validTasks.length > 0) {
+        const newAgentTasks = await AgentTask.insertMany(
+          validTasks.map((task) => ({
+            agent: agent._id,
+            name: task.name,
+            tools: task.tools,
+            instruction: task.instruction,
+          })),
+          { session }
+        );
+        agentTaskIds = newAgentTasks.map((task) => task._id);
+      }
+    }
+
+    // Update agent with task references
+    agent.agentInstructions = agentTaskIds;
+    await agent.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    console.log(`Default agent and tasks created for individual user: ${user.email}`);
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Error creating default agent for individual user:", error);
+    throw error;
+  }
+};
+
 exports.verifyEmail = async (req, res) => {
   const { token, email } = req.body;
 
@@ -606,6 +683,15 @@ exports.verifyEmail = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     user.isVerified = true;
     await user.save();
+
+    // Create default agent and tasks for individual users
+    try {
+      await createDefaultAgentForIndividualUser(user);
+    } catch (error) {
+      console.error("Failed to create default agent for individual user:", error);
+      // Don't fail the verification if agent creation fails
+    }
+
     res.status(200).json({ message: "Email confirmed successfully", success: true });
   } catch (error) {
     console.error(error);

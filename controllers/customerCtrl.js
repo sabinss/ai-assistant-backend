@@ -1,8 +1,8 @@
-const { strategies } = require('passport');
-const Customer = require('../models/Customer');
-const CustomerFeature = require('../models/CustomerFeature');
-const axios = require('axios');
-const moment = require('moment');
+const { strategies } = require("passport");
+const Customer = require("../models/Customer");
+const CustomerFeature = require("../models/CustomerFeature");
+const axios = require("axios");
+const moment = require("moment");
 
 // Configure axios with proper timeouts and retry logic
 const axiosInstance = axios.create({
@@ -20,7 +20,7 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error('❌ Request interceptor error:', error);
+    console.error("❌ Request interceptor error:", error);
     return Promise.reject(error);
   }
 );
@@ -28,22 +28,20 @@ axiosInstance.interceptors.request.use(
 // Add response interceptor for error handling
 axiosInstance.interceptors.response.use(
   (response) => {
-    console.log(
-      `✅ Response received from: ${response.config.url} (${response.status})`
-    );
+    console.log(`✅ Response received from: ${response.config.url} (${response.status})`);
     return response;
   },
   (error) => {
-    if (error.code === 'ECONNABORTED') {
-      console.error('⏰ Request timeout:', error.message);
-    } else if (error.code === 'ECONNRESET') {
-      console.error('🔌 Connection reset:', error.message);
-    } else if (error.code === 'ENOTFOUND') {
-      console.error('🌐 DNS lookup failed:', error.message);
-    } else if (error.code === 'ECONNREFUSED') {
-      console.error('🚫 Connection refused:', error.message);
+    if (error.code === "ECONNABORTED") {
+      console.error("⏰ Request timeout:", error.message);
+    } else if (error.code === "ECONNRESET") {
+      console.error("🔌 Connection reset:", error.message);
+    } else if (error.code === "ENOTFOUND") {
+      console.error("🌐 DNS lookup failed:", error.message);
+    } else if (error.code === "ECONNREFUSED") {
+      console.error("🚫 Connection refused:", error.message);
     } else {
-      console.error('❌ Axios error:', error.message);
+      console.error("❌ Axios error:", error.message);
     }
     return Promise.reject(error);
   }
@@ -62,18 +60,18 @@ exports.getCustomerDetail = async (req, res) => {
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      filter['updatedAt'] = { $gt: filterDate };
+      filter["updatedAt"] = { $gt: filterDate };
     }
     if (created_date) {
       const filterDate = new Date(created_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      searchCondition['createdAt'] = { $gt: filterDate };
+      searchCondition["createdAt"] = { $gt: filterDate };
     }
     const customerDetail = await Customer.find(filter);
 
     res.status(200).json({ data: customerDetail });
   } catch (error) {
-    res.status(500).json({ message: 'Internal Server Error', error });
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -81,19 +79,19 @@ exports.createCustomer = async (req, res) => {
   try {
     const { name, organization, ...optionalFields } = req.body;
     if (req.externalApiCall && !req.organization) {
-      res.status(400).json({ message: 'Organization required', error });
+      res.status(400).json({ message: "Organization required", error });
     }
     // Check if required fields are provided
     if (!name || !organization) {
       return res.status(400).json({
-        message: 'Missing required fields: name,  organization',
+        message: "Missing required fields: name,  organization",
       });
     }
 
     const appCompanyId = optionalFields?.app_company_id;
     // Build query condition dynamically
     const query = {
-      name: { $regex: new RegExp(`^${name}$`, 'i') }, // case-insensitive
+      name: { $regex: new RegExp(`^${name}$`, "i") }, // case-insensitive
       organization,
     };
     if (appCompanyId) {
@@ -105,7 +103,7 @@ exports.createCustomer = async (req, res) => {
 
     if (existingCustomer) {
       return res.status(400).json({
-        message: 'Customer already exists for this organization',
+        message: "Customer already exists for this organization",
         customer: existingCustomer,
       });
     }
@@ -114,27 +112,25 @@ exports.createCustomer = async (req, res) => {
     const customer = new Customer({
       name,
       organization,
-      csm_cust_id: optionalFields?.csm_cust_id
-        ? optionalFields?.csm_cust_id.toString()
-        : '',
+      csm_cust_id: optionalFields?.csm_cust_id ? optionalFields?.csm_cust_id.toString() : "",
       help_desk_cust_id: optionalFields?.help_desk_cust_id
         ? optionalFields?.help_desk_cust_id.toString()
-        : '',
+        : "",
       app_company_id: optionalFields?.app_company_id
         ? optionalFields?.app_company_id.toString()
-        : '',
-      email: optionalFields?.email || '', // Ensure email is explicitly set to null if not provided
+        : "",
+      email: optionalFields?.email || "", // Ensure email is explicitly set to null if not provided
       ...optionalFields, // Spread operator adds any additional fields dynamically
     });
 
     await customer.save();
 
     res.status(201).json({
-      message: 'Customer created successfully',
+      message: "Customer created successfully",
       customer,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Internal Server Error', error });
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -153,12 +149,12 @@ exports.getCustomerLoginDetail = async (req, res) => {
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      filter['updatedAt'] = { $gt: filterDate };
+      filter["updatedAt"] = { $gt: filterDate };
     }
     const customerLoginDetails = await CustomerFeature.find(filter);
     res.status(200).json({ data: customerLoginDetails });
   } catch (error) {
-    res.status(500).json({ message: 'Internal Server Error', error });
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -181,33 +177,27 @@ exports.getChurnRiskTrend = async (req, res) => {
                 AVG(churn_risk_score) as avg_churn_score,
                 SUM(CASE WHEN churn_risk_score > ${threshold} THEN arr ELSE 0 END) as high_risk_arr
             FROM db${org_id}.customer_score_view 
-            WHERE year = ${currentYear}
+            WHERE year = '${currentYear}'
             GROUP BY month
             ORDER BY month ASC
         `;
 
     // Helper function to execute SQL query with retry logic
-    const executeSqlQueryWithRetry = async (
-      query,
-      queryName,
-      maxRetries = 3
-    ) => {
+    const executeSqlQueryWithRetry = async (query, queryName, maxRetries = 3) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           console.log(`🔄 ${queryName} - Attempt ${attempt}/${maxRetries}`);
 
           const response = await axiosInstance.post(
-            `${
-              process.env.AI_AGENT_SERVER_URI
-            }/run-sql-query?sql_query=${encodeURIComponent(
+            `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
               query
             )}&session_id=${session_id}&org_id=${org_id}`,
             {},
             {
               timeout: 300000, // 5 minutes
               headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
+                "Content-Type": "application/json",
+                Accept: "application/json",
               },
             }
           );
@@ -218,26 +208,19 @@ exports.getChurnRiskTrend = async (req, res) => {
           }
 
           // Check for query execution status
-          if (response?.data?.result?.metadata?.status === 'FAILED') {
+          if (response?.data?.result?.metadata?.status === "FAILED") {
             throw new Error(
-              `Query execution failed: ${
-                response.data.result.metadata.message || 'Unknown error'
-              }`
+              `Query execution failed: ${response.data.result.metadata.message || "Unknown error"}`
             );
           }
 
           console.log(`✅ ${queryName} - Success on attempt ${attempt}`);
           return response;
         } catch (error) {
-          console.error(
-            `❌ ${queryName} - Attempt ${attempt} failed:`,
-            error.message
-          );
+          console.error(`❌ ${queryName} - Attempt ${attempt} failed:`, error.message);
 
           if (attempt === maxRetries) {
-            throw new Error(
-              `${queryName} failed after ${maxRetries} attempts: ${error.message}`
-            );
+            throw new Error(`${queryName} failed after ${maxRetries} attempts: ${error.message}`);
           }
 
           // Wait before retrying (exponential backoff)
@@ -248,11 +231,8 @@ exports.getChurnRiskTrend = async (req, res) => {
       }
     };
 
-    console.log('Fetching churn risk trend data...');
-    const trendResponse = await executeSqlQueryWithRetry(
-      trendQuery,
-      'Churn Risk Trend Query'
-    );
+    console.log("Fetching churn risk trend data...");
+    const trendResponse = await executeSqlQueryWithRetry(trendQuery, "Churn Risk Trend Query");
 
     // Extract data from response
     const trendData = trendResponse?.data?.result?.result_set || [];
@@ -262,18 +242,18 @@ exports.getChurnRiskTrend = async (req, res) => {
       if (!monthlyData || monthlyData.length === 0) return [];
 
       const monthNames = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
       ];
       const processedData = [];
 
@@ -286,8 +266,7 @@ exports.getChurnRiskTrend = async (req, res) => {
             monthName: monthNames[month - 1],
             totalCustomers: Number(row.total_customers || 0),
             highRiskCustomers: Number(row.high_risk_customers || 0),
-            avgChurnScore:
-              Math.round(Number(row.avg_churn_score || 0) * 100) / 100,
+            avgChurnScore: Math.round(Number(row.avg_churn_score || 0) * 100) / 100,
             highRiskARR: Math.round(Number(row.high_risk_arr || 0) * 100) / 100,
           });
         }
@@ -307,19 +286,13 @@ exports.getChurnRiskTrend = async (req, res) => {
       avgChurnScore:
         trendAnalysis.length > 0
           ? Math.round(
-              (trendAnalysis.reduce((sum, d) => sum + d.avgChurnScore, 0) /
-                trendAnalysis.length) *
+              (trendAnalysis.reduce((sum, d) => sum + d.avgChurnScore, 0) / trendAnalysis.length) *
                 100
             ) / 100
           : 0,
-      totalHighRiskCustomers: trendAnalysis.reduce(
-        (sum, d) => sum + d.highRiskCustomers,
-        0
-      ),
+      totalHighRiskCustomers: trendAnalysis.reduce((sum, d) => sum + d.highRiskCustomers, 0),
       totalHighRiskARR:
-        Math.round(
-          trendAnalysis.reduce((sum, d) => sum + d.highRiskARR, 0) * 100
-        ) / 100,
+        Math.round(trendAnalysis.reduce((sum, d) => sum + d.highRiskARR, 0) * 100) / 100,
     };
 
     return res.status(200).json({
@@ -330,22 +303,22 @@ exports.getChurnRiskTrend = async (req, res) => {
         trendSummary: trendSummary,
         chartConfig: {
           xAxis: {
-            type: 'category',
+            type: "category",
             data: trendAnalysis.map((d) => d.monthName),
           },
           series: [
             {
-              name: 'Average Churn Score',
+              name: "Average Churn Score",
               data: trendAnalysis.map((d) => d.avgChurnScore),
               yAxisIndex: 0,
             },
             {
-              name: 'High Risk Customers',
+              name: "High Risk Customers",
               data: trendAnalysis.map((d) => d.highRiskCustomers),
               yAxisIndex: 0,
             },
             {
-              name: 'High Risk ARR',
+              name: "High Risk ARR",
               data: trendAnalysis.map((d) => d.highRiskARR),
               yAxisIndex: 1,
             },
@@ -354,40 +327,39 @@ exports.getChurnRiskTrend = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching churn risk trend:', error);
+    console.error("Error fetching churn risk trend:", error);
 
     // Handle specific socket hang up and connection errors
-    if (error.code === 'ECONNABORTED') {
+    if (error.code === "ECONNABORTED") {
       return res.status(504).json({
-        message: 'Request timeout - SQL query took too long to execute',
-        error: 'Gateway Timeout',
-        suggestion: 'Try again or contact support if the issue persists',
+        message: "Request timeout - SQL query took too long to execute",
+        error: "Gateway Timeout",
+        suggestion: "Try again or contact support if the issue persists",
       });
-    } else if (error.code === 'ECONNRESET') {
+    } else if (error.code === "ECONNRESET") {
       return res.status(503).json({
-        message:
-          'Connection reset - AI Agent Server connection was interrupted',
-        error: 'Service Unavailable',
-        suggestion: 'The server may be experiencing issues. Please try again.',
+        message: "Connection reset - AI Agent Server connection was interrupted",
+        error: "Service Unavailable",
+        suggestion: "The server may be experiencing issues. Please try again.",
       });
-    } else if (error.code === 'ENOTFOUND') {
+    } else if (error.code === "ENOTFOUND") {
       return res.status(502).json({
-        message: 'AI Agent Server not found - Check server configuration',
-        error: 'Bad Gateway',
-        suggestion: 'Verify AI_AGENT_SERVER_URI environment variable',
+        message: "AI Agent Server not found - Check server configuration",
+        error: "Bad Gateway",
+        suggestion: "Verify AI_AGENT_SERVER_URI environment variable",
       });
-    } else if (error.code === 'ECONNREFUSED') {
+    } else if (error.code === "ECONNREFUSED") {
       return res.status(502).json({
-        message: 'AI Agent Server connection refused - Server may be down',
-        error: 'Bad Gateway',
-        suggestion: 'Check if the AI Agent Server is running and accessible',
+        message: "AI Agent Server connection refused - Server may be down",
+        error: "Bad Gateway",
+        suggestion: "Check if the AI Agent Server is running and accessible",
       });
     }
 
     return res.status(500).json({
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
-      suggestion: 'Please try again or contact support if the issue persists',
+      suggestion: "Please try again or contact support if the issue persists",
     });
   }
 };
@@ -405,7 +377,7 @@ exports.getChurnRiskDistribution = async (req, res) => {
               WHEN churn_risk_score BETWEEN 81 AND 100 THEN '81-100'
               ELSE 'Other'
           END AS churn_risk_bucket,
-          SUM(arr) AS total_arr
+          SUM(arr::numeric) AS total_arr
       FROM db${org_id}.active_companies
       GROUP BY 1
       ORDER BY churn_risk_bucket;
@@ -421,7 +393,7 @@ exports.getChurnRiskDistribution = async (req, res) => {
     );
     res.status(200).json({ data: response?.data?.result?.result_set || null });
   } catch (error) {
-    res.status(500).json({ message: 'Internal Server Error', error });
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -433,7 +405,7 @@ exports.getImmediateActions = async (req, res) => {
     const org_id = req.user.organization.toString();
 
     // Pagination parameters
-    const search = req.query.search || '';
+    const search = req.query.search || "";
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
     const offset = (page - 1) * limit;
@@ -441,13 +413,13 @@ exports.getImmediateActions = async (req, res) => {
     // Validate pagination parameters
     if (page < 1) {
       return res.status(400).json({
-        message: 'Page number must be greater than 0',
+        message: "Page number must be greater than 0",
       });
     }
 
     if (limit < 1 || limit > 100) {
       return res.status(400).json({
-        message: 'Limit must be between 1 and 100',
+        message: "Limit must be between 1 and 100",
       });
     }
 
@@ -463,34 +435,28 @@ exports.getImmediateActions = async (req, res) => {
 
     // Count query for pagination metadata
     const countQuery = `SELECT COUNT(*) as total FROM db${org_id}.active_companies WHERE churn_risk_score > ${threashold}${
-      search ? ` AND name ILIKE '%${search}%'` : ''
+      search ? ` AND name ILIKE '%${search}%'` : ""
     }`;
     //
     // Main data query with pagination
     const dataQuery = `${base_query} ORDER BY churn_risk_score DESC  LIMIT ${limit} OFFSET ${offset}`;
 
     // Helper function to execute SQL query with retry logic
-    const executeSqlQueryWithRetry = async (
-      query,
-      queryName,
-      maxRetries = 3
-    ) => {
+    const executeSqlQueryWithRetry = async (query, queryName, maxRetries = 3) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           console.log(`🔄 ${queryName} - Attempt ${attempt}/${maxRetries}`);
 
           const response = await axiosInstance.post(
-            `${
-              process.env.AI_AGENT_SERVER_URI
-            }/run-sql-query?sql_query=${encodeURIComponent(
+            `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
               query
             )}&session_id=${session_id}&org_id=${org_id}`,
             {},
             {
               timeout: 300000, // 5 minutes
               headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
+                "Content-Type": "application/json",
+                Accept: "application/json",
               },
             }
           );
@@ -501,26 +467,19 @@ exports.getImmediateActions = async (req, res) => {
           }
 
           // Check for query execution status
-          if (response?.data?.result?.metadata?.status === 'FAILED') {
+          if (response?.data?.result?.metadata?.status === "FAILED") {
             throw new Error(
-              `Query execution failed: ${
-                response.data.result.metadata.message || 'Unknown error'
-              }`
+              `Query execution failed: ${response.data.result.metadata.message || "Unknown error"}`
             );
           }
 
           console.log(`✅ ${queryName} - Success on attempt ${attempt}`);
           return response;
         } catch (error) {
-          console.error(
-            `❌ ${queryName} - Attempt ${attempt} failed:`,
-            error.message
-          );
+          console.error(`❌ ${queryName} - Attempt ${attempt} failed:`, error.message);
 
           if (attempt === maxRetries) {
-            throw new Error(
-              `${queryName} failed after ${maxRetries} attempts: ${error.message}`
-            );
+            throw new Error(`${queryName} failed after ${maxRetries} attempts: ${error.message}`);
           }
 
           // Wait before retrying (exponential backoff)
@@ -532,22 +491,21 @@ exports.getImmediateActions = async (req, res) => {
     };
 
     // Execute count query and data query in parallel
-    console.log('Fetching immediate actions data...');
+    console.log("Fetching immediate actions data...");
     const [countResponse, dataResponse] = await Promise.all([
-      executeSqlQueryWithRetry(countQuery, 'Count Query'),
-      executeSqlQueryWithRetry(dataQuery, 'Data Query'),
+      executeSqlQueryWithRetry(countQuery, "Count Query"),
+      executeSqlQueryWithRetry(dataQuery, "Data Query"),
     ]);
 
     // Extract data from responses
-    const totalRecords =
-      countResponse?.data?.result?.result_set?.[0]?.total || 0;
+    const totalRecords = countResponse?.data?.result?.result_set?.[0]?.total || 0;
     const immediate_actions_data =
       dataResponse?.data?.result?.result_set?.map((x) => {
-        let scoreLabel = 'Low Risk';
+        let scoreLabel = "Low Risk";
         if (x.churn_risk_score >= 61 && x.churn_risk_score <= 80) {
-          scoreLabel = 'High Risk';
+          scoreLabel = "High Risk";
         } else if (x.churn_risk_score >= 81 && x.churn_risk_score <= 100) {
-          scoreLabel = 'Critical';
+          scoreLabel = "Critical";
         }
         return {
           ...x,
@@ -574,40 +532,39 @@ exports.getImmediateActions = async (req, res) => {
       search: search || null,
     });
   } catch (error) {
-    console.error('Error fetching immediate actions:', error);
+    console.error("Error fetching immediate actions:", error);
 
     // Handle specific socket hang up and connection errors
-    if (error.code === 'ECONNABORTED') {
+    if (error.code === "ECONNABORTED") {
       return res.status(504).json({
-        message: 'Request timeout - SQL query took too long to execute',
-        error: 'Gateway Timeout',
-        suggestion: 'Try again or contact support if the issue persists',
+        message: "Request timeout - SQL query took too long to execute",
+        error: "Gateway Timeout",
+        suggestion: "Try again or contact support if the issue persists",
       });
-    } else if (error.code === 'ECONNRESET') {
+    } else if (error.code === "ECONNRESET") {
       return res.status(503).json({
-        message:
-          'Connection reset - AI Agent Server connection was interrupted',
-        error: 'Service Unavailable',
-        suggestion: 'The server may be experiencing issues. Please try again.',
+        message: "Connection reset - AI Agent Server connection was interrupted",
+        error: "Service Unavailable",
+        suggestion: "The server may be experiencing issues. Please try again.",
       });
-    } else if (error.code === 'ENOTFOUND') {
+    } else if (error.code === "ENOTFOUND") {
       return res.status(502).json({
-        message: 'AI Agent Server not found - Check server configuration',
-        error: 'Bad Gateway',
-        suggestion: 'Verify AI_AGENT_SERVER_URI environment variable',
+        message: "AI Agent Server not found - Check server configuration",
+        error: "Bad Gateway",
+        suggestion: "Verify AI_AGENT_SERVER_URI environment variable",
       });
-    } else if (error.code === 'ECONNREFUSED') {
+    } else if (error.code === "ECONNREFUSED") {
       return res.status(502).json({
-        message: 'AI Agent Server connection refused - Server may be down',
-        error: 'Bad Gateway',
-        suggestion: 'Check if the AI Agent Server is running and accessible',
+        message: "AI Agent Server connection refused - Server may be down",
+        error: "Bad Gateway",
+        suggestion: "Check if the AI Agent Server is running and accessible",
       });
     }
 
     return res.status(500).json({
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
-      suggestion: 'Please try again or contact support if the issue persists',
+      suggestion: "Please try again or contact support if the issue persists",
     });
   }
 };
@@ -628,11 +585,9 @@ exports.getCustomerScoreDashboard = async (req, res) => {
     const response = await axiosInstance.post(
       `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${score_query}&org_id=${org_id}`
     );
-    res
-      .status(200)
-      .json({ data: response?.data?.result?.result_set[0] || null });
+    res.status(200).json({ data: response?.data?.result?.result_set[0] || null });
   } catch (error) {
-    res.status(500).json({ message: 'Internal Server Error', error });
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -645,31 +600,27 @@ exports.updateCustomerAlertAddress = async (req, res) => {
 
     // Input validation
     if (!alert_id) {
-      return res.status(400).json({ message: 'Alert ID is required' });
+      return res.status(400).json({ message: "Alert ID is required" });
     }
     if (addressed === undefined || addressed === null) {
-      return res.status(400).json({ message: 'Addressed field is required' });
+      return res.status(400).json({ message: "Addressed field is required" });
     }
 
     // Validate that addressed is a boolean
-    if (typeof addressed !== 'boolean') {
-      return res
-        .status(400)
-        .json({ message: 'Addressed must be true or false' });
+    if (typeof addressed !== "boolean") {
+      return res.status(400).json({ message: "Addressed must be true or false" });
     }
 
     // Properly escape the alert_id and use boolean value for addressed
     const escapedAlertId = alert_id.replace(/'/g, "''"); // Escape single quotes for SQL
     const sql_query = `UPDATE main.alert_log_table SET addressed = ${addressed} WHERE alert_id = '${escapedAlertId}'`;
 
-    const url = `${
-      process.env.AI_AGENT_SERVER_URI
-    }/run-sql-query?sql_query=${encodeURIComponent(
+    const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
       sql_query
     )}&session_id=${session_id}&org_id=${org_id}`;
 
-    console.log('Executing SQL query:', sql_query);
-    console.log('Request URL:', url);
+    console.log("Executing SQL query:", sql_query);
+    console.log("Request URL:", url);
 
     const response = await axiosInstance.post(
       url,
@@ -677,19 +628,19 @@ exports.updateCustomerAlertAddress = async (req, res) => {
       {
         timeout: 300000, // 5 minutes
         headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
       }
     );
 
-    console.log('Response status:', response.status);
-    console.log('Response data:', JSON.stringify(response.data, null, 2));
+    console.log("Response status:", response.status);
+    console.log("Response data:", JSON.stringify(response.data, null, 2));
 
     if (response?.data?.error) {
-      console.error('Redshift error:', response.data.error);
+      console.error("Redshift error:", response.data.error);
       return res.status(500).json({
-        message: 'Database error occurred',
+        message: "Database error occurred",
         error: response.data.error,
         query: sql_query,
         alert_id: alert_id,
@@ -700,19 +651,19 @@ exports.updateCustomerAlertAddress = async (req, res) => {
     const affectedRows = response.data?.result?.result_set?.length || 0;
     if (affectedRows === 0) {
       return res.status(200).json({
-        message: 'No alert found with the provided alert_id',
+        message: "No alert found with the provided alert_id",
         alert_id: alert_id,
         query: sql_query,
       });
     }
 
     return res.status(200).json({
-      message: 'Customer alert address updated successfully',
+      message: "Customer alert address updated successfully",
       data: response.data.result.result_set,
       affected_rows: affectedRows,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Internal Server Error', error });
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -722,7 +673,7 @@ exports.updateCustomerDetail = async (req, res) => {
     const { stage } = req.body; // Fields to update
 
     if (!id) {
-      return res.status(400).json({ message: 'Customer ID is required' });
+      return res.status(400).json({ message: "Customer ID is required" });
     }
 
     const updatedCustomer = await Customer.findByIdAndUpdate(
@@ -732,18 +683,16 @@ exports.updateCustomerDetail = async (req, res) => {
     );
 
     if (!updatedCustomer) {
-      return res.status(404).json({ message: 'Customer not found' });
+      return res.status(404).json({ message: "Customer not found" });
     }
 
     return res.status(200).json({
-      message: 'Customer updated successfully',
+      message: "Customer updated successfully",
       data: updatedCustomer,
     });
   } catch (err) {
-    console.error('Error updating customer:', err);
-    return res
-      .status(500)
-      .json({ message: 'Internal server error', error: err.message });
+    console.error("Error updating customer:", err);
+    return res.status(500).json({ message: "Internal server error", error: err.message });
   }
 };
 
@@ -756,28 +705,26 @@ exports.getCustomerAlertData = async (req, res) => {
     let url =
       process.env.AI_AGENT_SERVER_URI +
       `/run-sql-query?sql_query=${sql_query}&session_id=${session_id}&org_id=${org_id}`;
-    console.log('url', url);
+    console.log("url", url);
     const response = await axiosInstance.post(
       url,
       {},
       {
         timeout: 300000, // 5 minutes
         headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
       }
     );
     if (response?.data?.error) {
-      res
-        .status(500)
-        .json({ message: response?.data?.error, error: response?.data?.error });
+      res.status(500).json({ message: response?.data?.error, error: response?.data?.error });
       return;
     }
     res.status(200).json({ data: response.data.result.result_set });
   } catch (err) {
-    console.log('Err', err);
-    res.status(500).json({ message: 'Internal Server Error', err });
+    console.log("Err", err);
+    res.status(500).json({ message: "Internal Server Error", err });
   }
 };
 
@@ -788,7 +735,7 @@ exports.getCustomerScore = async (req, res) => {
     const customer_id = req.params.id || req.query.id; // e.g., '123123'
 
     if (!customer_id) {
-      return res.status(400).json({ message: 'Missing customer_id' });
+      return res.status(400).json({ message: "Missing customer_id" });
     }
 
     const sql_query = `
@@ -798,13 +745,11 @@ exports.getCustomerScore = async (req, res) => {
           AND month = EXTRACT(MONTH FROM DATEADD(MONTH, 0, CURRENT_DATE))
       `;
 
-    const url = `${
-      process.env.AI_AGENT_SERVER_URI
-    }/run-sql-query?sql_query=${encodeURIComponent(
+    const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
       sql_query
     )}&session_id=${session_id}&org_id=${org_id}`;
 
-    console.log('Requesting URL:', url);
+    console.log("Requesting URL:", url);
 
     const response = await axiosInstance.post(
       url,
@@ -812,16 +757,14 @@ exports.getCustomerScore = async (req, res) => {
       {
         timeout: 300000, // 5 minutes
         headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
       }
     );
 
     if (response?.data?.error) {
-      return res
-        .status(500)
-        .json({ message: response.data.error, error: response.data.error });
+      return res.status(500).json({ message: response.data.error, error: response.data.error });
     }
     // has score and analysis
     let uniqueData = [];
@@ -835,8 +778,8 @@ exports.getCustomerScore = async (req, res) => {
 
     return res.status(200).json({ data: uniqueData });
   } catch (error) {
-    console.error('Error fetching customer score:', error);
-    return res.status(500).json({ message: 'Internal Server Error', error });
+    console.error("Error fetching customer score:", error);
+    return res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -847,7 +790,7 @@ exports.getUsageFunnel = async (req, res) => {
     const customer_id = req.params.id || req.query.id;
 
     // Pagination parameters
-    const search = req.query.search || '';
+    const search = req.query.search || "";
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -855,13 +798,13 @@ exports.getUsageFunnel = async (req, res) => {
     // Validate pagination parameters
     if (page < 1) {
       return res.status(400).json({
-        message: 'Page number must be greater than 0',
+        message: "Page number must be greater than 0",
       });
     }
 
     if (limit < 1 || limit > 100) {
       return res.status(400).json({
-        message: 'Limit must be between 1 and 100',
+        message: "Limit must be between 1 and 100",
       });
     }
 
@@ -889,27 +832,21 @@ exports.getUsageFunnel = async (req, res) => {
     let dataQuery = `${base_query}  LIMIT ${limit} OFFSET ${offset}`;
 
     // Helper function to execute SQL query with retry logic
-    const executeSqlQueryWithRetry = async (
-      query,
-      queryName,
-      maxRetries = 3
-    ) => {
+    const executeSqlQueryWithRetry = async (query, queryName, maxRetries = 3) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           console.log(`🔄 ${queryName} - Attempt ${attempt}/${maxRetries}`);
 
           const response = await axiosInstance.post(
-            `${
-              process.env.AI_AGENT_SERVER_URI
-            }/run-sql-query?sql_query=${encodeURIComponent(
+            `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
               query
             )}&session_id=${session_id}&org_id=${org_id}`,
             {},
             {
               timeout: 300000, // 5 minutes
               headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
+                "Content-Type": "application/json",
+                Accept: "application/json",
               },
             }
           );
@@ -920,26 +857,19 @@ exports.getUsageFunnel = async (req, res) => {
           }
 
           // Check for query execution status
-          if (response?.data?.result?.metadata?.status === 'FAILED') {
+          if (response?.data?.result?.metadata?.status === "FAILED") {
             throw new Error(
-              `Query execution failed: ${
-                response.data.result.metadata.message || 'Unknown error'
-              }`
+              `Query execution failed: ${response.data.result.metadata.message || "Unknown error"}`
             );
           }
 
           console.log(`✅ ${queryName} - Success on attempt ${attempt}`);
           return response;
         } catch (error) {
-          console.error(
-            `❌ ${queryName} - Attempt ${attempt} failed:`,
-            error.message
-          );
+          console.error(`❌ ${queryName} - Attempt ${attempt} failed:`, error.message);
 
           if (attempt === maxRetries) {
-            throw new Error(
-              `${queryName} failed after ${maxRetries} attempts: ${error.message}`
-            );
+            throw new Error(`${queryName} failed after ${maxRetries} attempts: ${error.message}`);
           }
 
           // Wait before retrying (exponential backoff)
@@ -951,33 +881,24 @@ exports.getUsageFunnel = async (req, res) => {
     };
 
     // Execute count query and data query in parallel
-    console.log('Fetching usage funnel data...');
+    console.log("Fetching usage funnel data...");
     const [countResponse, dataResponse] = await Promise.all([
-      executeSqlQueryWithRetry(countQuery, 'Count Query'),
-      executeSqlQueryWithRetry(dataQuery, 'Data Query'),
+      executeSqlQueryWithRetry(countQuery, "Count Query"),
+      executeSqlQueryWithRetry(dataQuery, "Data Query"),
     ]);
 
     // Extract data from responses
-    const totalRecords =
-      countResponse?.data?.result?.result_set?.[0]?.total || 0;
+    const totalRecords = countResponse?.data?.result?.result_set?.[0]?.total || 0;
     const usageFunnelData = dataResponse?.data?.result?.result_set || [];
 
     // Step 1: derive column names dynamically from first row
-    const allKeys =
-      usageFunnelData.length > 0 ? Object.keys(usageFunnelData[0]) : [];
+    const allKeys = usageFunnelData.length > 0 ? Object.keys(usageFunnelData[0]) : [];
     // Step 2: arrange column order
     const orderedKeys = [
-      'company_name',
+      "company_name",
       // 'month_week',
       ...allKeys.filter(
-        (k) =>
-          ![
-            'company_name',
-            'month_week',
-            'stage',
-            'company_id',
-            'app_company_id',
-          ].includes(k)
+        (k) => !["company_name", "month_week", "stage", "company_id", "app_company_id"].includes(k)
       ),
     ];
 
@@ -1002,40 +923,39 @@ exports.getUsageFunnel = async (req, res) => {
       customer_id: customer_id || null,
     });
   } catch (error) {
-    console.error('Error fetching usage funnel:', error);
+    console.error("Error fetching usage funnel:", error);
 
     // Handle specific socket hang up and connection errors
-    if (error.code === 'ECONNABORTED') {
+    if (error.code === "ECONNABORTED") {
       return res.status(504).json({
-        message: 'Request timeout - SQL query took too long to execute',
-        error: 'Gateway Timeout',
-        suggestion: 'Try again or contact support if the issue persists',
+        message: "Request timeout - SQL query took too long to execute",
+        error: "Gateway Timeout",
+        suggestion: "Try again or contact support if the issue persists",
       });
-    } else if (error.code === 'ECONNRESET') {
+    } else if (error.code === "ECONNRESET") {
       return res.status(503).json({
-        message:
-          'Connection reset - AI Agent Server connection was interrupted',
-        error: 'Service Unavailable',
-        suggestion: 'The server may be experiencing issues. Please try again.',
+        message: "Connection reset - AI Agent Server connection was interrupted",
+        error: "Service Unavailable",
+        suggestion: "The server may be experiencing issues. Please try again.",
       });
-    } else if (error.code === 'ENOTFOUND') {
+    } else if (error.code === "ENOTFOUND") {
       return res.status(502).json({
-        message: 'AI Agent Server not found - Check server configuration',
-        error: 'Bad Gateway',
-        suggestion: 'Verify AI_AGENT_SERVER_URI environment variable',
+        message: "AI Agent Server not found - Check server configuration",
+        error: "Bad Gateway",
+        suggestion: "Verify AI_AGENT_SERVER_URI environment variable",
       });
-    } else if (error.code === 'ECONNREFUSED') {
+    } else if (error.code === "ECONNREFUSED") {
       return res.status(502).json({
-        message: 'AI Agent Server connection refused - Server may be down',
-        error: 'Bad Gateway',
-        suggestion: 'Check if the AI Agent Server is running and accessible',
+        message: "AI Agent Server connection refused - Server may be down",
+        error: "Bad Gateway",
+        suggestion: "Check if the AI Agent Server is running and accessible",
       });
     }
 
     return res.status(500).json({
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
-      suggestion: 'Please try again or contact support if the issue persists',
+      suggestion: "Please try again or contact support if the issue persists",
     });
   }
 };
@@ -1047,7 +967,7 @@ exports.getCustomerScoreDetails = async (req, res) => {
     const customer_id = req.params.id || req.query.id; // e.g. 'hilton'
 
     if (!customer_id) {
-      return res.status(400).json({ message: 'Missing customer_id' });
+      return res.status(400).json({ message: "Missing customer_id" });
     }
 
     const sql_query = `
@@ -1057,13 +977,11 @@ exports.getCustomerScoreDetails = async (req, res) => {
           AND month = EXTRACT(MONTH FROM DATEADD(MONTH, 0, CURRENT_DATE))
       `;
 
-    const url = `${
-      process.env.AI_AGENT_SERVER_URI
-    }/run-sql-query?sql_query=${encodeURIComponent(
+    const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
       sql_query
     )}&session_id=${session_id}&org_id=${org_id}`;
 
-    console.log('Requesting URL:', url);
+    console.log("Requesting URL:", url);
 
     const response = await axiosInstance.post(
       url,
@@ -1071,16 +989,14 @@ exports.getCustomerScoreDetails = async (req, res) => {
       {
         timeout: 300000, // 5 minutes
         headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
       }
     );
 
     if (response?.data?.error) {
-      return res
-        .status(500)
-        .json({ message: response.data.error, error: response.data.error });
+      return res.status(500).json({ message: response.data.error, error: response.data.error });
     }
     let uniqueData = [];
     const map = new Map();
@@ -1092,8 +1008,8 @@ exports.getCustomerScoreDetails = async (req, res) => {
     });
     return res.status(200).json({ data: uniqueData });
   } catch (error) {
-    console.error('Error fetching customer score details:', error);
-    return res.status(500).json({ message: 'Internal Server Error', error });
+    console.error("Error fetching customer score details:", error);
+    return res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -1151,7 +1067,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
                 AVG(churn_risk_score) as avg_churn_score,
                 SUM(CASE WHEN churn_risk_score > ${threshold} THEN arr ELSE 0 END) as high_risk_arr
             FROM db${org_id}.customer_score_view 
-            WHERE year = ${currentYear}
+            WHERE year = '${currentYear}'
             GROUP BY month
             ORDER BY month ASC
         `;
@@ -1168,27 +1084,21 @@ exports.getHighRiskChurnStats = async (req, res) => {
         `;
 
     // Helper function to execute SQL query with retry logic
-    const executeSqlQueryWithRetry = async (
-      query,
-      queryName,
-      maxRetries = 3
-    ) => {
+    const executeSqlQueryWithRetry = async (query, queryName, maxRetries = 3) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           console.log(`🔄 ${queryName} - Attempt ${attempt}/${maxRetries}`);
 
           const response = await axiosInstance.post(
-            `${
-              process.env.AI_AGENT_SERVER_URI
-            }/run-sql-query?sql_query=${encodeURIComponent(
+            `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
               query
             )}&session_id=${session_id}&org_id=${org_id}`,
             {},
             {
               timeout: 300000, // 5 minutes
               headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
+                "Content-Type": "application/json",
+                Accept: "application/json",
               },
             }
           );
@@ -1199,26 +1109,19 @@ exports.getHighRiskChurnStats = async (req, res) => {
           }
 
           // Check for query execution status
-          if (response?.data?.result?.metadata?.status === 'FAILED') {
+          if (response?.data?.result?.metadata?.status === "FAILED") {
             throw new Error(
-              `Query execution failed: ${
-                response.data.result.metadata.message || 'Unknown error'
-              }`
+              `Query execution failed: ${response.data.result.metadata.message || "Unknown error"}`
             );
           }
 
           console.log(`✅ ${queryName} - Success on attempt ${attempt}`);
           return response;
         } catch (error) {
-          console.error(
-            `❌ ${queryName} - Attempt ${attempt} failed:`,
-            error.message
-          );
+          console.error(`❌ ${queryName} - Attempt ${attempt} failed:`, error.message);
 
           if (attempt === maxRetries) {
-            throw new Error(
-              `${queryName} failed after ${maxRetries} attempts: ${error.message}`
-            );
+            throw new Error(`${queryName} failed after ${maxRetries} attempts: ${error.message}`);
           }
 
           // Wait before retrying (exponential backoff)
@@ -1229,51 +1132,40 @@ exports.getHighRiskChurnStats = async (req, res) => {
       }
     };
 
-    console.log('Fetching previous month data...');
+    console.log("Fetching previous month data...");
     const prevMonthResponse = await executeSqlQueryWithRetry(
       prevMonthQuery,
-      'Previous Month Query'
+      "Previous Month Query"
     );
 
     const scoreDashboardResponse = await executeSqlQueryWithRetry(
       scoreDashboardQuery,
-      'Score Dashboard Query'
+      "Score Dashboard Query"
     );
 
-    const companyResponse = await executeSqlQueryWithRetry(
-      companyQuery,
-      'Company Query'
-    );
+    const companyResponse = await executeSqlQueryWithRetry(companyQuery, "Company Query");
 
-    console.log('companyResponse', companyResponse);
+    console.log("companyResponse", companyResponse);
 
-    console.log('Fetching previous-1 month data...');
+    console.log("Fetching previous-1 month data...");
     const prevPrevMonthResponse = await executeSqlQueryWithRetry(
       prevPrevMonthQuery,
-      'Previous-Previous Month Query'
+      "Previous-Previous Month Query"
     );
 
-    console.log('Fetching churn risk trend data...');
-    const trendResponse = await executeSqlQueryWithRetry(
-      trendQuery,
-      'Churn Risk Trend Query'
-    );
+    console.log("Fetching churn risk trend data...");
+    const trendResponse = await executeSqlQueryWithRetry(trendQuery, "Churn Risk Trend Query");
 
-    console.log('Fetching risk matrix data...');
-    const riskMatrixResponse = await executeSqlQueryWithRetry(
-      riskMatrixQuery,
-      'Risk Matrix Query'
-    );
+    console.log("Fetching risk matrix data...");
+    const riskMatrixResponse = await executeSqlQueryWithRetry(riskMatrixQuery, "Risk Matrix Query");
 
     // Extract data from responses
     const prevMonthData = prevMonthResponse?.data?.result?.result_set || [];
-    const prevPrevMonthData =
-      prevPrevMonthResponse?.data?.result?.result_set || [];
+    const prevPrevMonthData = prevPrevMonthResponse?.data?.result?.result_set || [];
     const trendData = trendResponse?.data?.result?.result_set || [];
     const riskMatrixData = riskMatrixResponse?.data?.result?.result_set || [];
     const companyData = companyResponse?.data?.result?.result_set || [];
-    const scoreDashboardData =
-      scoreDashboardResponse?.data?.result?.result_set[0] || null;
+    const scoreDashboardData = scoreDashboardResponse?.data?.result?.result_set[0] || null;
     // renewal_date
     console.log(`Previous month records: ${prevMonthData.length}`);
     console.log(`Previous-1 month records: ${prevPrevMonthData.length}`);
@@ -1285,18 +1177,18 @@ exports.getHighRiskChurnStats = async (req, res) => {
       if (!monthlyData || monthlyData.length === 0) return [];
 
       const monthNames = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
       ];
       const processedData = [];
 
@@ -1309,8 +1201,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
             monthName: monthNames[month - 1],
             totalCustomers: Number(row.total_customers || 0),
             highRiskCustomers: Number(row.high_risk_customers || 0),
-            avgChurnScore:
-              Math.round(Number(row.avg_churn_score || 0) * 100) / 100,
+            avgChurnScore: Math.round(Number(row.avg_churn_score || 0) * 100) / 100,
             highRiskARR: Math.round(Number(row.high_risk_arr || 0) * 100) / 100,
           });
         }
@@ -1340,30 +1231,30 @@ exports.getHighRiskChurnStats = async (req, res) => {
 
       data.forEach((row) => {
         const churnScore = Number(row.churn_risk_score || 0);
-        const renewalDate = moment(row.renewal_date, 'YYYY-MM-DD');
-        const daysToRenewal = renewalDate.diff(today, 'days');
+        const renewalDate = moment(row.renewal_date, "YYYY-MM-DD");
+        const daysToRenewal = renewalDate.diff(today, "days");
 
         // Determine risk level based on churn score
-        let riskLevel = '';
-        let riskColor = '';
+        let riskLevel = "";
+        let riskColor = "";
 
         if (churnScore >= 81) {
-          riskLevel = 'Critical';
-          riskColor = '#FF0000'; // Red
+          riskLevel = "Critical";
+          riskColor = "#FF0000"; // Red
           criticalCount++;
         } else if (churnScore >= 71) {
-          riskLevel = 'High';
-          riskColor = '#FFA500'; // Orange
+          riskLevel = "High";
+          riskColor = "#FFA500"; // Orange
           highCount++;
         } else {
-          riskLevel = 'Healthy';
-          riskColor = '#00FF00'; // Green
+          riskLevel = "Healthy";
+          riskColor = "#00FF00"; // Green
           healthyCount++;
         }
 
         processedCustomers.push({
           customer_id: row?.customer_id || row?.company_id,
-          customer_name: row.customer_name || row.name || 'N/A',
+          customer_name: row.customer_name || row.name || "N/A",
           churn_risk_score: churnScore,
           renewal_date: row.renewal_date,
           days_to_renewal: daysToRenewal,
@@ -1384,10 +1275,8 @@ exports.getHighRiskChurnStats = async (req, res) => {
       };
     };
 
-    const {
-      customers: riskMatrixCustomers,
-      riskDistribution: matrixRiskDistribution,
-    } = processRiskMatrixData(companyData);
+    const { customers: riskMatrixCustomers, riskDistribution: matrixRiskDistribution } =
+      processRiskMatrixData(companyData);
 
     // Custom logic to calculate statistics
     const calculateStats = (data, scoreDashboardData = null) => {
@@ -1413,12 +1302,8 @@ exports.getHighRiskChurnStats = async (req, res) => {
       const totalCustomers = uniqueCustomers.length;
 
       const churnScores = data.map((row) => Number(row.churn_risk_score || 0));
-      const highRiskCustomers = data.filter(
-        (row) => Number(row.churn_risk_score || 0) > threshold
-      );
-      const highRiskCount = [
-        ...new Set(highRiskCustomers.map((row) => row.customer_id)),
-      ].length;
+      const highRiskCustomers = data.filter((row) => Number(row.churn_risk_score || 0) > threshold);
+      const highRiskCount = [...new Set(highRiskCustomers.map((row) => row.customer_id))].length;
 
       // Calculate total sum of churn risk scores for customers >70
       const totalHighRiskScore = highRiskCustomers.reduce(
@@ -1426,17 +1311,12 @@ exports.getHighRiskChurnStats = async (req, res) => {
         0
       );
 
-      const revenueAtRisk = highRiskCustomers.reduce(
-        (sum, row) => sum + Number(row.arr || 0),
-        0
-      );
+      const revenueAtRisk = highRiskCustomers.reduce((sum, row) => sum + Number(row.arr || 0), 0);
 
-      const highRiskPercent =
-        totalCustomers > 0 ? (highRiskCount / totalCustomers) * 100 : 0;
+      const highRiskPercent = totalCustomers > 0 ? (highRiskCount / totalCustomers) * 100 : 0;
       const avgChurnScore =
         churnScores.length > 0
-          ? churnScores.reduce((sum, score) => sum + score, 0) /
-            churnScores.length
+          ? churnScores.reduce((sum, score) => sum + score, 0) / churnScores.length
           : 0;
 
       // Map customers to churn risk distribution chart ranges
@@ -1465,12 +1345,10 @@ exports.getHighRiskChurnStats = async (req, res) => {
 
       return {
         totalCustomers: scoreDashboardData?.customer_count || totalCustomers,
-        highRiskCount:
-          scoreDashboardData?.churned_customer_count || highRiskCount,
+        highRiskCount: scoreDashboardData?.churned_customer_count || highRiskCount,
         highRiskPercent: Math.round(highRiskPercent * 100) / 100, // Round to 2 decimal places
         avgChurnScore:
-          scoreDashboardData?.avg_churn_risk_score ||
-          Math.round(avgChurnScore * 100) / 100,
+          scoreDashboardData?.avg_churn_risk_score || Math.round(avgChurnScore * 100) / 100,
         totalHighRiskScore: Math.round(totalHighRiskScore * 100) / 100, // Round to 2 decimal places
         churnScores,
         churnRiskDistribution,
@@ -1486,29 +1364,27 @@ exports.getHighRiskChurnStats = async (req, res) => {
     const getHighRiskCustomerList = (data) => {
       if (!data || data.length === 0) return [];
 
-      const highRiskCustomers = data.filter(
-        (row) => Number(row.churn_risk_score || 0) > threshold
-      );
+      const highRiskCustomers = data.filter((row) => Number(row.churn_risk_score || 0) > threshold);
 
       return highRiskCustomers.map((row) => {
         const score = Number(row.churn_risk_score || 0);
-        let riskLevel = '';
+        let riskLevel = "";
 
         // Determine risk level based on score ranges
-        if (score >= 1 && score <= 20) riskLevel = 'Very Low';
-        else if (score >= 21 && score <= 40) riskLevel = 'Low';
-        else if (score >= 41 && score <= 60) riskLevel = 'Medium';
-        else if (score >= 61 && score <= 80) riskLevel = 'High';
-        else if (score >= 81 && score <= 100) riskLevel = 'Critical';
-        else riskLevel = 'Unknown';
+        if (score >= 1 && score <= 20) riskLevel = "Very Low";
+        else if (score >= 21 && score <= 40) riskLevel = "Low";
+        else if (score >= 41 && score <= 60) riskLevel = "Medium";
+        else if (score >= 61 && score <= 80) riskLevel = "High";
+        else if (score >= 81 && score <= 100) riskLevel = "Critical";
+        else riskLevel = "Unknown";
         const today = moment();
-        const renewalDate = moment(row.renewal_date, 'YYYY-MM-DD');
+        const renewalDate = moment(row.renewal_date, "YYYY-MM-DD");
         return {
           customer_id: row?.customer_id || row?.company_id,
-          customer_name: row?.customer_name || row?.name || 'N/A',
+          customer_name: row?.customer_name || row?.name || "N/A",
           churn_risk_score: score,
-          renewal_days: renewalDate.diff(today, 'days') || 'N/A',
-          monetary_value: row?.monetary_value || row?.contract_value || 'N/A',
+          renewal_days: renewalDate.diff(today, "days") || "N/A",
+          monetary_value: row?.monetary_value || row?.contract_value || "N/A",
           risk_level: riskLevel,
           arr: row.arr,
         };
@@ -1550,19 +1426,13 @@ exports.getHighRiskChurnStats = async (req, res) => {
       avgChurnScore:
         trendAnalysis.length > 0
           ? Math.round(
-              (trendAnalysis.reduce((sum, d) => sum + d.avgChurnScore, 0) /
-                trendAnalysis.length) *
+              (trendAnalysis.reduce((sum, d) => sum + d.avgChurnScore, 0) / trendAnalysis.length) *
                 100
             ) / 100
           : 0,
-      totalHighRiskCustomers: trendAnalysis.reduce(
-        (sum, d) => sum + d.highRiskCustomers,
-        0
-      ),
+      totalHighRiskCustomers: trendAnalysis.reduce((sum, d) => sum + d.highRiskCustomers, 0),
       totalHighRiskARR:
-        Math.round(
-          trendAnalysis.reduce((sum, d) => sum + d.highRiskARR, 0) * 100
-        ) / 100,
+        Math.round(trendAnalysis.reduce((sum, d) => sum + d.highRiskARR, 0) * 100) / 100,
     };
 
     return res.status(200).json({
@@ -1596,22 +1466,22 @@ exports.getHighRiskChurnStats = async (req, res) => {
         trendSummary: trendSummary,
         chartConfig: {
           xAxis: {
-            type: 'category',
+            type: "category",
             data: trendAnalysis.map((d) => d.monthName),
           },
           series: [
             {
-              name: 'Average Churn Score',
+              name: "Average Churn Score",
               data: trendAnalysis.map((d) => d.avgChurnScore),
               yAxisIndex: 0,
             },
             {
-              name: 'High Risk Customers (>60)',
+              name: "High Risk Customers (>60)",
               data: trendAnalysis.map((d) => d.highRiskCustomers),
               yAxisIndex: 0,
             },
             {
-              name: 'High Risk ARR',
+              name: "High Risk ARR",
               data: trendAnalysis.map((d) => d.highRiskARR),
               yAxisIndex: 1,
             },
@@ -1623,62 +1493,50 @@ exports.getHighRiskChurnStats = async (req, res) => {
           customers: riskMatrixCustomers,
           riskDistribution: matrixRiskDistribution,
           chartConfig: {
-            title: 'Risk Matrix: Churn Score vs Time to Renewal',
+            title: "Risk Matrix: Churn Score vs Time to Renewal",
             xAxis: {
-              type: 'value',
-              name: 'Days to Renewal',
-              nameLocation: 'middle',
+              type: "value",
+              name: "Days to Renewal",
+              nameLocation: "middle",
               nameGap: 30,
             },
             yAxis: {
-              type: 'value',
-              name: 'Churn Risk Score',
-              nameLocation: 'middle',
+              type: "value",
+              name: "Churn Risk Score",
+              nameLocation: "middle",
               nameGap: 30,
             },
             series: [
               {
-                name: 'Critical',
-                type: 'scatter',
+                name: "Critical",
+                type: "scatter",
                 data: riskMatrixCustomers
-                  .filter((c) => c.risk_level === 'Critical')
-                  .map((c) => [
-                    c.days_to_renewal,
-                    c.churn_risk_score,
-                    c.customer_name,
-                  ]),
-                itemStyle: { color: '#FF0000' },
+                  .filter((c) => c.risk_level === "Critical")
+                  .map((c) => [c.days_to_renewal, c.churn_risk_score, c.customer_name]),
+                itemStyle: { color: "#FF0000" },
                 symbolSize: 8,
               },
               {
-                name: 'High',
-                type: 'scatter',
+                name: "High",
+                type: "scatter",
                 data: riskMatrixCustomers
-                  .filter((c) => c.risk_level === 'High')
-                  .map((c) => [
-                    c.days_to_renewal,
-                    c.churn_risk_score,
-                    c.customer_name,
-                  ]),
-                itemStyle: { color: '#FFA500' },
+                  .filter((c) => c.risk_level === "High")
+                  .map((c) => [c.days_to_renewal, c.churn_risk_score, c.customer_name]),
+                itemStyle: { color: "#FFA500" },
                 symbolSize: 8,
               },
               {
-                name: 'Healthy',
-                type: 'scatter',
+                name: "Healthy",
+                type: "scatter",
                 data: riskMatrixCustomers
-                  .filter((c) => c.risk_level === 'Healthy')
-                  .map((c) => [
-                    c.days_to_renewal,
-                    c.churn_risk_score,
-                    c.customer_name,
-                  ]),
-                itemStyle: { color: '#00FF00' },
+                  .filter((c) => c.risk_level === "Healthy")
+                  .map((c) => [c.days_to_renewal, c.churn_risk_score, c.customer_name]),
+                itemStyle: { color: "#00FF00" },
                 symbolSize: 8,
               },
             ],
             legend: {
-              data: ['Critical', 'High', 'Healthy'],
+              data: ["Critical", "High", "Healthy"],
               top: 10,
               right: 10,
             },
@@ -1686,8 +1544,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
               formatter: function (params) {
                 const customer = riskMatrixCustomers.find(
                   (c) =>
-                    c.days_to_renewal === params.value[0] &&
-                    c.churn_risk_score === params.value[1]
+                    c.days_to_renewal === params.value[0] && c.churn_risk_score === params.value[1]
                 );
                 if (customer) {
                   return `
@@ -1706,40 +1563,39 @@ exports.getHighRiskChurnStats = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error computing high risk churn stats:', error);
+    console.error("Error computing high risk churn stats:", error);
 
     // Handle specific socket hang up and connection errors
-    if (error.code === 'ECONNABORTED') {
+    if (error.code === "ECONNABORTED") {
       return res.status(504).json({
-        message: 'Request timeout - SQL query took too long to execute',
-        error: 'Gateway Timeout',
-        suggestion: 'Try again or contact support if the issue persists',
+        message: "Request timeout - SQL query took too long to execute",
+        error: "Gateway Timeout",
+        suggestion: "Try again or contact support if the issue persists",
       });
-    } else if (error.code === 'ECONNRESET') {
+    } else if (error.code === "ECONNRESET") {
       return res.status(503).json({
-        message:
-          'Connection reset - AI Agent Server connection was interrupted',
-        error: 'Service Unavailable',
-        suggestion: 'The server may be experiencing issues. Please try again.',
+        message: "Connection reset - AI Agent Server connection was interrupted",
+        error: "Service Unavailable",
+        suggestion: "The server may be experiencing issues. Please try again.",
       });
-    } else if (error.code === 'ENOTFOUND') {
+    } else if (error.code === "ENOTFOUND") {
       return res.status(502).json({
-        message: 'AI Agent Server not found - Check server configuration',
-        error: 'Bad Gateway',
-        suggestion: 'Verify AI_AGENT_SERVER_URI environment variable',
+        message: "AI Agent Server not found - Check server configuration",
+        error: "Bad Gateway",
+        suggestion: "Verify AI_AGENT_SERVER_URI environment variable",
       });
-    } else if (error.code === 'ECONNREFUSED') {
+    } else if (error.code === "ECONNREFUSED") {
       return res.status(502).json({
-        message: 'AI Agent Server connection refused - Server may be down',
-        error: 'Bad Gateway',
-        suggestion: 'Check if the AI Agent Server is running and accessible',
+        message: "AI Agent Server connection refused - Server may be down",
+        error: "Bad Gateway",
+        suggestion: "Check if the AI Agent Server is running and accessible",
       });
     }
 
     return res.status(500).json({
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
-      suggestion: 'Please try again or contact support if the issue persists',
+      suggestion: "Please try again or contact support if the issue persists",
     });
   }
 };
@@ -1756,13 +1612,11 @@ exports.fetchCustomerStageList = async (req, res) => {
       )}&session_id=${session_id}&org_id=${org_id}`;
     const response = await axiosInstance.post(url, {}, { timeout: 300000 });
     return res.status(200).json({
-      data: response.data.result.result_set.filter(
-        (item) => item.stage !== null
-      ),
+      data: response.data.result.result_set.filter((item) => item.stage !== null),
     });
   } catch (error) {
-    console.error('Error fetching customer stage list:', error);
-    return res.status(500).json({ message: 'Internal Server Error', error });
+    console.error("Error fetching customer stage list:", error);
+    return res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -1772,22 +1626,22 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
     const org_id = req.user.organization.toString();
 
     //pagination
-    const search = req.query.search || '';
+    const search = req.query.search || "";
     const page = req.query.page || 1;
     const limit = req.query.limit || 10;
     const offset = (page - 1) * limit;
-    const stage = req.query.stage || '';
+    const stage = req.query.stage || "";
 
     // Validate pagination parameters
     if (page < 1) {
       return res.status(400).json({
-        message: 'Page number must be greater than 0',
+        message: "Page number must be greater than 0",
       });
     }
 
     if (limit < 1 || limit > 100) {
       return res.status(400).json({
-        message: 'Limit must be between 1 and 100',
+        message: "Limit must be between 1 and 100",
       });
     }
 
@@ -1802,7 +1656,7 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
     }
     // Apply same filters to count query
     if (countConditions.length > 0) {
-      countQuery += ' WHERE ' + countConditions.join(' AND ');
+      countQuery += " WHERE " + countConditions.join(" AND ");
     }
     const countUrl =
       process.env.AI_AGENT_SERVER_URI +
@@ -1816,8 +1670,8 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
       {
         timeout: 300000, // 5 minutes
         headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
       }
     );
@@ -1845,7 +1699,7 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
     }
     // Combine filters if any exist
     if (conditions.length > 0) {
-      base_query += ' WHERE ' + conditions.join(' AND ');
+      base_query += " WHERE " + conditions.join(" AND ");
     }
     // Add pagination
     sql_query = `${base_query} LIMIT ${limit} OFFSET ${offset}`;
@@ -1865,22 +1719,20 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
       `/run-sql-query?sql_query=${encodeURIComponent(
         sql_query
       )}&session_id=${session_id}&org_id=${org_id}`;
-    console.log('Data URL:', url);
+    console.log("Data URL:", url);
     const response = await axiosInstance.post(
       url,
       {},
       {
         timeout: 300000, // 5 minutes
         headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
       }
     );
     if (response?.data?.error) {
-      res
-        .status(500)
-        .json({ message: response?.data?.error, error: response?.data?.error });
+      res.status(500).json({ message: response?.data?.error, error: response?.data?.error });
       return;
     }
     const data = response.data.result.result_set || [];
@@ -1905,8 +1757,8 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
       pagination,
     });
   } catch (err) {
-    console.log('Err', err);
-    res.status(500).json({ message: 'Internal Server Error', err });
+    console.log("Err", err);
+    res.status(500).json({ message: "Internal Server Error", err });
   }
 };
 
@@ -1923,17 +1775,17 @@ exports.getCustomerFeatures = async (req, res) => {
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      filter['updatedAt'] = { $gt: filterDate };
+      filter["updatedAt"] = { $gt: filterDate };
     }
     if (created_date) {
       const filterDate = new Date(created_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      searchCondition['createdAt'] = { $gt: filterDate };
+      searchCondition["createdAt"] = { $gt: filterDate };
     }
     const customerLoginDetails = await CustomerFeature.find(filter);
     res.status(200).json({ data: customerLoginDetails });
   } catch (error) {
-    res.status(500).json({ message: 'Internal Server Error', error });
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -1949,19 +1801,19 @@ exports.getAllCustomers = async (req, res) => {
     if (updated_date) {
       const filterDate = new Date(updated_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      filter['updatedAt'] = { $gt: filterDate };
+      filter["updatedAt"] = { $gt: filterDate };
     }
 
     if (created_date) {
       const filterDate = new Date(created_date);
       filterDate.setHours(0, 0, 0, 0); // Ensure it starts from midnight
-      filter['createdAt'] = { $gt: filterDate };
+      filter["createdAt"] = { $gt: filterDate };
     }
 
     const customers = await Customer.find(filter);
     res.status(200).json({ data: customers });
   } catch (error) {
-    res.status(500).json({ message: 'Internal Server Error', error });
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -1986,27 +1838,21 @@ exports.getCustomerScoreAnalysis = async (req, res) => {
     `;
 
     // Helper function to execute SQL query with retry logic
-    const executeSqlQueryWithRetry = async (
-      query,
-      queryName,
-      maxRetries = 3
-    ) => {
+    const executeSqlQueryWithRetry = async (query, queryName, maxRetries = 3) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           console.log(`🔄 ${queryName} - Attempt ${attempt}/${maxRetries}`);
 
           const response = await axiosInstance.post(
-            `${
-              process.env.AI_AGENT_SERVER_URI
-            }/run-sql-query?sql_query=${encodeURIComponent(
+            `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
               query
             )}&session_id=${session_id}&org_id=${org_id}`,
             {},
             {
               timeout: 300000, // 5 minutes
               headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
+                "Content-Type": "application/json",
+                Accept: "application/json",
               },
             }
           );
@@ -2017,26 +1863,19 @@ exports.getCustomerScoreAnalysis = async (req, res) => {
           }
 
           // Check for query execution status
-          if (response?.data?.result?.metadata?.status === 'FAILED') {
+          if (response?.data?.result?.metadata?.status === "FAILED") {
             throw new Error(
-              `Query execution failed: ${
-                response.data.result.metadata.message || 'Unknown error'
-              }`
+              `Query execution failed: ${response.data.result.metadata.message || "Unknown error"}`
             );
           }
 
           console.log(`✅ ${queryName} - Success on attempt ${attempt}`);
           return response;
         } catch (error) {
-          console.error(
-            `❌ ${queryName} - Attempt ${attempt} failed:`,
-            error.message
-          );
+          console.error(`❌ ${queryName} - Attempt ${attempt} failed:`, error.message);
 
           if (attempt === maxRetries) {
-            throw new Error(
-              `${queryName} failed after ${maxRetries} attempts: ${error.message}`
-            );
+            throw new Error(`${queryName} failed after ${maxRetries} attempts: ${error.message}`);
           }
 
           // Wait before retrying (exponential backoff)
@@ -2047,11 +1886,8 @@ exports.getCustomerScoreAnalysis = async (req, res) => {
       }
     };
 
-    console.log('Fetching risk matrix data...');
-    const riskMatrixResponse = await executeSqlQueryWithRetry(
-      riskMatrixQuery,
-      'Risk Matrix Query'
-    );
+    console.log("Fetching risk matrix data...");
+    const riskMatrixResponse = await executeSqlQueryWithRetry(riskMatrixQuery, "Risk Matrix Query");
 
     // Extract data from response
     const riskMatrixData = riskMatrixResponse?.data?.result?.result_set || [];
@@ -2072,30 +1908,30 @@ exports.getCustomerScoreAnalysis = async (req, res) => {
 
       data.forEach((row) => {
         const churnScore = Number(row.churn_risk_score || 0);
-        const renewalDate = moment(row.renewal_date, 'YYYY-MM-DD');
-        const daysToRenewal = renewalDate.diff(today, 'days');
+        const renewalDate = moment(row.renewal_date, "YYYY-MM-DD");
+        const daysToRenewal = renewalDate.diff(today, "days");
 
         // Determine risk level based on churn score
-        let riskLevel = '';
-        let riskColor = '';
+        let riskLevel = "";
+        let riskColor = "";
 
         if (churnScore >= 81) {
-          riskLevel = 'Critical';
-          riskColor = '#FF0000'; // Red
+          riskLevel = "Critical";
+          riskColor = "#FF0000"; // Red
           criticalCount++;
         } else if (churnScore >= 71) {
-          riskLevel = 'High';
-          riskColor = '#FFA500'; // Orange
+          riskLevel = "High";
+          riskColor = "#FFA500"; // Orange
           highCount++;
         } else {
-          riskLevel = 'Healthy';
-          riskColor = '#00FF00'; // Green
+          riskLevel = "Healthy";
+          riskColor = "#00FF00"; // Green
           healthyCount++;
         }
 
         processedCustomers.push({
           customer_id: row?.customer_id || row?.company_id,
-          name: row.customer_name || row.name || 'N/A',
+          name: row.customer_name || row.name || "N/A",
           churn_risk_score: churnScore,
           renewal_date: row.renewal_date,
           days_to_renewal: daysToRenewal,
@@ -2116,10 +1952,8 @@ exports.getCustomerScoreAnalysis = async (req, res) => {
       };
     };
 
-    const {
-      customers: riskMatrixCustomers,
-      riskDistribution: matrixRiskDistribution,
-    } = processRiskMatrixData(riskMatrixData);
+    const { customers: riskMatrixCustomers, riskDistribution: matrixRiskDistribution } =
+      processRiskMatrixData(riskMatrixData);
 
     return res.status(200).json({
       data: {
@@ -2129,62 +1963,50 @@ exports.getCustomerScoreAnalysis = async (req, res) => {
         customers: riskMatrixCustomers,
         riskDistribution: matrixRiskDistribution,
         chartConfig: {
-          title: 'Risk Matrix: Churn Score vs Time to Renewal',
+          title: "Risk Matrix: Churn Score vs Time to Renewal",
           xAxis: {
-            type: 'value',
-            name: 'Days to Renewal',
-            nameLocation: 'middle',
+            type: "value",
+            name: "Days to Renewal",
+            nameLocation: "middle",
             nameGap: 30,
           },
           yAxis: {
-            type: 'value',
-            name: 'Churn Risk Score',
-            nameLocation: 'middle',
+            type: "value",
+            name: "Churn Risk Score",
+            nameLocation: "middle",
             nameGap: 30,
           },
           series: [
             {
-              name: 'Critical',
-              type: 'scatter',
+              name: "Critical",
+              type: "scatter",
               data: riskMatrixCustomers
-                .filter((c) => c.risk_level === 'Critical')
-                .map((c) => [
-                  c.days_to_renewal,
-                  c.churn_risk_score,
-                  c.customer_name,
-                ]),
-              itemStyle: { color: '#FF0000' },
+                .filter((c) => c.risk_level === "Critical")
+                .map((c) => [c.days_to_renewal, c.churn_risk_score, c.customer_name]),
+              itemStyle: { color: "#FF0000" },
               symbolSize: 8,
             },
             {
-              name: 'High',
-              type: 'scatter',
+              name: "High",
+              type: "scatter",
               data: riskMatrixCustomers
-                .filter((c) => c.risk_level === 'High')
-                .map((c) => [
-                  c.days_to_renewal,
-                  c.churn_risk_score,
-                  c.customer_name,
-                ]),
-              itemStyle: { color: '#FFA500' },
+                .filter((c) => c.risk_level === "High")
+                .map((c) => [c.days_to_renewal, c.churn_risk_score, c.customer_name]),
+              itemStyle: { color: "#FFA500" },
               symbolSize: 8,
             },
             {
-              name: 'Healthy',
-              type: 'scatter',
+              name: "Healthy",
+              type: "scatter",
               data: riskMatrixCustomers
-                .filter((c) => c.risk_level === 'Healthy')
-                .map((c) => [
-                  c.days_to_renewal,
-                  c.churn_risk_score,
-                  c.customer_name,
-                ]),
-              itemStyle: { color: '#00FF00' },
+                .filter((c) => c.risk_level === "Healthy")
+                .map((c) => [c.days_to_renewal, c.churn_risk_score, c.customer_name]),
+              itemStyle: { color: "#00FF00" },
               symbolSize: 8,
             },
           ],
           legend: {
-            data: ['Critical', 'High', 'Healthy'],
+            data: ["Critical", "High", "Healthy"],
             top: 10,
             right: 10,
           },
@@ -2192,8 +2014,7 @@ exports.getCustomerScoreAnalysis = async (req, res) => {
             formatter: function (params) {
               const customer = riskMatrixCustomers.find(
                 (c) =>
-                  c.days_to_renewal === params.value[0] &&
-                  c.churn_risk_score === params.value[1]
+                  c.days_to_renewal === params.value[0] && c.churn_risk_score === params.value[1]
               );
               if (customer) {
                 return `
@@ -2211,40 +2032,39 @@ exports.getCustomerScoreAnalysis = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching customer score analysis:', error);
+    console.error("Error fetching customer score analysis:", error);
 
     // Handle specific socket hang up and connection errors
-    if (error.code === 'ECONNABORTED') {
+    if (error.code === "ECONNABORTED") {
       return res.status(504).json({
-        message: 'Request timeout - SQL query took too long to execute',
-        error: 'Gateway Timeout',
-        suggestion: 'Try again or contact support if the issue persists',
+        message: "Request timeout - SQL query took too long to execute",
+        error: "Gateway Timeout",
+        suggestion: "Try again or contact support if the issue persists",
       });
-    } else if (error.code === 'ECONNRESET') {
+    } else if (error.code === "ECONNRESET") {
       return res.status(503).json({
-        message:
-          'Connection reset - AI Agent Server connection was interrupted',
-        error: 'Service Unavailable',
-        suggestion: 'The server may be experiencing issues. Please try again.',
+        message: "Connection reset - AI Agent Server connection was interrupted",
+        error: "Service Unavailable",
+        suggestion: "The server may be experiencing issues. Please try again.",
       });
-    } else if (error.code === 'ENOTFOUND') {
+    } else if (error.code === "ENOTFOUND") {
       return res.status(502).json({
-        message: 'AI Agent Server not found - Check server configuration',
-        error: 'Bad Gateway',
-        suggestion: 'Verify AI_AGENT_SERVER_URI environment variable',
+        message: "AI Agent Server not found - Check server configuration",
+        error: "Bad Gateway",
+        suggestion: "Verify AI_AGENT_SERVER_URI environment variable",
       });
-    } else if (error.code === 'ECONNREFUSED') {
+    } else if (error.code === "ECONNREFUSED") {
       return res.status(502).json({
-        message: 'AI Agent Server connection refused - Server may be down',
-        error: 'Bad Gateway',
-        suggestion: 'Check if the AI Agent Server is running and accessible',
+        message: "AI Agent Server connection refused - Server may be down",
+        error: "Bad Gateway",
+        suggestion: "Check if the AI Agent Server is running and accessible",
       });
     }
 
     return res.status(500).json({
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
-      suggestion: 'Please try again or contact support if the issue persists',
+      suggestion: "Please try again or contact support if the issue persists",
     });
   }
 };

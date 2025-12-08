@@ -577,14 +577,10 @@ exports.getCustomerScoreDashboard = async (req, res) => {
     FROM db${org_id}.customer_score_dashboard;
       `;
     const session_id = Math.floor(1000 + Math.random() * 9000);
-    const score_query =
-      process.env.AI_AGENT_SERVER_URI +
-      `/run-sql-query?sql_query=${encodeURIComponent(
-        totalCustomerQuery
-      )}&session_id=${session_id}&org_id=${org_id}`;
-    const response = await axiosInstance.post(
-      `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${score_query}&org_id=${org_id}`
-    );
+    const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
+      totalCustomerQuery
+    )}&session_id=${session_id}&org_id=${org_id}`;
+    const response = await axiosInstance.post(url);
     res.status(200).json({ data: response?.data?.result?.result_set[0] || null });
   } catch (error) {
     res.status(500).json({ message: "Internal Server Error", error });

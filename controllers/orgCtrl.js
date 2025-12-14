@@ -1,39 +1,37 @@
-const AGENT_SETUP_DATA = require('../constants/agent-setup-sample-data');
-const Customer = require('../models/Customer');
-const GoogleUser = require('../models/GoogleUser');
-const Organization = require('../models/Organization');
-const TaskAgentModel = require('../models/TaskAgentModel');
-const User = require('../models/User');
-const axios = require('axios');
-const mongoose = require('mongoose');
-const AgentModel = require('../models/AgentModel');
-const AgentTask = require('../models/AgentTask');
-const AgentTaskStatusModel = require('../models/AgentTaskStatusModel');
-const OrganizationPrompt = require('../models/OrganizationPrompt');
-const fs = require('fs');
-const FormData = require('form-data');
-const {
-  organizationPromptDefaultData,
-} = require('../seeders/saveOrganizationPrompt');
-const OrganizationToken = require('../models/OrganizationToken');
+const AGENT_SETUP_DATA = require("../constants/agent-setup-sample-data");
+const Customer = require("../models/Customer");
+const GoogleUser = require("../models/GoogleUser");
+const Organization = require("../models/Organization");
+const TaskAgentModel = require("../models/TaskAgentModel");
+const User = require("../models/User");
+const axios = require("axios");
+const mongoose = require("mongoose");
+const AgentModel = require("../models/AgentModel");
+const AgentTask = require("../models/AgentTask");
+const AgentTaskStatusModel = require("../models/AgentTaskStatusModel");
+const OrganizationPrompt = require("../models/OrganizationPrompt");
+const fs = require("fs");
+const FormData = require("form-data");
+const { organizationPromptDefaultData } = require("../seeders/saveOrganizationPrompt");
+const OrganizationToken = require("../models/OrganizationToken");
 exports.create = async (req, res) => {
   const {
     name,
     assistant_name,
     temperature,
-    model = 'gpt-3.5-turbo',
+    model = "gpt-3.5-turbo",
     api,
     prompt,
     greeting,
   } = req.body;
 
   if (!name) {
-    return res.status(404).json({ message: 'Name is required' });
+    return res.status(404).json({ message: "Name is required" });
   }
 
   try {
     const org = await Organization.findOne({ name });
-    if (org) return res.json({ message: 'Name already taken.' });
+    if (org) return res.json({ message: "Name already taken." });
 
     const org_data = new Organization({
       name,
@@ -52,7 +50,7 @@ exports.create = async (req, res) => {
     );
 
     if (!item) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.json({ message: `Organization created` });
@@ -62,8 +60,7 @@ exports.create = async (req, res) => {
 };
 
 exports.createUser = async (req, res) => {
-  const { org_id, email, first_name, last_name, password, role, status } =
-    req.body;
+  const { org_id, email, first_name, last_name, password, role, status } = req.body;
 
   try {
     const user_data = new User({
@@ -79,7 +76,7 @@ exports.createUser = async (req, res) => {
     await user_data.save();
     res.json({ message: `User created` });
   } catch (error) {
-    res.json({ message: 'Internal server error', error });
+    res.json({ message: "Internal server error", error });
   }
 };
 
@@ -87,13 +84,10 @@ exports.findUsers = async (req, res) => {
   const { org_id } = req.body;
 
   try {
-    const users = await User.find({ organization: org_id }).select([
-      '-password',
-      '-organization',
-    ]);
+    const users = await User.find({ organization: org_id }).select(["-password", "-organization"]);
     res.status(200).json({ users });
   } catch (error) {
-    res.json({ message: 'Internal server error', error });
+    res.json({ message: "Internal server error", error });
   }
 };
 
@@ -108,12 +102,12 @@ exports.editUser = async (req, res) => {
     );
 
     if (!item) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({ message: 'User updated' });
+    res.status(200).json({ message: "User updated" });
   } catch (error) {
-    res.status(500).json({ message: 'Internal Server Error', error });
+    res.status(500).json({ message: "Internal Server Error", error });
   }
 };
 
@@ -121,20 +115,20 @@ exports.deleteUser = async (req, res) => {
   const user_id = req.params.user_id;
   try {
     const user = await User.findByIdAndDelete(user_id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.status(201).json({ message: 'User deleted' });
+    res.status(201).json({ message: "User deleted" });
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 
 exports.updateOrgSettings = async (req, res) => {
   try {
     const org = await Organization.findById(id);
-    if (!id) res.status(500).json({ message: 'Organization is is required' });
+    if (!id) res.status(500).json({ message: "Organization is is required" });
     if (!org) {
-      return res.status(404).json({ message: 'Organization not found' });
+      return res.status(404).json({ message: "Organization not found" });
     }
 
     return res.json({ org: orgResponsePayload });
@@ -173,9 +167,9 @@ exports.getOrg = async (req, res) => {
       });
     }
     const org = await Organization.findById(id);
-    if (!id) res.status(500).json({ message: 'Organization is is required' });
+    if (!id) res.status(500).json({ message: "Organization is is required" });
     if (!org) {
-      return res.status(404).json({ message: 'Organization not found' });
+      return res.status(404).json({ message: "Organization not found" });
     }
     const {
       _id,
@@ -250,7 +244,7 @@ exports.getOrgDetailByPublicApi = async (req, res) => {
     const org_id = req.params.org_id;
     const org = await Organization.findById(org_id);
     if (!org) {
-      return res.status(404).json({ message: 'Organization not found' });
+      return res.status(404).json({ message: "Organization not found" });
     }
     return res.json({ org });
   } catch (error) {
@@ -264,11 +258,9 @@ exports.editOrg = async (req, res) => {
     if (req.body?.singleUpdate) {
       const { name = null, assistant_name = null } = req.body;
       let payload = name ? { name } : { assistant_name };
-      const org = await Organization.findByIdAndUpdate(
-        req?.user?.organization,
-        payload,
-        { new: true }
-      );
+      const org = await Organization.findByIdAndUpdate(req?.user?.organization, payload, {
+        new: true,
+      });
       return res.json(org);
     }
 
@@ -289,7 +281,7 @@ exports.editOrg = async (req, res) => {
     } = req.body;
 
     let payload = null;
-    if (configuration == 'setting') {
+    if (configuration == "setting") {
       payload = {
         model: selectedModel,
         temperature,
@@ -297,7 +289,7 @@ exports.editOrg = async (req, res) => {
         whatsappConfig,
         ...orgDbSetting,
       };
-    } else if (configuration == 'configuration') {
+    } else if (configuration == "configuration") {
       payload = {
         ...additionalPrompt,
       };
@@ -319,11 +311,9 @@ exports.editOrg = async (req, res) => {
         ...updatePrompt,
       };
     }
-    const org = await Organization.findByIdAndUpdate(
-      req?.user?.organization,
-      payload,
-      { new: true }
-    );
+    const org = await Organization.findByIdAndUpdate(req?.user?.organization, payload, {
+      new: true,
+    });
     return res.json(org);
   } catch (error) {
     res.status(500).json({ error });
@@ -341,7 +331,7 @@ exports.getGreeting_botName = async (req, res) => {
         org_id: id,
       });
     }
-    return res.status(404).json({ message: 'Organization not found' });
+    return res.status(404).json({ message: "Organization not found" });
   } catch (error) {
     res.status(500).json({ error });
   }
@@ -351,26 +341,25 @@ exports.getCustomerList = async (req, res) => {
   const org_id = req.params.org_id;
   try {
     const orgCustomers = await Customer.find({ organization: org_id });
-    if (!orgCustomers)
-      return res.status(404).json({ message: 'Customer not found' });
+    if (!orgCustomers) return res.status(404).json({ message: "Customer not found" });
 
     res.status(200).json({ organization: org_id, customers: orgCustomers });
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 exports.createOrganizationPrompt = async (req, res) => {
   try {
     const { organizationPrompts = [], deletePromptIds = [] } = req.body;
     if (organizationPrompts?.length == 0) {
-      res.status(400).json({ message: 'Payload is empty', success: false });
+      res.status(400).json({ message: "Payload is empty", success: false });
     }
     const isDirtyRecords = organizationPrompts.filter((x) => x.isDirty);
 
-    console.log('isDirtyRecords', isDirtyRecords);
+    console.log("isDirtyRecords", isDirtyRecords);
 
     if (isDirtyRecords.length == 0 && deletePromptIds?.length == 0) {
-      res.status(200).json({ message: 'Updated successfully', success: true });
+      res.status(200).json({ message: "Updated successfully", success: true });
       return;
     }
 
@@ -390,7 +379,7 @@ exports.createOrganizationPrompt = async (req, res) => {
       for (const orgPrompt of isDirtyRecords) {
         const { _id: orgPromptId, prompts } = orgPrompt;
         for (const prompt of prompts) {
-          if (prompt._id.startsWith('temp-')) {
+          if (prompt._id.startsWith("temp-")) {
             // This is a new prompt — add it
             await OrganizationPrompt.findByIdAndUpdate(
               orgPromptId,
@@ -411,21 +400,19 @@ exports.createOrganizationPrompt = async (req, res) => {
             await OrganizationPrompt.updateOne(
               {
                 _id: orgPromptId,
-                'prompts._id': id,
+                "prompts._id": id,
               },
-              { $set: { 'prompts.$.text': prompt.text } }
+              { $set: { "prompts.$.text": prompt.text } }
             );
           }
         }
-        res.status(200).json({ message: 'Updated successfully' });
+        res.status(200).json({ message: "Updated successfully" });
         return;
       }
     }
-    res.status(200).json({ message: 'Updated successfully', success: true });
+    res.status(200).json({ message: "Updated successfully", success: true });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: 'Failed to save organization prompts', error });
+    res.status(500).json({ message: "Failed to save organization prompts", error });
   }
 };
 
@@ -434,26 +421,19 @@ exports.updateOrganizationPromptCategory = async (req, res) => {
     const { orgPromptId, category } = req.body;
 
     if (!orgPromptId || !category) {
-      res
-        .status(400)
-        .json({ message: 'OrgPromptId | category is missing', error });
+      res.status(400).json({ message: "OrgPromptId | category is missing", error });
     }
 
-    await OrganizationPrompt.updateOne(
-      { _id: orgPromptId },
-      { $set: { category: category } }
-    );
-    res.status(200).json({ message: 'Updated successfully', success: true });
+    await OrganizationPrompt.updateOne({ _id: orgPromptId }, { $set: { category: category } });
+    res.status(200).json({ message: "Updated successfully", success: true });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: 'Failed to update organization prompt category', err });
+    res.status(500).json({ message: "Failed to update organization prompt category", err });
   }
 };
 exports.getOrganizationPrompt = async (req, res) => {
   try {
     if (!req?.user?.organization) {
-      res.status(500).json({ message: 'Organization is required', err });
+      res.status(500).json({ message: "Organization is required", err });
     }
     let organizationPrompts = null;
     const organization = req?.user?.organization;
@@ -473,9 +453,7 @@ exports.getOrganizationPrompt = async (req, res) => {
     }
     res.status(200).json({ organizationPrompts });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: 'Failed to fetch organization prompts', error });
+    res.status(500).json({ message: "Failed to fetch organization prompts", error });
   }
 };
 
@@ -525,11 +503,9 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
       const user_email = req.user.email;
       const orgDetail = await Organization.findById(
         req.organization._id,
-        'orgGoogleCredential'
+        "orgGoogleCredential"
       ).lean();
-      const connectedGmailUsers = await GoogleUser.find(
-        connectedGmailUsersQuery
-      ).lean();
+      const connectedGmailUsers = await GoogleUser.find(connectedGmailUsersQuery).lean();
 
       const responsePayload = {
         user_email,
@@ -540,10 +516,10 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
         data: responsePayload,
       });
     } else {
-      res.status(500).json({ message: 'Internal server error', err });
+      res.status(500).json({ message: "Internal server error", err });
     }
   } catch (err) {
-    res.status(500).json({ message: 'Internal server error', err });
+    res.status(500).json({ message: "Internal server error", err });
   }
 };
 
@@ -551,9 +527,7 @@ exports.callTaskAgentPythonApi = async (req, res) => {
   try {
     const { task_name, org_id } = req.body;
     if (!task_name || !org_id) {
-      res
-        .status(400)
-        .json({ success: false, message: 'TaskName | OrgId are required' });
+      res.status(400).json({ success: false, message: "TaskName | OrgId are required" });
     }
     const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/task-agent?task_name=${task_name}&org_id=${org_id}`;
     const response = await axios.post(pythonServerUri);
@@ -570,9 +544,9 @@ exports.deleteAgentInstruction = async (req, res) => {
     const { id } = req.params;
     const { organization } = req.user;
     await AgentModel.findByIdAndDelete(id);
-    res.status(200).json({ message: 'Agent instruction deleted successfully' });
+    res.status(200).json({ message: "Agent instruction deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: 'Internal server error', err });
+    res.status(500).json({ message: "Internal server error", err });
   }
 };
 exports.getOrgAgentInstructions = async (req, res) => {
@@ -589,7 +563,7 @@ exports.getOrgAgentInstructions = async (req, res) => {
         isAgent: isAgent,
       };
     });
-    if (from == 'chat') {
+    if (from == "chat") {
       agents = agents.filter((x) => x.isAgent == false || x.isAgent == null);
     }
     // if (agent_name) {
@@ -626,7 +600,7 @@ exports.getOrgAgentInstructions = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -634,13 +608,11 @@ exports.updateOrgAgentInstructions = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction(); // Begin a transaction to ensure consistency
   try {
-    console.log('req.body', req.body);
-
-    const { _id, tasks, ...agentData } = req.body;
+    let { _id, tasks, ...agentData } = req.body;
 
     // Check if the organization is present
     if (!req.user.organization) {
-      return res.status(400).json({ message: 'Organization id required' });
+      return res.status(400).json({ message: "Organization id required" });
     }
 
     // Find the agent by id and update its fields
@@ -652,7 +624,7 @@ exports.updateOrgAgentInstructions = async (req, res) => {
 
     // If agent not found, return an error
     if (!agent) {
-      return res.status(404).json({ message: 'Agent not found' });
+      return res.status(404).json({ message: "Agent not found" });
     }
 
     let updatedAgentInstructions = [];
@@ -675,10 +647,10 @@ exports.updateOrgAgentInstructions = async (req, res) => {
     await session.commitTransaction(); // Commit transaction
     session.endSession();
 
-    console.log('Agent and Instructions updated successfully!');
+    console.log("Agent and Instructions updated successfully!");
 
     return res.status(200).json({
-      message: 'Agent and Instructions updated successfully!',
+      message: "Agent and Instructions updated successfully!",
       agent,
       instructions: updatedAgentInstructions,
       success: true,
@@ -686,8 +658,8 @@ exports.updateOrgAgentInstructions = async (req, res) => {
   } catch (err) {
     await session.abortTransaction(); // Rollback transaction in case of error
     session.endSession();
-    console.error('Error updating agent and instructions:', err);
-    res.status(500).json({ error: err.message || 'Server Error' });
+    console.error("Error updating agent and instructions:", err);
+    res.status(500).json({ error: err.message || "Server Error" });
   }
 };
 
@@ -697,7 +669,7 @@ exports.getAgentTaskStatus = async (req, res) => {
     const { agentId } = req.params;
     if (!organization || !agentId || !customer) {
       return res.status(400).json({
-        message: 'Missing required parameters: orgId, agentId, customerId',
+        message: "Missing required parameters: orgId, agentId, customerId",
       });
     }
     const tasks = await AgentTaskStatusModel.find({
@@ -705,20 +677,18 @@ exports.getAgentTaskStatus = async (req, res) => {
       agent: agentId,
       customer,
     })
-      .populate('organization', 'name _id')
-      .populate('agent')
-      .populate('agentTask')
-      .populate('customer', 'name email _id');
+      .populate("organization", "name _id")
+      .populate("agent")
+      .populate("agentTask")
+      .populate("customer", "name email _id");
 
     if (tasks.length === 0) {
-      return res
-        .status(404)
-        .json({ message: 'No tasks found for this agent and customer' });
+      return res.status(404).json({ message: "No tasks found for this agent and customer" });
     }
 
     return res.status(200).json(tasks);
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Server Error' });
+    res.status(500).json({ error: err.message || "Server Error" });
   }
 };
 
@@ -729,13 +699,11 @@ exports.storeAgentTaskExecuteStatus = async (req, res) => {
 
     // Validate required fields
     if (!agentId || !taskId || !organizationId || !customerId) {
-      return res
-        .status(400)
-        .json({ error: 'Bad Request. Missing required fields.' });
+      return res.status(400).json({ error: "Bad Request. Missing required fields." });
     }
 
     // Define valid statuses (in lowercase)
-    const validStatuses = ['open', 'in progress', 'done'];
+    const validStatuses = ["open", "in progress", "done"];
 
     // Create a new AgentTaskStatus entry
     const newTaskStatus = new AgentTaskStatusModel({
@@ -750,11 +718,11 @@ exports.storeAgentTaskExecuteStatus = async (req, res) => {
     await newTaskStatus.save();
 
     res.status(201).json({
-      message: 'Agent task status stored successfully',
+      message: "Agent task status stored successfully",
       data: newTaskStatus,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Server Error' });
+    res.status(500).json({ error: err.message || "Server Error" });
   }
 };
 
@@ -766,8 +734,7 @@ exports.getAgentTasksStatus = async (req, res) => {
     // Validate required fields
     if (!agentId || !organizationId || !customerId) {
       return res.status(400).json({
-        error:
-          'Bad Request. Missing required parameters: organizationId, agentId, customerId',
+        error: "Bad Request. Missing required parameters: organizationId, agentId, customerId",
       });
     }
 
@@ -777,20 +744,18 @@ exports.getAgentTasksStatus = async (req, res) => {
       organization: organizationId,
       customer: customerId,
     })
-      .populate('agentTask', 'taskName') // Populating task details
-      .populate('customer', 'name') // Populating customer details
-      .populate('organization', 'name') // Populating organization details
+      .populate("agentTask", "taskName") // Populating task details
+      .populate("customer", "name") // Populating customer details
+      .populate("organization", "name") // Populating organization details
       .lean();
 
     if (!tasks.length) {
-      return res
-        .status(404)
-        .json({ message: 'No tasks found for the given criteria' });
+      return res.status(404).json({ message: "No tasks found for the given criteria" });
     }
 
     res.status(200).json({ tasks });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Server Error' });
+    res.status(500).json({ error: err.message || "Server Error" });
   }
 };
 
@@ -800,7 +765,7 @@ exports.createOrgAgentInstructions = async (req, res) => {
   try {
     const { id, tasks, ...agentData } = req.body;
     if (!req.user.organization) {
-      res.status(400).json({ message: 'Organization id required' });
+      res.status(400).json({ message: "Organization id required" });
     }
     const agent = new AgentModel({
       ...agentData,
@@ -825,10 +790,10 @@ exports.createOrgAgentInstructions = async (req, res) => {
     await session.commitTransaction(); // Commit transaction
     session.endSession();
 
-    console.log('Agent and Instructions inserted successfully!');
+    console.log("Agent and Instructions inserted successfully!");
 
     return res.status(200).json({
-      message: 'New Agent and Instructions created successfully!',
+      message: "New Agent and Instructions created successfully!",
       agent,
       instructions: newAgentInstructions,
       success: true,
@@ -841,24 +806,16 @@ exports.createOrgAgentInstructions = async (req, res) => {
 exports.getCustomerDetail = async (req, res) => {
   const customerName = req.query.customer_name;
   try {
-    if (!customerName)
-      return res.status(404).json({ message: 'Please provide customer name' });
+    if (!customerName) return res.status(404).json({ message: "Please provide customer name" });
     const customer = await Customer.findOne({
-      name: { $regex: customerName, $options: 'i' },
+      name: { $regex: customerName, $options: "i" },
     });
     if (!customer) {
-      return res.status(404).json({ message: 'Customer not found' });
+      return res.status(404).json({ message: "Customer not found" });
     }
 
-    const {
-      _id,
-      name,
-      email,
-      crm_cust_id,
-      csm_cust_id,
-      accounting_cust_id,
-      help_desk_cust_id,
-    } = customer;
+    const { _id, name, email, crm_cust_id, csm_cust_id, accounting_cust_id, help_desk_cust_id } =
+      customer;
     res.status(200).json({
       data: {
         _id,
@@ -871,7 +828,7 @@ exports.getCustomerDetail = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 
@@ -879,26 +836,24 @@ exports.saveOrgSupportWorkflow = async (req, res) => {
   try {
     const { org_id, workflow_engine_enabled } = req.body;
     if (!org_id) {
-      return res.status(400).json({ message: 'Bad request' });
+      return res.status(400).json({ message: "Bad request" });
     }
     const updatedOrg = await Organization.findByIdAndUpdate(
       org_id,
       {
-        workflow_engine_enabled: workflow_engine_enabled
-          ? workflow_engine_enabled
-          : false,
+        workflow_engine_enabled: workflow_engine_enabled ? workflow_engine_enabled : false,
       },
       { new: true, runValidators: true }
     );
     if (!updatedOrg) {
-      return res.status(404).json({ error: 'Organization not found.' });
+      return res.status(404).json({ error: "Organization not found." });
     }
     res.status(200).json({
-      message: 'Organization updated successfully.',
+      message: "Organization updated successfully.",
       organization: updatedOrg,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 
@@ -907,15 +862,15 @@ exports.getOrgTaskAgents = async (req, res) => {
     const { org_id } = req.params;
     const { name } = req.query;
     if (!org_id) {
-      return res.status(400).json({ message: 'Bad request' });
+      return res.status(400).json({ message: "Bad request" });
     }
-    const organization = await Organization.findById(org_id).select('name');
+    const organization = await Organization.findById(org_id).select("name");
     if (!organization) {
-      return res.status(404).json({ message: 'Organization not found' });
+      return res.status(404).json({ message: "Organization not found" });
     }
     let filter = { organization: org_id };
     if (name) {
-      filter.name = { $regex: new RegExp(name, 'i') };
+      filter.name = { $regex: new RegExp(name, "i") };
     }
     const taskAgents = await TaskAgentModel.find(filter);
     res.status(200).json({
@@ -923,7 +878,7 @@ exports.getOrgTaskAgents = async (req, res) => {
       taskAgents,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 
@@ -931,20 +886,18 @@ exports.updateOrgTaskAgents = async (req, res) => {
   try {
     const { org_id, taskAgentId } = req.params;
     if (!org_id) {
-      return res.status(400).json({ message: 'Bad request' });
+      return res.status(400).json({ message: "Bad request" });
     }
     const updateData = req.body;
-    const updatedTaskAgent = await TaskAgentModel.findByIdAndUpdate(
-      taskAgentId,
-      updateData,
-      { new: true }
-    );
+    const updatedTaskAgent = await TaskAgentModel.findByIdAndUpdate(taskAgentId, updateData, {
+      new: true,
+    });
     if (!updatedTaskAgent) {
-      return res.status(404).json({ message: 'TaskAgent not found' });
+      return res.status(404).json({ message: "TaskAgent not found" });
     }
     res.status(200).json(updatedTaskAgent);
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 
@@ -954,7 +907,7 @@ exports.getOrganizationAgentSetup = async (req, res) => {
       res.status(200).json(AGENT_SETUP_DATA);
     }
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 
@@ -962,27 +915,17 @@ exports.createOrgTaskAgents = async (req, res) => {
   try {
     const { org_id } = req.params;
     if (!org_id) {
-      return res.status(400).json({ message: 'Bad request' });
+      return res.status(400).json({ message: "Bad request" });
     }
-    const {
-      name,
-      action,
-      objective,
-      who,
-      trigger,
-      output,
-      tools,
-      active,
-      frequency,
-    } = req.body;
+    const { name, action, objective, who, trigger, output, tools, active, frequency } = req.body;
 
     if (!name) {
-      return res.status(400).json({ message: 'Name is required' });
+      return res.status(400).json({ message: "Name is required" });
     }
     // Validate Organization
     const organization = await Organization.findById(org_id);
     if (!organization) {
-      return res.status(404).json({ message: 'Organization not found' });
+      return res.status(404).json({ message: "Organization not found" });
     }
     // Create a new TaskAgent.
     const newTaskAgent = new TaskAgentModel({
@@ -993,15 +936,14 @@ exports.createOrgTaskAgents = async (req, res) => {
       trigger,
       output,
       tools,
-      active:
-        typeof active === 'boolean' ? active : active.toLowerCase() === 'Y',
+      active: typeof active === "boolean" ? active : active.toLowerCase() === "Y",
       frequency,
       organization: org_id,
     });
     await newTaskAgent.save();
     res.status(201).json(newTaskAgent);
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 
@@ -1011,9 +953,9 @@ exports.triggerAgent = async (req, res) => {
     let session_id = Math.floor(100000 + Math.random() * 900000);
     const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent_name}&org_id=${org_id}&query='run'&session_id=${session_id}`;
     axios.get(pythonServerUri);
-    res.status(200).json({ message: 'Agent triggered successfully' });
+    res.status(200).json({ message: "Agent triggered successfully" });
   } catch (error) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 
@@ -1021,17 +963,17 @@ exports.deleteSourceFile = async (req, res) => {
   try {
     const { company_id, file_names } = req.query;
     const headers = {
-      accept: 'application/json',
-      'X-API-KEY': process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
+      accept: "application/json",
+      "X-API-KEY": process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
     };
     // https://chat-backend.instwise.app/api/assistant/delete-pdfs?company_id=66158fe71bfe10b58cb23eea&file_names=5-mb-example-file.pdf
     const url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant/delete-pdfs?company_id=${company_id}&file_names=${file_names}`;
 
-    console.log('delete route hit');
+    console.log("delete route hit");
     const response = await axios.delete(url, { headers });
     res.status(201).json(response.data);
   } catch (err) {
-    res.status(500).json({ message: 'Internal server error', error });
+    res.status(500).json({ message: "Internal server error", error });
   }
 };
 
@@ -1041,20 +983,16 @@ exports.uploadOrganizationSourceUpload = async (req, res) => {
     const formData = new FormData();
     const files = req.files;
     if (!files || files.length == 0) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ error: "No file uploaded" });
     }
     for (const file of files) {
-      formData.append(
-        'files',
-        fs.createReadStream(file.path),
-        file.originalname
-      );
+      formData.append("files", fs.createReadStream(file.path), file.originalname);
     }
     const headers = {
       ...formData.getHeaders(), // Required to set correct `Content-Type` with boundary
-      accept: 'application/json',
-      'X-API-KEY': process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
-      'Content-Type': 'multipart/form-data',
+      accept: "application/json",
+      "X-API-KEY": process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
+      "Content-Type": "multipart/form-data",
     };
     const params = {
       company_id: req.user.organization,
@@ -1062,29 +1000,27 @@ exports.uploadOrganizationSourceUpload = async (req, res) => {
     const response = await axios.post(url, formData, { headers, params });
     res.status(201).json(response.data);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to upload file', err });
+    res.status(500).json({ message: "Failed to upload file", err });
   }
 };
 
 exports.fetchSourceFileList = async (req, res) => {
   try {
     const headers = {
-      accept: 'application/json',
-      'X-API-KEY': process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
+      accept: "application/json",
+      "X-API-KEY": process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
     };
     // companyId = organizationId
     const params = req.query;
-    const url = `${
-      process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT
-    }/assistant/get-pdfs-list?company_id=${params.company_id}&page=${
-      params.page
-    }&search=${params.search ?? null}&sortField=${
+    const url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant/get-pdfs-list?company_id=${
+      params.company_id
+    }&page=${params.page}&search=${params.search ?? null}&sortField=${
       params.sortField ?? null
     }&sortDirection=${params.sortDirection ?? null}&limit=${params.limit}`;
-    console.log('url', url);
+    console.log("url", url);
     const response = await axios.get(url, { headers });
     res.status(200).json(response.data);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetc files', err });
+    res.status(500).json({ message: "Failed to fetc files", err });
   }
 };

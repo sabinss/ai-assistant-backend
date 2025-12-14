@@ -12,7 +12,7 @@ const helmet = require("helmet");
 
 //todo chat message sort by created date aila sorting milara ako chainclear
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
-const db = require("./helper/db");
+const db = require("./helper/cosmodb");
 const { googleOauthHandler } = require("./controllers/session.controller");
 const { handleTaskAgentCronJob } = require("./cronJob/taskAgentJob");
 const webhookRoute = require("./webhook");

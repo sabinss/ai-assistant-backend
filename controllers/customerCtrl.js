@@ -609,7 +609,7 @@ exports.updateCustomerAlertAddress = async (req, res) => {
 
     // Properly escape the alert_id and use boolean value for addressed
     const escapedAlertId = alert_id.replace(/'/g, "''"); // Escape single quotes for SQL
-    const sql_query = `UPDATE main.alert_log_table SET addressed = ${addressed} WHERE alert_id = '${escapedAlertId}'`;
+    const sql_query = `UPDATE main.alert_log_table SET addressed = ${addressed} WHERE alert_id = "${escapedAlertId}"`;
 
     const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
       sql_query

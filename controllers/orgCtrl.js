@@ -775,7 +775,7 @@ exports.createOrgAgentInstructions = async (req, res) => {
     await agent.save({ session });
 
     let newAgentInstructions = [];
-    if (tasks.length > 0) {
+    if (tasks?.length > 0) {
       // 2️⃣ Insert Multiple Agent Instructions
       newAgentInstructions = await AgentTask.insertMany(
         tasks.map((inst) => ({

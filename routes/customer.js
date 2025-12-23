@@ -1,6 +1,6 @@
-const ctl = require('../controllers/customerCtrl');
-const authUser = require('../middleware/authUser')['authenticate'];
-const verifySameOrganization = require('../middleware/verifySameOrganization');
+const ctl = require("../controllers/customerCtrl");
+const authUser = require("../middleware/authUser")["authenticate"];
+const verifySameOrganization = require("../middleware/verifySameOrganization");
 
 module.exports = (app) => {
   app.get(
@@ -13,51 +13,33 @@ module.exports = (app) => {
     verifySameOrganization,
     ctl.getCustomerFeatures
   );
-  app.get(
-    `${process.env.APP_URL}/customer/details`,
-    verifySameOrganization,
-    ctl.getCustomerDetail
-  );
+  app.get(`${process.env.APP_URL}/customer/details`, verifySameOrganization, ctl.getCustomerDetail);
   app.put(
     `${process.env.APP_URL}/customer/alert/:alert_id/address`,
     authUser,
     ctl.updateCustomerAlertAddress
   );
-  app.get(
-    `${process.env.APP_URL}/customer/all`,
-    verifySameOrganization,
-    ctl.getAllCustomers
-  );
-  app.post(
-    `${process.env.APP_URL}/customer`,
-    verifySameOrganization,
-    ctl.createCustomer
-  );
-  app.get(
-    `${process.env.APP_URL}/customer/alerts`,
-    authUser,
-    ctl.getCustomerAlertData
-  );
+  app.get(`${process.env.APP_URL}/customer/all`, verifySameOrganization, ctl.getAllCustomers);
+  app.post(`${process.env.APP_URL}/customer`, verifySameOrganization, ctl.createCustomer);
+  app.get(`${process.env.APP_URL}/customer/alerts`, authUser, ctl.getCustomerAlertData);
   app.get(
     `${process.env.APP_URL}/customer/redshift`,
     authUser,
     ctl.fetchCustomerDetailsFromRedshift
   );
+  app.get(`${process.env.APP_URL}/customer/stage-list`, authUser, ctl.fetchCustomerStageList);
+
   app.get(
-    `${process.env.APP_URL}/customer/stage-list`,
+    `${process.env.APP_URL}/customer/stage-list/dropdown`,
     authUser,
-    ctl.fetchCustomerStageList
+    ctl.fetchCustomerStageListForDropdown
   );
   app.get(
     `${process.env.APP_URL}/customer/high-risk-churn-stats`,
     authUser,
     ctl.getHighRiskChurnStats
   );
-  app.put(
-    `${process.env.APP_URL}/customer/:id`,
-    authUser,
-    ctl.updateCustomerDetail
-  );
+  app.put(`${process.env.APP_URL}/customer/:id`, authUser, ctl.updateCustomerDetail);
   app.get(
     `${process.env.APP_URL}/customer/customer-score-analysis`,
     authUser,
@@ -69,35 +51,15 @@ module.exports = (app) => {
     ctl.getCustomerScoreDashboard
   );
 
-  app.get(
-    `${process.env.APP_URL}/customer/immediate-actions`,
-    authUser,
-    ctl.getImmediateActions
-  );
+  app.get(`${process.env.APP_URL}/customer/immediate-actions`, authUser, ctl.getImmediateActions);
   app.get(
     `${process.env.APP_URL}/customer/churn-risk-distribution`,
     authUser,
     ctl.getChurnRiskDistribution
   );
-  app.get(
-    `${process.env.APP_URL}/customer/churn-risk-trend`,
-    authUser,
-    ctl.getChurnRiskTrend
-  );
-  app.get(
-    `${process.env.APP_URL}/customer/:id/score`,
-    authUser,
-    ctl.getCustomerScore
-  );
-  app.get(
-    `${process.env.APP_URL}/customer/:id/details`,
-    authUser,
-    ctl.getCustomerScoreDetails
-  );
+  app.get(`${process.env.APP_URL}/customer/churn-risk-trend`, authUser, ctl.getChurnRiskTrend);
+  app.get(`${process.env.APP_URL}/customer/:id/score`, authUser, ctl.getCustomerScore);
+  app.get(`${process.env.APP_URL}/customer/:id/details`, authUser, ctl.getCustomerScoreDetails);
 
-  app.get(
-    `${process.env.APP_URL}/customer/usage-funnel`,
-    authUser,
-    ctl.getUsageFunnel
-  );
+  app.get(`${process.env.APP_URL}/customer/usage-funnel`, authUser, ctl.getUsageFunnel);
 };

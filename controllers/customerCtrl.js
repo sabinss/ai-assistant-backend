@@ -1596,6 +1596,25 @@ exports.getHighRiskChurnStats = async (req, res) => {
   }
 };
 
+exports.fetchCustomerStageListForDropdown = async (req, res) => {
+  try {
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const org_id = req.user.organization.toString();
+    let sql_query = `SELECT stage,count(*) as records from db${org_id}.usage_funnel_view group by 1 order by 1`;
+    const url =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        sql_query
+      )}&session_id=${session_id}&org_id=${org_id}`;
+    const response = await axiosInstance.post(url, {}, { timeout: 300000 });
+    return res.status(200).json({
+      data: response.data.result.result_set.filter((item) => item.stage !== null),
+    });
+  } catch (error) {
+    console.error("Error fetching customer stage list for dropdown:", error);
+    return res.status(500).json({ message: "Internal Server Error", error });
+  }
+};
 exports.fetchCustomerStageList = async (req, res) => {
   try {
     const session_id = Math.floor(1000 + Math.random() * 9000);

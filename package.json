@@ -10,6 +10,11 @@
   },
   "author": "Lokendra Jargha",
   "license": "ISC",
+  "overrides": {
+    "buffer-equal-constant-time": "^1.0.1",
+    "jwa": "^2.0.0",
+    "jws": "^4.0.0"
+  },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",
     "axios": "^1.9.0",

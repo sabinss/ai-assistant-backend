@@ -1607,6 +1607,7 @@ exports.fetchCustomerStageListForDropdown = async (req, res) => {
         sql_query
       )}&session_id=${session_id}&org_id=${org_id}`;
     const response = await axiosInstance.post(url, {}, { timeout: 300000 });
+    console.log("Usage Funel response from query:", response.data);
     return res.status(200).json({
       data: response.data.result.result_set.filter((item) => item.stage !== null),
     });

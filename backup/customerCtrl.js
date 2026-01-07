@@ -37,18 +37,31 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
           `;
 
     // Fetch churn risk trend data for all months of current year
+    // const trendQuery = `
+    //           SELECT
+    //               month,
+    //               COUNT(DISTINCT customer_id) as total_customers,
+    //               COUNT(DISTINCT CASE WHEN churn_risk_score > ${threshold} THEN customer_id END) as high_risk_customers,
+    //               AVG(churn_risk_score) as avg_churn_score,
+    //               SUM(CASE WHEN churn_risk_score > ${threshold} THEN arr ELSE 0 END) as high_risk_arr
+    //           FROM db${org_id}.customer_score_view
+    //           WHERE year = ${currentYear}
+    //           GROUP BY month
+    //           ORDER BY month ASC
+    //       `;
     const trendQuery = `
-              SELECT 
-                  month,
-                  COUNT(DISTINCT customer_id) as total_customers,
-                  COUNT(DISTINCT CASE WHEN churn_risk_score > ${threshold} THEN customer_id END) as high_risk_customers,
-                  AVG(churn_risk_score) as avg_churn_score,
-                  SUM(CASE WHEN churn_risk_score > ${threshold} THEN arr ELSE 0 END) as high_risk_arr
-              FROM db${org_id}.customer_score_view 
-              WHERE year = ${currentYear}
-              GROUP BY month
-              ORDER BY month ASC
-          `;
+        SELECT 
+          year,
+          month,
+          COUNT(DISTINCT customer_id) AS total_customers,
+          COUNT(DISTINCT CASE WHEN churn_risk_score > ${threshold} THEN customer_id END) AS high_risk_customers,
+          AVG(churn_risk_score) AS avg_churn_score,
+          SUM(CASE WHEN churn_risk_score > ${threshold} THEN arr ELSE 0 END) AS high_risk_arr
+        FROM db${org_id}.customer_score_view
+        WHERE make_date(year::int, month::int, 1) >= date_trunc('month', CURRENT_DATE) - INTERVAL '12 months'
+        GROUP BY year, month
+        ORDER BY year::int ASC, month::int ASC;
+`;
 
     // Fetch risk matrix data for all customers
     const riskMatrixQuery = `

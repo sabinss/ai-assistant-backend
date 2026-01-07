@@ -61,27 +61,21 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
           `;
 
     // Helper function to execute SQL query with retry logic
-    const executeSqlQueryWithRetry = async (
-      query,
-      queryName,
-      maxRetries = 3
-    ) => {
+    const executeSqlQueryWithRetry = async (query, queryName, maxRetries = 3) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           console.log(`🔄 ${queryName} - Attempt ${attempt}/${maxRetries}`);
 
           const response = await axiosInstance.post(
-            `${
-              process.env.AI_AGENT_SERVER_URI
-            }/run-sql-query?sql_query=${encodeURIComponent(
+            `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
               query
             )}&session_id=${session_id}&org_id=${org_id}`,
             {},
             {
               timeout: 300000, // 5 minutes
               headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
+                "Content-Type": "application/json",
+                Accept: "application/json",
               },
             }
           );
@@ -92,26 +86,19 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
           }
 
           // Check for query execution status
-          if (response?.data?.result?.metadata?.status === 'FAILED') {
+          if (response?.data?.result?.metadata?.status === "FAILED") {
             throw new Error(
-              `Query execution failed: ${
-                response.data.result.metadata.message || 'Unknown error'
-              }`
+              `Query execution failed: ${response.data.result.metadata.message || "Unknown error"}`
             );
           }
 
           console.log(`✅ ${queryName} - Success on attempt ${attempt}`);
           return response;
         } catch (error) {
-          console.error(
-            `❌ ${queryName} - Attempt ${attempt} failed:`,
-            error.message
-          );
+          console.error(`❌ ${queryName} - Attempt ${attempt} failed:`, error.message);
 
           if (attempt === maxRetries) {
-            throw new Error(
-              `${queryName} failed after ${maxRetries} attempts: ${error.message}`
-            );
+            throw new Error(`${queryName} failed after ${maxRetries} attempts: ${error.message}`);
           }
 
           // Wait before retrying (exponential backoff)
@@ -122,41 +109,31 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
       }
     };
 
-    console.log('Fetching previous month data...');
+    console.log("Fetching previous month data...");
     const prevMonthResponse = await executeSqlQueryWithRetry(
       prevMonthQuery,
-      'Previous Month Query'
+      "Previous Month Query"
     );
 
-    const companyResponse = await executeSqlQueryWithRetry(
-      companyQuery,
-      'Company Query'
-    );
+    const companyResponse = await executeSqlQueryWithRetry(companyQuery, "Company Query");
 
-    console.log('companyResponse', companyResponse);
+    console.log("companyResponse", companyResponse);
 
-    console.log('Fetching previous-1 month data...');
+    console.log("Fetching previous-1 month data...");
     const prevPrevMonthResponse = await executeSqlQueryWithRetry(
       prevPrevMonthQuery,
-      'Previous-Previous Month Query'
+      "Previous-Previous Month Query"
     );
 
-    console.log('Fetching churn risk trend data...');
-    const trendResponse = await executeSqlQueryWithRetry(
-      trendQuery,
-      'Churn Risk Trend Query'
-    );
+    console.log("Fetching churn risk trend data...");
+    const trendResponse = await executeSqlQueryWithRetry(trendQuery, "Churn Risk Trend Query");
 
-    console.log('Fetching risk matrix data...');
-    const riskMatrixResponse = await executeSqlQueryWithRetry(
-      riskMatrixQuery,
-      'Risk Matrix Query'
-    );
+    console.log("Fetching risk matrix data...");
+    const riskMatrixResponse = await executeSqlQueryWithRetry(riskMatrixQuery, "Risk Matrix Query");
 
     // Extract data from responses
     const prevMonthData = prevMonthResponse?.data?.result?.result_set || [];
-    const prevPrevMonthData =
-      prevPrevMonthResponse?.data?.result?.result_set || [];
+    const prevPrevMonthData = prevPrevMonthResponse?.data?.result?.result_set || [];
     const trendData = trendResponse?.data?.result?.result_set || [];
     const riskMatrixData = riskMatrixResponse?.data?.result?.result_set || [];
 
@@ -171,18 +148,18 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
       if (!monthlyData || monthlyData.length === 0) return [];
 
       const monthNames = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
       ];
       const processedData = [];
 
@@ -195,8 +172,7 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
             monthName: monthNames[month - 1],
             totalCustomers: Number(row.total_customers || 0),
             highRiskCustomers: Number(row.high_risk_customers || 0),
-            avgChurnScore:
-              Math.round(Number(row.avg_churn_score || 0) * 100) / 100,
+            avgChurnScore: Math.round(Number(row.avg_churn_score || 0) * 100) / 100,
             highRiskARR: Math.round(Number(row.high_risk_arr || 0) * 100) / 100,
           });
         }
@@ -209,6 +185,8 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
     };
 
     const trendAnalysis = processTrendData(trendData);
+
+    console.log("Churn Risk Trend Analysis:", trendAnalysis);
 
     // Process risk matrix data for scatter plot
     const processRiskMatrixData = (data) => {
@@ -226,30 +204,30 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
 
       data.forEach((row) => {
         const churnScore = Number(row.churn_risk_score || 0);
-        const renewalDate = moment(row.renewal_date, 'YYYY-MM-DD');
-        const daysToRenewal = renewalDate.diff(today, 'days');
+        const renewalDate = moment(row.renewal_date, "YYYY-MM-DD");
+        const daysToRenewal = renewalDate.diff(today, "days");
 
         // Determine risk level based on churn score
-        let riskLevel = '';
-        let riskColor = '';
+        let riskLevel = "";
+        let riskColor = "";
 
         if (churnScore >= 81) {
-          riskLevel = 'Critical';
-          riskColor = '#FF0000'; // Red
+          riskLevel = "Critical";
+          riskColor = "#FF0000"; // Red
           criticalCount++;
         } else if (churnScore >= 71) {
-          riskLevel = 'High';
-          riskColor = '#FFA500'; // Orange
+          riskLevel = "High";
+          riskColor = "#FFA500"; // Orange
           highCount++;
         } else {
-          riskLevel = 'Healthy';
-          riskColor = '#00FF00'; // Green
+          riskLevel = "Healthy";
+          riskColor = "#00FF00"; // Green
           healthyCount++;
         }
 
         processedCustomers.push({
           customer_id: row.customer_id,
-          customer_name: row.customer_name || row.company_name || 'N/A',
+          customer_name: row.customer_name || row.company_name || "N/A",
           churn_risk_score: churnScore,
           renewal_date: row.renewal_date,
           days_to_renewal: daysToRenewal,
@@ -270,10 +248,8 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
       };
     };
 
-    const {
-      customers: riskMatrixCustomers,
-      riskDistribution: matrixRiskDistribution,
-    } = processRiskMatrixData(riskMatrixData);
+    const { customers: riskMatrixCustomers, riskDistribution: matrixRiskDistribution } =
+      processRiskMatrixData(riskMatrixData);
 
     // Custom logic to calculate statistics
     const calculateStats = (data, scoreDashboardData) => {
@@ -299,12 +275,8 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
       const totalCustomers = uniqueCustomers.length;
 
       const churnScores = data.map((row) => Number(row.churn_risk_score || 0));
-      const highRiskCustomers = data.filter(
-        (row) => Number(row.churn_risk_score || 0) > threshold
-      );
-      const highRiskCount = [
-        ...new Set(highRiskCustomers.map((row) => row.customer_id)),
-      ].length;
+      const highRiskCustomers = data.filter((row) => Number(row.churn_risk_score || 0) > threshold);
+      const highRiskCount = [...new Set(highRiskCustomers.map((row) => row.customer_id))].length;
 
       // Calculate total sum of churn risk scores for customers >70
       const totalHighRiskScore = highRiskCustomers.reduce(
@@ -312,17 +284,12 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
         0
       );
 
-      const revenueAtRisk = highRiskCustomers.reduce(
-        (sum, row) => sum + Number(row.arr || 0),
-        0
-      );
+      const revenueAtRisk = highRiskCustomers.reduce((sum, row) => sum + Number(row.arr || 0), 0);
 
-      const highRiskPercent =
-        totalCustomers > 0 ? (highRiskCount / totalCustomers) * 100 : 0;
+      const highRiskPercent = totalCustomers > 0 ? (highRiskCount / totalCustomers) * 100 : 0;
       const avgChurnScore =
         churnScores.length > 0
-          ? churnScores.reduce((sum, score) => sum + score, 0) /
-            churnScores.length
+          ? churnScores.reduce((sum, score) => sum + score, 0) / churnScores.length
           : 0;
 
       // Map customers to churn risk distribution chart ranges
@@ -369,29 +336,27 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
     const getHighRiskCustomerList = (data) => {
       if (!data || data.length === 0) return [];
 
-      const highRiskCustomers = data.filter(
-        (row) => Number(row.churn_risk_score || 0) > threshold
-      );
+      const highRiskCustomers = data.filter((row) => Number(row.churn_risk_score || 0) > threshold);
 
       return highRiskCustomers.map((row) => {
         const score = Number(row.churn_risk_score || 0);
-        let riskLevel = '';
+        let riskLevel = "";
 
         // Determine risk level based on score ranges
-        if (score >= 1 && score <= 20) riskLevel = 'Very Low';
-        else if (score >= 21 && score <= 40) riskLevel = 'Low';
-        else if (score >= 41 && score <= 60) riskLevel = 'Medium';
-        else if (score >= 61 && score <= 80) riskLevel = 'High';
-        else if (score >= 81 && score <= 100) riskLevel = 'Critical';
-        else riskLevel = 'Unknown';
+        if (score >= 1 && score <= 20) riskLevel = "Very Low";
+        else if (score >= 21 && score <= 40) riskLevel = "Low";
+        else if (score >= 41 && score <= 60) riskLevel = "Medium";
+        else if (score >= 61 && score <= 80) riskLevel = "High";
+        else if (score >= 81 && score <= 100) riskLevel = "Critical";
+        else riskLevel = "Unknown";
         const today = moment();
-        const renewalDate = moment(row.renewal_date, 'YYYY-MM-DD');
+        const renewalDate = moment(row.renewal_date, "YYYY-MM-DD");
         return {
           customer_id: row.customer_id,
-          customer_name: row.customer_name || row.company_name || 'N/A',
+          customer_name: row.customer_name || row.company_name || "N/A",
           churn_risk_score: score,
-          renewal_days: renewalDate.diff(today, 'days') || 'N/A',
-          monetary_value: row.monetary_value || row.contract_value || 'N/A',
+          renewal_days: renewalDate.diff(today, "days") || "N/A",
+          monetary_value: row.monetary_value || row.contract_value || "N/A",
           risk_level: riskLevel,
           arr: row.arr,
         };
@@ -432,19 +397,13 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
       avgChurnScore:
         trendAnalysis.length > 0
           ? Math.round(
-              (trendAnalysis.reduce((sum, d) => sum + d.avgChurnScore, 0) /
-                trendAnalysis.length) *
+              (trendAnalysis.reduce((sum, d) => sum + d.avgChurnScore, 0) / trendAnalysis.length) *
                 100
             ) / 100
           : 0,
-      totalHighRiskCustomers: trendAnalysis.reduce(
-        (sum, d) => sum + d.highRiskCustomers,
-        0
-      ),
+      totalHighRiskCustomers: trendAnalysis.reduce((sum, d) => sum + d.highRiskCustomers, 0),
       totalHighRiskARR:
-        Math.round(
-          trendAnalysis.reduce((sum, d) => sum + d.highRiskARR, 0) * 100
-        ) / 100,
+        Math.round(trendAnalysis.reduce((sum, d) => sum + d.highRiskARR, 0) * 100) / 100,
     };
 
     return res.status(200).json({
@@ -478,22 +437,22 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
         trendSummary: trendSummary,
         chartConfig: {
           xAxis: {
-            type: 'category',
+            type: "category",
             data: trendAnalysis.map((d) => d.monthName),
           },
           series: [
             {
-              name: 'Average Churn Score',
+              name: "Average Churn Score",
               data: trendAnalysis.map((d) => d.avgChurnScore),
               yAxisIndex: 0,
             },
             {
-              name: 'High Risk Customers (>60)',
+              name: "High Risk Customers (>60)",
               data: trendAnalysis.map((d) => d.highRiskCustomers),
               yAxisIndex: 0,
             },
             {
-              name: 'High Risk ARR',
+              name: "High Risk ARR",
               data: trendAnalysis.map((d) => d.highRiskARR),
               yAxisIndex: 1,
             },
@@ -505,62 +464,50 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
           customers: riskMatrixCustomers,
           riskDistribution: matrixRiskDistribution,
           chartConfig: {
-            title: 'Risk Matrix: Churn Score vs Time to Renewal',
+            title: "Risk Matrix: Churn Score vs Time to Renewal",
             xAxis: {
-              type: 'value',
-              name: 'Days to Renewal',
-              nameLocation: 'middle',
+              type: "value",
+              name: "Days to Renewal",
+              nameLocation: "middle",
               nameGap: 30,
             },
             yAxis: {
-              type: 'value',
-              name: 'Churn Risk Score',
-              nameLocation: 'middle',
+              type: "value",
+              name: "Churn Risk Score",
+              nameLocation: "middle",
               nameGap: 30,
             },
             series: [
               {
-                name: 'Critical',
-                type: 'scatter',
+                name: "Critical",
+                type: "scatter",
                 data: riskMatrixCustomers
-                  .filter((c) => c.risk_level === 'Critical')
-                  .map((c) => [
-                    c.days_to_renewal,
-                    c.churn_risk_score,
-                    c.customer_name,
-                  ]),
-                itemStyle: { color: '#FF0000' },
+                  .filter((c) => c.risk_level === "Critical")
+                  .map((c) => [c.days_to_renewal, c.churn_risk_score, c.customer_name]),
+                itemStyle: { color: "#FF0000" },
                 symbolSize: 8,
               },
               {
-                name: 'High',
-                type: 'scatter',
+                name: "High",
+                type: "scatter",
                 data: riskMatrixCustomers
-                  .filter((c) => c.risk_level === 'High')
-                  .map((c) => [
-                    c.days_to_renewal,
-                    c.churn_risk_score,
-                    c.customer_name,
-                  ]),
-                itemStyle: { color: '#FFA500' },
+                  .filter((c) => c.risk_level === "High")
+                  .map((c) => [c.days_to_renewal, c.churn_risk_score, c.customer_name]),
+                itemStyle: { color: "#FFA500" },
                 symbolSize: 8,
               },
               {
-                name: 'Healthy',
-                type: 'scatter',
+                name: "Healthy",
+                type: "scatter",
                 data: riskMatrixCustomers
-                  .filter((c) => c.risk_level === 'Healthy')
-                  .map((c) => [
-                    c.days_to_renewal,
-                    c.churn_risk_score,
-                    c.customer_name,
-                  ]),
-                itemStyle: { color: '#00FF00' },
+                  .filter((c) => c.risk_level === "Healthy")
+                  .map((c) => [c.days_to_renewal, c.churn_risk_score, c.customer_name]),
+                itemStyle: { color: "#00FF00" },
                 symbolSize: 8,
               },
             ],
             legend: {
-              data: ['Critical', 'High', 'Healthy'],
+              data: ["Critical", "High", "Healthy"],
               top: 10,
               right: 10,
             },
@@ -568,8 +515,7 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
               formatter: function (params) {
                 const customer = riskMatrixCustomers.find(
                   (c) =>
-                    c.days_to_renewal === params.value[0] &&
-                    c.churn_risk_score === params.value[1]
+                    c.days_to_renewal === params.value[0] && c.churn_risk_score === params.value[1]
                 );
                 if (customer) {
                   return `
@@ -588,40 +534,39 @@ exports.getHighRiskChurnStatsBackup = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error computing high risk churn stats:', error);
+    console.error("Error computing high risk churn stats:", error);
 
     // Handle specific socket hang up and connection errors
-    if (error.code === 'ECONNABORTED') {
+    if (error.code === "ECONNABORTED") {
       return res.status(504).json({
-        message: 'Request timeout - SQL query took too long to execute',
-        error: 'Gateway Timeout',
-        suggestion: 'Try again or contact support if the issue persists',
+        message: "Request timeout - SQL query took too long to execute",
+        error: "Gateway Timeout",
+        suggestion: "Try again or contact support if the issue persists",
       });
-    } else if (error.code === 'ECONNRESET') {
+    } else if (error.code === "ECONNRESET") {
       return res.status(503).json({
-        message:
-          'Connection reset - AI Agent Server connection was interrupted',
-        error: 'Service Unavailable',
-        suggestion: 'The server may be experiencing issues. Please try again.',
+        message: "Connection reset - AI Agent Server connection was interrupted",
+        error: "Service Unavailable",
+        suggestion: "The server may be experiencing issues. Please try again.",
       });
-    } else if (error.code === 'ENOTFOUND') {
+    } else if (error.code === "ENOTFOUND") {
       return res.status(502).json({
-        message: 'AI Agent Server not found - Check server configuration',
-        error: 'Bad Gateway',
-        suggestion: 'Verify AI_AGENT_SERVER_URI environment variable',
+        message: "AI Agent Server not found - Check server configuration",
+        error: "Bad Gateway",
+        suggestion: "Verify AI_AGENT_SERVER_URI environment variable",
       });
-    } else if (error.code === 'ECONNREFUSED') {
+    } else if (error.code === "ECONNREFUSED") {
       return res.status(502).json({
-        message: 'AI Agent Server connection refused - Server may be down',
-        error: 'Bad Gateway',
-        suggestion: 'Check if the AI Agent Server is running and accessible',
+        message: "AI Agent Server connection refused - Server may be down",
+        error: "Bad Gateway",
+        suggestion: "Check if the AI Agent Server is running and accessible",
       });
     }
 
     return res.status(500).json({
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
-      suggestion: 'Please try again or contact support if the issue persists',
+      suggestion: "Please try again or contact support if the issue persists",
     });
   }
 };

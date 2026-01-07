@@ -308,8 +308,6 @@ exports.getChurnRiskTrend = async (req, res) => {
         Math.round(trendAnalysis.reduce((sum, d) => sum + d.highRiskARR, 0) * 100) / 100,
     };
 
-    console.log("📊 trendData being sent to client:", JSON.stringify(trendAnalysis, null, 2));
-
     return res.status(200).json({
       data: {
         threshold,
@@ -398,13 +396,10 @@ exports.getChurnRiskDistribution = async (req, res) => {
       ORDER BY churn_risk_bucket;
       `;
     const session_id = Math.floor(1000 + Math.random() * 9000);
-    const churn_query =
-      process.env.AI_AGENT_SERVER_URI +
-      `/run-sql-query?sql_query=${encodeURIComponent(
-        sql_query
-      )}&session_id=${session_id}&org_id=${org_id}`;
     const response = await axiosInstance.post(
-      `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${churn_query}&org_id=${org_id}`
+      `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
+        sql_query
+      )}&session_id=${session_id}&org_id=${org_id}`
     );
     res.status(200).json({ data: response?.data?.result?.result_set || null });
   } catch (error) {

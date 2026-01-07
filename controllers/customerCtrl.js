@@ -169,18 +169,31 @@ exports.getChurnRiskTrend = async (req, res) => {
     const currentYear = now.getFullYear();
 
     // Fetch churn risk trend data for all months of current year
+    // const trendQuery = `
+    //         SELECT
+    //             month,
+    //             COUNT(DISTINCT customer_id) as total_customers,
+    //             COUNT(DISTINCT CASE WHEN churn_risk_score > ${threshold} THEN customer_id END) as high_risk_customers,
+    //             AVG(churn_risk_score) as avg_churn_score,
+    //             SUM(CASE WHEN churn_risk_score > ${threshold} THEN arr ELSE 0 END) as high_risk_arr
+    //         FROM db${org_id}.customer_score_view
+    //         WHERE year = '${currentYear}'
+    //         GROUP BY month
+    //         ORDER BY month ASC
+    //     `;
+
     const trendQuery = `
-            SELECT 
-                month,
-                COUNT(DISTINCT customer_id) as total_customers,
-                COUNT(DISTINCT CASE WHEN churn_risk_score > ${threshold} THEN customer_id END) as high_risk_customers,
-                AVG(churn_risk_score) as avg_churn_score,
-                SUM(CASE WHEN churn_risk_score > ${threshold} THEN arr ELSE 0 END) as high_risk_arr
-            FROM db${org_id}.customer_score_view 
-            WHERE year = '${currentYear}'
-            GROUP BY month
-            ORDER BY month ASC
-        `;
+      SELECT 
+          month,
+          COUNT(DISTINCT customer_id) AS total_customers,
+          COUNT(DISTINCT CASE WHEN churn_risk_score > 40 THEN customer_id END) AS high_risk_customers,
+          AVG(churn_risk_score) AS avg_churn_score,
+          SUM(CASE WHEN churn_risk_score > 40 THEN arr ELSE 0 END) AS high_risk_arr
+      FROM db${org_id}.customer_score_view
+      WHERE make_date(year::int, month::int, 1) >= date_trunc('month', CURRENT_DATE) - INTERVAL '12 months'
+      GROUP BY month
+      ORDER BY month::int ASC;
+    `;
 
     // Helper function to execute SQL query with retry logic
     const executeSqlQueryWithRetry = async (query, queryName, maxRetries = 3) => {
@@ -294,6 +307,8 @@ exports.getChurnRiskTrend = async (req, res) => {
       totalHighRiskARR:
         Math.round(trendAnalysis.reduce((sum, d) => sum + d.highRiskARR, 0) * 100) / 100,
     };
+
+    console.log("📊 trendData being sent to client:", JSON.stringify(trendAnalysis, null, 2));
 
     return res.status(200).json({
       data: {
@@ -1458,7 +1473,10 @@ exports.getHighRiskChurnStats = async (req, res) => {
           },
         },
         highRiskCustomers: highRiskCustomerList,
-        trendData: trendAnalysis,
+        trendData: (() => {
+          console.log("📊 trendData being sent to client:", JSON.stringify(trendAnalysis, null, 2));
+          return trendAnalysis;
+        })(),
         trendSummary: trendSummary,
         chartConfig: {
           xAxis: {

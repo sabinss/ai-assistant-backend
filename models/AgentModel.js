@@ -23,6 +23,14 @@ const agentModel = new mongoose.Schema(
     dayTime: {
       type: String,
     },
+    scheduledHour: {
+      type: Number,
+      default: null, // Hour (0-23) for Weekly/Monthly schedules
+    },
+    lastTriggeredAt: {
+      type: Date,
+      default: null, // Track last execution to prevent duplicates
+    },
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',

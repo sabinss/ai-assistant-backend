@@ -1,197 +1,282 @@
-// cron-jobs/taskAgentJob.js
+// cronJob/taskAgentJob.js
 const cron = require('node-cron');
 const axios = require('axios');
 const Organization = require('../models/Organization');
-const TaskAgentModel = require('../models/TaskAgentModel');
 const moment = require('moment');
 const AgentModel = require('../models/AgentModel');
-const logger = require('../config/logger');
 const AgentCronLogSchema = require('../models/AgentCronLogSchema');
-function getCronSchedule(frequency, dayTime) {
-  let minute = '0';
-  let hour = '0';
-  let dayOfMonth = '*';
-  let month = '*';
-  let dayOfWeek = '*';
 
-  switch (frequency.toLowerCase()) {
-    case 'daily':
-      hour = parseInt(dayTime) % 24;
-      break;
+/**
+ * Check if an agent should be triggered based on frequency and dayTime
+ * Returns { shouldTrigger: boolean, skipReason: string | null }
+ */
+const shouldTriggerInWindow = (agent, windowStart, windowEnd) => {
+  const { frequency, dayTime, scheduledHour, lastTriggeredAt } = agent;
 
-    case 'weekly':
-      dayOfWeek = (parseInt(dayTime) % 7).toString(); // 0–6
-      break;
-
-    case 'monthly':
-      dayOfMonth = parseInt(dayTime).toString();
-      break;
-
-    case 'quarterly':
-      const quarter = parseInt(dayTime);
-      const quarterMonths = { 1: 1, 2: 4, 3: 7, 4: 10 };
-      month = quarterMonths[quarter] || 1;
-      dayOfMonth = '1';
-      break;
-
-    default:
-      throw new Error('Invalid frequency');
+  if (!frequency || dayTime === null || dayTime === undefined) {
+    return { shouldTrigger: false, skipReason: 'Missing frequency or dayTime' };
   }
 
-  return `${minute} ${hour} ${dayOfMonth} ${month} ${dayOfWeek}`;
-}
+  const parsedDayTime = parseInt(dayTime);
+  if (isNaN(parsedDayTime)) {
+    return { shouldTrigger: false, skipReason: `Invalid dayTime: ${dayTime}` };
+  }
 
-function startTaskAgentCron(frequency = 'daily', dayTime = '6') {
-  const cronTrigger = getCronSchedule(frequency, dayTime);
-  console.log(`⏰ Scheduling Task Agent job with: ${cronTrigger}`);
+  switch (frequency) {
+    case 'Daily': {
+      const targetHour = parsedDayTime;
 
-  cron.schedule(cronTrigger, async () => {
-    console.log('🔄 Running scheduled task at:', new Date().toISOString());
-
-    try {
-      const organizations = await Organization.find();
-
-      for (const org of organizations) {
-        const activeAgents = await TaskAgentModel.find({
-          active: true,
-          isAgent: true,
-          organization: org._id,
-        }).populate('organization');
-
-        for (const task of activeAgents) {
-          try {
-            const pythonServerUri = `${
-              process.env.AI_AGENT_SERVER_URI
-            }/task-agent?task_name=${encodeURIComponent(task.name)}&org_id=${
-              org._id
-            }`;
-
-            const response = await axios.post(pythonServerUri);
-            console.log(
-              `✅ [${org._id}] Task: ${task.name} responded with status ${response.status}`
-            );
-          } catch (err) {
-            console.error(`❌ Task failed: ${task.name}`, err.message);
-          }
+      if (lastTriggeredAt) {
+        const lastRun = moment(lastTriggeredAt);
+        if (lastRun.isSame(windowEnd, 'day')) {
+          return { shouldTrigger: false, skipReason: `Already triggered today at ${lastRun.format('HH:mm')}` };
         }
       }
-    } catch (err) {
-      console.error('❌ Cron job failed:', err.message);
-    }
-  });
-}
 
-const shouldTriggerNow = (org, now, agentId) => {
-  const { frequency, dayTime } = org;
-  switch (frequency) {
-    case 'Daily':
-      //   logger.info(`🔁 [Agent ${agentId}] Daily check @ ${now.format()} → `);
-      // return now.date() == +dayTime;
-      // return now.hour() === 1; // always true at 1 AM
-      return true;
-    case 'Weekly':
-      // `W-1` = Monday (moment.isoWeekday: 1 = Monday, 7 = Sunday)
-      const todayWeekDay = now.isoWeekday(); // 1-7
-      const orgWeekDay = parseInt(dayTime.replace('W-', ''));
-      const isWeekly = todayWeekDay === orgWeekDay;
-      //   logger.info(
-      //     `📅 [Agent ${agentId}] Weekly check: Today=${todayWeekDay}, Org=${orgWeekDay} → ${isWeekly}`
-      //   );
-      return isWeekly;
-    case 'Monthly':
-      // `M-15` means 15th of the month
-      const todayDate = now.date(); // 1-31
-      const orgDay = parseInt(dayTime.replace('M-', ''));
-      const isMonthly = todayDate === orgDay;
-      //   logger.info(
-      //     `📆 [Agent ${agentId}] Monthly check: Today=${todayDate}, Org=${orgDay} → ${isMonthly}`
-      //   );
-      return isMonthly;
-    case 'Quarterly':
-      const quarterMonths = [1, 4, 7, 10];
-      const currentMonth = now.month() + 1; // 1-12
-      const quarterDay = parseInt(dayTime);
-      const isQuarterMonth = quarterMonths.includes(currentMonth);
-      const isQuarterDay = now.date() === quarterDay;
-      const isQuarterly = isQuarterMonth && isQuarterDay;
-      //   logger.info(
-      //     `🗓️ [Agent ${agentId}] Quarterly check: Month=${currentMonth}, Day=${now.date()}, OrgDay=${quarterDay} → ${isQuarterly}`
-      //   );
-      return isQuarterly;
+      if (!isHourInWindow(targetHour, windowStart, windowEnd)) {
+        return { shouldTrigger: false, skipReason: `Hour ${targetHour} not in window ${windowStart.format('HH:mm')}-${windowEnd.format('HH:mm')}` };
+      }
+
+      return { shouldTrigger: true, skipReason: null };
+    }
+
+    case 'Weekly': {
+      const targetDay = parsedDayTime;
+      const targetHour = scheduledHour ?? 0;
+      const currentDay = windowEnd.isoWeekday();
+      const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+      if (lastTriggeredAt) {
+        const lastRun = moment(lastTriggeredAt);
+        if (lastRun.isSame(windowEnd, 'week')) {
+          return { shouldTrigger: false, skipReason: `Already triggered this week on ${lastRun.format('dddd HH:mm')}` };
+        }
+      }
+
+      if (currentDay !== targetDay) {
+        return { shouldTrigger: false, skipReason: `Today is ${dayNames[currentDay]}, scheduled for ${dayNames[targetDay]}` };
+      }
+
+      if (!isHourInWindow(targetHour, windowStart, windowEnd)) {
+        return { shouldTrigger: false, skipReason: `Hour ${targetHour} not in window ${windowStart.format('HH:mm')}-${windowEnd.format('HH:mm')}` };
+      }
+
+      return { shouldTrigger: true, skipReason: null };
+    }
+
+    case 'Monthly': {
+      const targetDate = parsedDayTime;
+      const targetHour = scheduledHour ?? 0;
+      const currentDate = windowEnd.date();
+
+      if (lastTriggeredAt) {
+        const lastRun = moment(lastTriggeredAt);
+        if (lastRun.isSame(windowEnd, 'month')) {
+          return { shouldTrigger: false, skipReason: `Already triggered this month on ${lastRun.format('Do HH:mm')}` };
+        }
+      }
+
+      if (currentDate !== targetDate) {
+        return { shouldTrigger: false, skipReason: `Today is ${currentDate}th, scheduled for ${targetDate}th` };
+      }
+
+      if (!isHourInWindow(targetHour, windowStart, windowEnd)) {
+        return { shouldTrigger: false, skipReason: `Hour ${targetHour} not in window ${windowStart.format('HH:mm')}-${windowEnd.format('HH:mm')}` };
+      }
+
+      return { shouldTrigger: true, skipReason: null };
+    }
+
     default:
-      return false;
+      return { shouldTrigger: false, skipReason: `Unknown frequency: ${frequency}` };
   }
 };
 
-const handleTaskAgentCronJob = async () => {
-  try {
-    const now = moment();
+/**
+ * Check if target hour falls within the 3-hour window
+ */
+const isHourInWindow = (targetHour, windowStart, windowEnd) => {
+  const startHour = windowStart.hour();
+  const endHour = windowEnd.hour();
 
+  if (windowStart.isSame(windowEnd, 'day')) {
+    return targetHour > startHour && targetHour <= endHour;
+  }
+
+  return targetHour > startHour || targetHour <= endHour;
+};
+
+/**
+ * Main cron job handler - runs every 3 hours
+ */
+const handleTaskAgentCronJob = async () => {
+  const now = moment();
+  const windowEnd = now.clone();
+  const windowStart = now.clone().subtract(3, 'hours');
+  const cronWindow = `${windowStart.format('HH:mm')} - ${windowEnd.format('HH:mm')}`;
+
+  console.log(`⏰ Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`);
+  console.log(`📅 Checking window: ${cronWindow}`);
+
+  try {
+    // Log cron start
     await AgentCronLogSchema.create({
-      organization: null,
-      agent: null,
-      status: 'triggered',
+      status: 'cron_started',
+      cronWindow,
       message: `Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
     });
-    // logger.info(`⏰ Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`);
 
     const allOrgs = await Organization.find();
+    let totalAgentsChecked = 0;
+    let totalAgentsTriggered = 0;
+    let totalAgentsSkipped = 0;
+
     for (const org of allOrgs) {
+      // Find active agents with scheduling configured
       const activeAgents = await AgentModel.find({
         active: true,
         isAgent: true,
         organization: org._id,
-        frequency: { $ne: null },
+        frequency: { $in: ['Daily', 'Weekly', 'Monthly'] },
         dayTime: { $ne: null },
-      }).populate('organization');
-      console.log('activeAgents', activeAgents.length);
+      });
 
-      if (activeAgents?.length === 0) continue;
-      if (activeAgents) {
-        await AgentCronLogSchema.create({
-          organization: org._id,
-          agent: activeAgents._id,
-          status: 'success',
-          message: `Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
-        });
-      }
+      if (activeAgents.length === 0) continue;
+
+      console.log(`🏢 Org ${org._id}: Found ${activeAgents.length} scheduled agents`);
 
       for (const agent of activeAgents) {
-        // shouldTriggerNow(agent, now, agent._id)
-        if (true) {
+        totalAgentsChecked++;
+
+        const { shouldTrigger, skipReason } = shouldTriggerInWindow(agent, windowStart, windowEnd);
+
+        // Log that agent was selected/checked
+        await AgentCronLogSchema.create({
+          organization: org._id,
+          agent: agent._id,
+          agentName: agent.name,
+          status: 'selected',
+          frequency: agent.frequency,
+          dayTime: agent.dayTime,
+          scheduledHour: agent.scheduledHour,
+          cronWindow,
+          message: `Agent checked: ${agent.name} | Frequency: ${agent.frequency} | dayTime: ${agent.dayTime}`,
+        });
+
+        if (shouldTrigger) {
           try {
-            const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${agent.name}&org_id=${org._id}&query='run'`;
+            const session_id = Math.floor(100000 + Math.random() * 900000).toString();
+            const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${encodeURIComponent(agent.name)}&org_id=${org._id}&query='run'&session_id=${session_id}`;
 
-            // const response = await
-            await axios.get(pythonServerUri);
-            await AgentCronLogSchema.create({
-              organization: org?._id,
-              agent: agent?._id,
-              status: 'success',
-              message: `Cron job started at ${now.format(
-                'YYYY-MM-DD HH:mm:ss'
-              )}`,
-              // message: `Response status: ${response?.status}`,
-            });
+            console.log(`🚀 Triggering agent: ${agent.name}`);
 
-            // console.log(
-            //   `✅ [${org._id}] Task: ${agent.name} responded with status ${response.status}`
-            // );
-          } catch (error) {
-            console.log('Failed Cron job api', error);
+            // Log that agent API is being called
             await AgentCronLogSchema.create({
               organization: org._id,
               agent: agent._id,
+              agentName: agent.name,
+              status: 'triggered',
+              frequency: agent.frequency,
+              dayTime: agent.dayTime,
+              scheduledHour: agent.scheduledHour,
+              apiUrl: pythonServerUri,
+              sessionId: session_id,
+              cronWindow,
+              message: `API called for agent: ${agent.name}`,
+            });
+
+            // Fire API call
+            axios.get(pythonServerUri).catch((err) => {
+              console.error(`❌ Agent API call failed: ${agent.name}`, err.message);
+              // Log API failure
+              AgentCronLogSchema.create({
+                organization: org._id,
+                agent: agent._id,
+                agentName: agent.name,
+                status: 'failure',
+                frequency: agent.frequency,
+                dayTime: agent.dayTime,
+                apiUrl: pythonServerUri,
+                sessionId: session_id,
+                cronWindow,
+                message: `API call failed: ${err.message}`,
+              });
+            });
+
+            // Update lastTriggeredAt
+            await AgentModel.findByIdAndUpdate(agent._id, {
+              lastTriggeredAt: now.toDate(),
+            });
+
+            // Log success
+            await AgentCronLogSchema.create({
+              organization: org._id,
+              agent: agent._id,
+              agentName: agent.name,
+              status: 'success',
+              frequency: agent.frequency,
+              dayTime: agent.dayTime,
+              scheduledHour: agent.scheduledHour,
+              apiUrl: pythonServerUri,
+              sessionId: session_id,
+              cronWindow,
+              message: `Successfully triggered at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
+            });
+
+            totalAgentsTriggered++;
+          } catch (error) {
+            console.error(`❌ Failed to trigger agent: ${agent.name}`, error.message);
+
+            await AgentCronLogSchema.create({
+              organization: org._id,
+              agent: agent._id,
+              agentName: agent.name,
               status: 'failure',
-              message: error?.message,
+              frequency: agent.frequency,
+              dayTime: agent.dayTime,
+              cronWindow,
+              message: `Error: ${error?.message || 'Unknown error'}`,
             });
           }
+        } else {
+          // Log skipped agent with reason
+          await AgentCronLogSchema.create({
+            organization: org._id,
+            agent: agent._id,
+            agentName: agent.name,
+            status: 'skipped',
+            frequency: agent.frequency,
+            dayTime: agent.dayTime,
+            scheduledHour: agent.scheduledHour,
+            cronWindow,
+            skipReason: skipReason,
+            message: `Skipped: ${skipReason}`,
+          });
+
+          totalAgentsSkipped++;
         }
       }
     }
-    console.log('Job triggerd');
+
+    // Log cron completion with summary
+    await AgentCronLogSchema.create({
+      status: 'cron_completed',
+      cronWindow,
+      totalAgentsChecked,
+      totalAgentsTriggered,
+      totalAgentsSkipped,
+      message: `Cron completed: ${totalAgentsTriggered} triggered, ${totalAgentsSkipped} skipped out of ${totalAgentsChecked} checked`,
+    });
+
+    console.log(`✅ Cron job completed: ${totalAgentsTriggered} triggered, ${totalAgentsSkipped} skipped`);
   } catch (err) {
-    console.log(err);
+    console.error('❌ Cron job error:', err.message);
+
+    await AgentCronLogSchema.create({
+      status: 'failure',
+      cronWindow,
+      message: `Cron job error: ${err.message}`,
+    });
   }
 };
 

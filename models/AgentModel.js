@@ -23,9 +23,9 @@ const agentModel = new mongoose.Schema(
     dayTime: {
       type: String,
     },
-    scheduledHour: {
-      type: Number,
-      default: null, // Hour (0-23) for Weekly/Monthly schedules
+    scheduleTime: {
+      type: String,
+      default: null, // Time string "HH:mm" for Weekly/Monthly schedules (e.g., "09:00", "14:30")
     },
     lastTriggeredAt: {
       type: Date,

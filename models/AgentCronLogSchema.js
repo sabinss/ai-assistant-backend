@@ -29,8 +29,8 @@ const AgentCronLogSchema = new mongoose.Schema({
     type: String, // The scheduled dayTime value
     required: false,
   },
-  scheduledHour: {
-    type: Number, // For Weekly/Monthly
+  scheduleTime: {
+    type: String, // For Weekly/Monthly (e.g., "09:00", "14:30")
     required: false,
   },
   apiUrl: {

@@ -7,11 +7,31 @@ const AgentModel = require('../models/AgentModel');
 const AgentCronLogSchema = require('../models/AgentCronLogSchema');
 
 /**
+ * Parse scheduleTime string "HH:mm" to extract hour
+ * @param {string} scheduleTime - Time string like "09:00", "14:30"
+ * @returns {number} - Hour (0-23), defaults to 0 if invalid
+ */
+const parseScheduleTimeHour = (scheduleTime) => {
+  if (!scheduleTime) return 0;
+  
+  // Handle "HH:mm" format
+  if (typeof scheduleTime === 'string' && scheduleTime.includes(':')) {
+    const [hours] = scheduleTime.split(':');
+    const parsed = parseInt(hours);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  
+  // Handle plain number (backward compatibility)
+  const parsed = parseInt(scheduleTime);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+/**
  * Check if an agent should be triggered based on frequency and dayTime
  * Returns { shouldTrigger: boolean, skipReason: string | null }
  */
 const shouldTriggerInWindow = (agent, windowStart, windowEnd) => {
-  const { frequency, dayTime, scheduledHour, lastTriggeredAt } = agent;
+  const { frequency, dayTime, scheduleTime, lastTriggeredAt } = agent;
 
   if (!frequency || dayTime === null || dayTime === undefined) {
     return { shouldTrigger: false, skipReason: 'Missing frequency or dayTime' };
@@ -42,7 +62,7 @@ const shouldTriggerInWindow = (agent, windowStart, windowEnd) => {
 
     case 'Weekly': {
       const targetDay = parsedDayTime;
-      const targetHour = scheduledHour ?? 0;
+      const targetHour = parseScheduleTimeHour(scheduleTime);
       const currentDay = windowEnd.isoWeekday();
       const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -66,7 +86,7 @@ const shouldTriggerInWindow = (agent, windowStart, windowEnd) => {
 
     case 'Monthly': {
       const targetDate = parsedDayTime;
-      const targetHour = scheduledHour ?? 0;
+      const targetHour = parseScheduleTimeHour(scheduleTime);
       const currentDate = windowEnd.date();
 
       if (lastTriggeredAt) {
@@ -158,7 +178,7 @@ const handleTaskAgentCronJob = async () => {
           status: 'selected',
           frequency: agent.frequency,
           dayTime: agent.dayTime,
-          scheduledHour: agent.scheduledHour,
+          scheduleTime: agent.scheduleTime,
           cronWindow,
           message: `Agent checked: ${agent.name} | Frequency: ${agent.frequency} | dayTime: ${agent.dayTime}`,
         });
@@ -178,7 +198,7 @@ const handleTaskAgentCronJob = async () => {
               status: 'triggered',
               frequency: agent.frequency,
               dayTime: agent.dayTime,
-              scheduledHour: agent.scheduledHour,
+              scheduleTime: agent.scheduleTime,
               apiUrl: pythonServerUri,
               sessionId: session_id,
               cronWindow,
@@ -216,7 +236,7 @@ const handleTaskAgentCronJob = async () => {
               status: 'success',
               frequency: agent.frequency,
               dayTime: agent.dayTime,
-              scheduledHour: agent.scheduledHour,
+              scheduleTime: agent.scheduleTime,
               apiUrl: pythonServerUri,
               sessionId: session_id,
               cronWindow,
@@ -247,7 +267,7 @@ const handleTaskAgentCronJob = async () => {
             status: 'skipped',
             frequency: agent.frequency,
             dayTime: agent.dayTime,
-            scheduledHour: agent.scheduledHour,
+            scheduleTime: agent.scheduleTime,
             cronWindow,
             skipReason: skipReason,
             message: `Skipped: ${skipReason}`,

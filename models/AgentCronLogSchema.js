@@ -33,6 +33,10 @@ const AgentCronLogSchema = new mongoose.Schema({
     type: String, // For Weekly/Monthly (e.g., "09:00", "14:30")
     required: false,
   },
+  timezone: {
+    type: String, // Agent's timezone (e.g., "America/New_York", "UTC")
+    required: false,
+  },
   apiUrl: {
     type: String, // The API URL that was called
     required: false,

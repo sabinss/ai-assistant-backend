@@ -2,118 +2,250 @@
 const cron = require('node-cron');
 const axios = require('axios');
 const Organization = require('../models/Organization');
-const moment = require('moment');
+const moment = require('moment-timezone');
 const AgentModel = require('../models/AgentModel');
 const AgentCronLogSchema = require('../models/AgentCronLogSchema');
 
 /**
- * Parse scheduleTime string "HH:mm" to extract hour
- * @param {string} scheduleTime - Time string like "09:00", "14:30"
- * @returns {number} - Hour (0-23), defaults to 0 if invalid
+ * Map timezone abbreviations to IANA timezone names
+ * These are the values stored in the database
  */
-const parseScheduleTimeHour = (scheduleTime) => {
-  if (!scheduleTime) return 0;
-  
-  // Handle "HH:mm" format
-  if (typeof scheduleTime === 'string' && scheduleTime.includes(':')) {
-    const [hours] = scheduleTime.split(':');
-    const parsed = parseInt(hours);
-    return isNaN(parsed) ? 0 : parsed;
-  }
-  
-  // Handle plain number (backward compatibility)
-  const parsed = parseInt(scheduleTime);
-  return isNaN(parsed) ? 0 : parsed;
+const TIMEZONE_MAP = {
+  'EST': 'America/New_York',      // Eastern Standard Time
+  'PST': 'America/Los_Angeles',   // Pacific Standard Time
+  'CST': 'America/Chicago',       // Central Standard Time
+  'MST': 'America/Denver',        // Mountain Standard Time
+  'UTC': 'UTC',                   // Coordinated Universal Time
+  'GMT': 'Europe/London',         // Greenwich Mean Time
+  'CET': 'Europe/Paris',          // Central European Time
+  'JST': 'Asia/Tokyo',            // Japan Standard Time
+  'AEST': 'Australia/Sydney',     // Australian Eastern Standard Time
+  'IST': 'Asia/Kolkata',          // India Standard Time
+};
+
+
+const getIANATimezone = (tzAbbr) => {
+  if (!tzAbbr) return 'UTC';
+
+  // If it's already an IANA name (contains '/'), return as-is
+  if (tzAbbr.includes('/')) return tzAbbr;
+
+  // Look up in map, default to UTC if not found
+  return TIMEZONE_MAP[tzAbbr.toUpperCase()] || 'UTC';
 };
 
 /**
- * Check if an agent should be triggered based on frequency and dayTime
- * Returns { shouldTrigger: boolean, skipReason: string | null }
+ * Parse scheduleTime string "HH:mm" to extract hour and minute
+ * @param {string} scheduleTime - Time string like "09:00", "14:30"
+ * @returns {{ hour: number, minute: number }}
  */
-const shouldTriggerInWindow = (agent, windowStart, windowEnd) => {
-  const { frequency, dayTime, scheduleTime, lastTriggeredAt } = agent;
+const parseScheduleTime = (scheduleTime) => {
+  if (!scheduleTime) return { hour: 0, minute: 0 };
 
-  if (!frequency || dayTime === null || dayTime === undefined) {
-    return { shouldTrigger: false, skipReason: 'Missing frequency or dayTime' };
+  // Handle "HH:mm" format
+  if (typeof scheduleTime === 'string' && scheduleTime.includes(':')) {
+    const [hours, minutes] = scheduleTime.split(':');
+    return {
+      hour: parseInt(hours) || 0,
+      minute: parseInt(minutes) || 0,
+    };
   }
 
-  const parsedDayTime = parseInt(dayTime);
-  if (isNaN(parsedDayTime)) {
-    return { shouldTrigger: false, skipReason: `Invalid dayTime: ${dayTime}` };
+  // Handle plain number (backward compatibility)
+  return { hour: parseInt(scheduleTime) || 0, minute: 0 };
+};
+
+/**
+ * Convert agent's local time to UTC hour
+ */
+const convertLocalTimeToUTC = (localHour, localMinute, agentTimezone, referenceDate) => {
+  // First, get today's date in agent's timezone
+  const todayInAgentTZ = referenceDate.clone().tz(agentTimezone);
+
+  // Create a moment with the scheduled hour/minute on today's date in agent's timezone
+  const localTime = todayInAgentTZ.clone()
+    .hour(localHour)
+    .minute(localMinute)
+    .second(0);
+
+  // Convert to UTC
+  const utcTime = localTime.clone().utc();
+
+  return {
+    utcHour: utcTime.hour(),
+    utcDay: utcTime.isoWeekday(),  // 1-7 (Mon-Sun)
+    utcDate: utcTime.date(),       // 1-31
+    utcMoment: utcTime,
+  };
+};
+
+/**
+ * Check if an agent should be triggered based on frequency, dayTime, and timezone
+ * All comparisons are done in UTC
+ * Returns { shouldTrigger: boolean, skipReason: string | null, ... }
+ */
+const shouldTriggerInWindow = (agent, utcNow, utcWindowStart, utcWindowEnd) => {
+  const { frequency, dayTime, scheduleTime, lastTriggeredAt, timezone } = agent;
+
+  // Convert abbreviation (EST, IST) to IANA timezone (America/New_York, Asia/Kolkata)
+  const agentTimezone = getIANATimezone(timezone);
+
+  if (!frequency) {
+    return { shouldTrigger: false, skipReason: 'Missing frequency', agentTimezone };
   }
 
   switch (frequency) {
     case 'Daily': {
-      const targetHour = parsedDayTime;
+      // Daily uses scheduleTime (e.g., "13:00" or "09:30")
+      if (!scheduleTime) {
+        return { shouldTrigger: false, skipReason: 'Missing scheduleTime for Daily frequency', agentTimezone };
+      }
+
+      const { hour: localHour, minute: localMinute } = parseScheduleTime(scheduleTime);
+      const { utcHour } = convertLocalTimeToUTC(localHour, localMinute, agentTimezone, utcNow);
 
       if (lastTriggeredAt) {
-        const lastRun = moment(lastTriggeredAt);
-        if (lastRun.isSame(windowEnd, 'day')) {
-          return { shouldTrigger: false, skipReason: `Already triggered today at ${lastRun.format('HH:mm')}` };
+        const lastRunUTC = moment(lastTriggeredAt).utc();
+        if (lastRunUTC.isSame(utcWindowEnd, 'day')) {
+          const lastRunLocal = moment(lastTriggeredAt).tz(agentTimezone);
+          return {
+            shouldTrigger: false,
+            skipReason: `Already triggered today at ${lastRunLocal.format('HH:mm')} (${agentTimezone})`,
+            agentTimezone,
+            targetHourUTC: utcHour,
+            targetHourLocal: localHour,
+          };
         }
       }
 
-      if (!isHourInWindow(targetHour, windowStart, windowEnd)) {
-        return { shouldTrigger: false, skipReason: `Hour ${targetHour} not in window ${windowStart.format('HH:mm')}-${windowEnd.format('HH:mm')}` };
+      if (!isHourInWindow(utcHour, utcWindowStart, utcWindowEnd)) {
+        return {
+          shouldTrigger: false,
+          skipReason: `Local time ${scheduleTime} (${agentTimezone}) = UTC hour ${utcHour}, not in UTC window ${utcWindowStart.format('HH:mm')}-${utcWindowEnd.format('HH:mm')}`,
+          agentTimezone,
+          targetHourUTC: utcHour,
+          targetHourLocal: localHour,
+        };
       }
 
-      return { shouldTrigger: true, skipReason: null };
+      return { shouldTrigger: true, skipReason: null, agentTimezone, targetHourUTC: utcHour, targetHourLocal: localHour };
     }
 
     case 'Weekly': {
-      const targetDay = parsedDayTime;
-      const targetHour = parseScheduleTimeHour(scheduleTime);
-      const currentDay = windowEnd.isoWeekday();
+      // Weekly uses dayTime (day 1-7) + scheduleTime ("HH:mm")
+      if (!dayTime) {
+        return { shouldTrigger: false, skipReason: 'Missing dayTime for Weekly frequency', agentTimezone };
+      }
+
+      const parsedDayTime = parseInt(dayTime);
+      if (isNaN(parsedDayTime)) {
+        return { shouldTrigger: false, skipReason: `Invalid dayTime: ${dayTime}`, agentTimezone };
+      }
+
+      const targetLocalDay = parsedDayTime; // 1-7 (Mon-Sun)
+      const { hour: localHour, minute: localMinute } = parseScheduleTime(scheduleTime);
+
+      // Get current day in agent's timezone
+      const todayInAgentTZ = utcNow.clone().tz(agentTimezone);
+      const currentLocalDay = todayInAgentTZ.isoWeekday(); // 1-7 (Mon-Sun)
+
       const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
       if (lastTriggeredAt) {
-        const lastRun = moment(lastTriggeredAt);
-        if (lastRun.isSame(windowEnd, 'week')) {
-          return { shouldTrigger: false, skipReason: `Already triggered this week on ${lastRun.format('dddd HH:mm')}` };
+        const lastRunUTC = moment(lastTriggeredAt).utc();
+        if (lastRunUTC.isSame(utcWindowEnd, 'week')) {
+          const lastRunLocal = moment(lastTriggeredAt).tz(agentTimezone);
+          return {
+            shouldTrigger: false,
+            skipReason: `Already triggered this week on ${lastRunLocal.format('dddd HH:mm')} (${agentTimezone})`,
+            agentTimezone,
+          };
         }
       }
 
-      if (currentDay !== targetDay) {
-        return { shouldTrigger: false, skipReason: `Today is ${dayNames[currentDay]}, scheduled for ${dayNames[targetDay]}` };
+      // Check if today (in agent's timezone) is the target day
+      if (currentLocalDay !== targetLocalDay) {
+        return {
+          shouldTrigger: false,
+          skipReason: `Today in ${agentTimezone} is ${dayNames[currentLocalDay]}, scheduled for ${dayNames[targetLocalDay]}`,
+          agentTimezone,
+        };
       }
 
-      if (!isHourInWindow(targetHour, windowStart, windowEnd)) {
-        return { shouldTrigger: false, skipReason: `Hour ${targetHour} not in window ${windowStart.format('HH:mm')}-${windowEnd.format('HH:mm')}` };
+      // Convert the scheduled time to UTC for window check
+      const { utcHour } = convertLocalTimeToUTC(localHour, localMinute, agentTimezone, utcNow);
+
+      if (!isHourInWindow(utcHour, utcWindowStart, utcWindowEnd)) {
+        return {
+          shouldTrigger: false,
+          skipReason: `${dayNames[targetLocalDay]} ${scheduleTime} (${agentTimezone}) = UTC ${utcHour}:00, not in window ${utcWindowStart.format('HH:mm')}-${utcWindowEnd.format('HH:mm')}`,
+          agentTimezone,
+        };
       }
 
-      return { shouldTrigger: true, skipReason: null };
+      return { shouldTrigger: true, skipReason: null, agentTimezone };
     }
 
     case 'Monthly': {
-      const targetDate = parsedDayTime;
-      const targetHour = parseScheduleTimeHour(scheduleTime);
-      const currentDate = windowEnd.date();
+      // Monthly uses dayTime (day 1-31) + scheduleTime ("HH:mm")
+      if (!dayTime) {
+        return { shouldTrigger: false, skipReason: 'Missing dayTime for Monthly frequency', agentTimezone };
+      }
+
+      const parsedDayTime = parseInt(dayTime);
+      if (isNaN(parsedDayTime)) {
+        return { shouldTrigger: false, skipReason: `Invalid dayTime: ${dayTime}`, agentTimezone };
+      }
+
+      const targetLocalDate = parsedDayTime; // 1-31
+      const { hour: localHour, minute: localMinute } = parseScheduleTime(scheduleTime);
+
+      // Get current date in agent's timezone
+      const todayInAgentTZ = utcNow.clone().tz(agentTimezone);
+      const currentLocalDate = todayInAgentTZ.date(); // 1-31
 
       if (lastTriggeredAt) {
-        const lastRun = moment(lastTriggeredAt);
-        if (lastRun.isSame(windowEnd, 'month')) {
-          return { shouldTrigger: false, skipReason: `Already triggered this month on ${lastRun.format('Do HH:mm')}` };
+        const lastRunUTC = moment(lastTriggeredAt).utc();
+        if (lastRunUTC.isSame(utcWindowEnd, 'month')) {
+          const lastRunLocal = moment(lastTriggeredAt).tz(agentTimezone);
+          return {
+            shouldTrigger: false,
+            skipReason: `Already triggered this month on ${lastRunLocal.format('Do HH:mm')} (${agentTimezone})`,
+            agentTimezone,
+          };
         }
       }
 
-      if (currentDate !== targetDate) {
-        return { shouldTrigger: false, skipReason: `Today is ${currentDate}th, scheduled for ${targetDate}th` };
+      // Check if today (in agent's timezone) is the target date
+      if (currentLocalDate !== targetLocalDate) {
+        return {
+          shouldTrigger: false,
+          skipReason: `Today in ${agentTimezone} is ${currentLocalDate}th, scheduled for ${targetLocalDate}th`,
+          agentTimezone,
+        };
       }
 
-      if (!isHourInWindow(targetHour, windowStart, windowEnd)) {
-        return { shouldTrigger: false, skipReason: `Hour ${targetHour} not in window ${windowStart.format('HH:mm')}-${windowEnd.format('HH:mm')}` };
+      // Convert the scheduled time to UTC for window check
+      const { utcHour } = convertLocalTimeToUTC(localHour, localMinute, agentTimezone, utcNow);
+
+      if (!isHourInWindow(utcHour, utcWindowStart, utcWindowEnd)) {
+        return {
+          shouldTrigger: false,
+          skipReason: `${targetLocalDate}th ${scheduleTime} (${agentTimezone}) = UTC ${utcHour}:00, not in window ${utcWindowStart.format('HH:mm')}-${utcWindowEnd.format('HH:mm')}`,
+          agentTimezone,
+        };
       }
 
-      return { shouldTrigger: true, skipReason: null };
+      return { shouldTrigger: true, skipReason: null, agentTimezone };
     }
 
     default:
-      return { shouldTrigger: false, skipReason: `Unknown frequency: ${frequency}` };
+      return { shouldTrigger: false, skipReason: `Unknown frequency: ${frequency}`, agentTimezone };
   }
 };
 
 /**
- * Check if target hour falls within the 3-hour window
+ * Check if target hour falls within the 3-hour window (all in UTC)
  */
 const isHourInWindow = (targetHour, windowStart, windowEnd) => {
   const startHour = windowStart.hour();
@@ -123,27 +255,29 @@ const isHourInWindow = (targetHour, windowStart, windowEnd) => {
     return targetHour > startHour && targetHour <= endHour;
   }
 
+  // Day boundary crossed (e.g., window from 22:00 to 01:00)
   return targetHour > startHour || targetHour <= endHour;
 };
 
 /**
- * Main cron job handler - runs every 3 hours
+ * Main cron job handler - runs every 3 hours in UTC
  */
 const handleTaskAgentCronJob = async () => {
-  const now = moment();
-  const windowEnd = now.clone();
-  const windowStart = now.clone().subtract(3, 'hours');
-  const cronWindow = `${windowStart.format('HH:mm')} - ${windowEnd.format('HH:mm')}`;
+  // Always work in UTC
+  const utcNow = moment.utc();
+  const utcWindowEnd = utcNow.clone();
+  const utcWindowStart = utcNow.clone().subtract(3, 'hours');
+  const cronWindowUTC = `${utcWindowStart.format('HH:mm')} - ${utcWindowEnd.format('HH:mm')} UTC`;
 
-  console.log(`⏰ Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`);
-  console.log(`📅 Checking window: ${cronWindow}`);
+  console.log(`⏰ Cron job started at ${utcNow.format('YYYY-MM-DD HH:mm:ss')} UTC`);
+  console.log(`📅 UTC Window: ${cronWindowUTC}`);
 
   try {
     // Log cron start
     await AgentCronLogSchema.create({
       status: 'cron_started',
-      cronWindow,
-      message: `Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
+      cronWindow: cronWindowUTC,
+      message: `Cron job started at ${utcNow.format('YYYY-MM-DD HH:mm:ss')} UTC`,
     });
 
     const allOrgs = await Organization.find();
@@ -153,12 +287,18 @@ const handleTaskAgentCronJob = async () => {
 
     for (const org of allOrgs) {
       // Find active agents with scheduling configured
+      // Daily: needs scheduleTime (time like "13:00")
+      // Weekly/Monthly: needs dayTime (day) + scheduleTime (time)
       const activeAgents = await AgentModel.find({
         active: true,
         isAgent: true,
         organization: org._id,
         frequency: { $in: ['Daily', 'Weekly', 'Monthly'] },
-        dayTime: { $ne: null },
+        $or: [
+          { frequency: 'Daily', scheduleTime: { $ne: null } },
+          { frequency: 'Weekly', dayTime: { $ne: null } },
+          { frequency: 'Monthly', dayTime: { $ne: null } },
+        ],
       });
 
       if (activeAgents.length === 0) continue;
@@ -168,7 +308,8 @@ const handleTaskAgentCronJob = async () => {
       for (const agent of activeAgents) {
         totalAgentsChecked++;
 
-        const { shouldTrigger, skipReason } = shouldTriggerInWindow(agent, windowStart, windowEnd);
+        // Check trigger - converts agent's local time to UTC for comparison
+        const { shouldTrigger, skipReason, agentTimezone } = shouldTriggerInWindow(agent, utcNow, utcWindowStart, utcWindowEnd);
 
         // Log that agent was selected/checked
         await AgentCronLogSchema.create({
@@ -179,8 +320,9 @@ const handleTaskAgentCronJob = async () => {
           frequency: agent.frequency,
           dayTime: agent.dayTime,
           scheduleTime: agent.scheduleTime,
-          cronWindow,
-          message: `Agent checked: ${agent.name} | Frequency: ${agent.frequency} | dayTime: ${agent.dayTime}`,
+          timezone: agentTimezone,
+          cronWindow: cronWindowUTC,
+          message: `Agent checked: ${agent.name} | Frequency: ${agent.frequency} | dayTime: ${agent.dayTime} | Timezone: ${agentTimezone}`,
         });
 
         if (shouldTrigger) {
@@ -188,7 +330,7 @@ const handleTaskAgentCronJob = async () => {
             const session_id = Math.floor(100000 + Math.random() * 900000).toString();
             const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${encodeURIComponent(agent.name)}&org_id=${org._id}&query='run'&session_id=${session_id}`;
 
-            console.log(`🚀 Triggering agent: ${agent.name}`);
+            console.log(`🚀 Triggering agent: ${agent.name} (Timezone: ${agentTimezone})`);
 
             // Log that agent API is being called
             await AgentCronLogSchema.create({
@@ -199,10 +341,11 @@ const handleTaskAgentCronJob = async () => {
               frequency: agent.frequency,
               dayTime: agent.dayTime,
               scheduleTime: agent.scheduleTime,
+              timezone: agentTimezone,
               apiUrl: pythonServerUri,
               sessionId: session_id,
-              cronWindow,
-              message: `API called for agent: ${agent.name}`,
+              cronWindow: cronWindowUTC,
+              message: `API called for agent: ${agent.name} | Timezone: ${agentTimezone}`,
             });
 
             // Fire API call
@@ -216,16 +359,17 @@ const handleTaskAgentCronJob = async () => {
                 status: 'failure',
                 frequency: agent.frequency,
                 dayTime: agent.dayTime,
+                timezone: agentTimezone,
                 apiUrl: pythonServerUri,
                 sessionId: session_id,
-                cronWindow,
+                cronWindow: cronWindowUTC,
                 message: `API call failed: ${err.message}`,
               });
             });
 
-            // Update lastTriggeredAt
+            // Update lastTriggeredAt (always store in UTC)
             await AgentModel.findByIdAndUpdate(agent._id, {
-              lastTriggeredAt: now.toDate(),
+              lastTriggeredAt: new Date(),
             });
 
             // Log success
@@ -237,10 +381,11 @@ const handleTaskAgentCronJob = async () => {
               frequency: agent.frequency,
               dayTime: agent.dayTime,
               scheduleTime: agent.scheduleTime,
+              timezone: agentTimezone,
               apiUrl: pythonServerUri,
               sessionId: session_id,
-              cronWindow,
-              message: `Successfully triggered at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
+              cronWindow: cronWindowUTC,
+              message: `Successfully triggered at ${utcNow.format('YYYY-MM-DD HH:mm:ss')} UTC`,
             });
 
             totalAgentsTriggered++;
@@ -254,7 +399,8 @@ const handleTaskAgentCronJob = async () => {
               status: 'failure',
               frequency: agent.frequency,
               dayTime: agent.dayTime,
-              cronWindow,
+              timezone: agentTimezone,
+              cronWindow: cronWindowUTC,
               message: `Error: ${error?.message || 'Unknown error'}`,
             });
           }
@@ -268,7 +414,8 @@ const handleTaskAgentCronJob = async () => {
             frequency: agent.frequency,
             dayTime: agent.dayTime,
             scheduleTime: agent.scheduleTime,
-            cronWindow,
+            timezone: agentTimezone,
+            cronWindow: cronWindowUTC,
             skipReason: skipReason,
             message: `Skipped: ${skipReason}`,
           });
@@ -281,7 +428,7 @@ const handleTaskAgentCronJob = async () => {
     // Log cron completion with summary
     await AgentCronLogSchema.create({
       status: 'cron_completed',
-      cronWindow,
+      cronWindow: cronWindowUTC,
       totalAgentsChecked,
       totalAgentsTriggered,
       totalAgentsSkipped,
@@ -294,7 +441,7 @@ const handleTaskAgentCronJob = async () => {
 
     await AgentCronLogSchema.create({
       status: 'failure',
-      cronWindow,
+      cronWindow: cronWindowUTC,
       message: `Cron job error: ${err.message}`,
     });
   }

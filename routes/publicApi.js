@@ -3,7 +3,7 @@ const ctl = require("../controllers/orgCtrl.js");
 
 /**
  * @openapi
- * /organizationDetail/{org_id}:
+ * /api/v1/organizationDetail/{org_id}:
  *   get:
  *     summary: Get organization details
  *     description: Retrieve details of a specific organization by its ID.
@@ -30,5 +30,5 @@ const ctl = require("../controllers/orgCtrl.js");
  *       name: X-Api-Key-Local
  */
 module.exports = (app) => {
-    app.get("/organizationDetail/:org_id", middleware, ctl.getOrgDetailByPublicApi);
+    app.get(`${process.env.APP_URL}/organizationDetail/:org_id`, middleware, ctl.getOrgDetailByPublicApi);
 };

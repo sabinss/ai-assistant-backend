@@ -232,7 +232,7 @@ require("./service/userAuth");
 require("./models");
 require("./routes")(app);
 // Run every 3 hours at minute 0 (0:00, 3:00, 6:00, 9:00, 12:00, 15:00, 18:00, 21:00)
-const cronTrigger = "*/2 * * * *";
+const cronTrigger = "0 */3 * * *";
 cron.schedule(cronTrigger, async () => {
   console.log(`⏰ Running agent scheduler at ${new Date().toISOString()}`);
   try {

@@ -270,7 +270,7 @@ const handleTaskAgentCronJob = async () => {
             console.log(`      Python API URL: ${pythonServerUri}`);
             console.log(`      Session ID: ${session_id}`);
 
-            // Log that agent API is being called
+            // Log that agent API is being called.
             await AgentCronLogSchema.create({
               organization: org._id,
               agent: agent._id,

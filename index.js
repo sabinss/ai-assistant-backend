@@ -231,8 +231,8 @@ app.post("/api/send-whatsapp", async (req, res) => {
 require("./service/userAuth");
 require("./models");
 require("./routes")(app);
-// Run every 3 hours at minute 0 (0:00, 3:00, 6:00, 9:00, 12:00, 15:00, 18:00, 21:00)
-const cronTrigger = "0 */3 * * *";
+// Run every 2 hours at minute 0 (0:00, 2:00, 4:00, 6:00, 8:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00)
+const cronTrigger = "0 */2 * * *";
 cron.schedule(cronTrigger, async () => {
   console.log(`⏰ Running agent scheduler at ${new Date().toISOString()}`);
   try {

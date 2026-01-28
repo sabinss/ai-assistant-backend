@@ -1,4 +1,5 @@
 // models/AgentCronLogSchema.js
+// models/AgentCronLogSchema.js
 const mongoose = require('mongoose');
 
 const AgentCronLogSchema = new mongoose.Schema({
@@ -10,6 +11,10 @@ const AgentCronLogSchema = new mongoose.Schema({
   agent: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Agent',
+    required: false,
+  },
+  agentName: {
+    type: String,
     required: false,
   },
   agentName: {
@@ -72,6 +77,22 @@ const AgentCronLogSchema = new mongoose.Schema({
   executedAt: {
     type: Date,
     default: Date.now,
+  },
+  cronExecutionTime: {
+    type: String, // When the cron job ran (e.g., "2026-01-28 06:00:00")
+    required: false,
+  },
+  cronExecutionHour: {
+    type: Number, // The hour when cron ran (0-23)
+    required: false,
+  },
+  agentScheduledHour: {
+    type: Number, // The hour the agent is scheduled for (0-23, parsed from scheduleTime)
+    required: false,
+  },
+  windowCheckResult: {
+    type: String, // Result of window check (e.g., "IN_WINDOW", "OUT_OF_WINDOW")
+    required: false,
   },
 });
 

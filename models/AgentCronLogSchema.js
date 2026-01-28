@@ -1,4 +1,4 @@
-// models/AgentCronLog.js
+// models/AgentCronLogSchema.js
 const mongoose = require('mongoose');
 
 const AgentCronLogSchema = new mongoose.Schema({
@@ -12,9 +12,13 @@ const AgentCronLogSchema = new mongoose.Schema({
     ref: 'Agent',
     required: false,
   },
+  agentName: {
+    type: String,
+    required: false,
+  },
   status: {
     type: String,
-    enum: ['success', 'failure', 'triggered'],
+    enum: ['cron_started', 'cron_completed', 'selected', 'triggered', 'skipped', 'success', 'failure'],
     required: false,
   },
   frequency: {
@@ -45,18 +49,6 @@ const AgentCronLogSchema = new mongoose.Schema({
     type: String, // e.g., "06:00 - 09:00"
     required: false,
   },
-  cronExecutionTime: {
-    type: String, // The actual time when cron ran (e.g., "06:00", "09:00")
-    required: false,
-  },
-  agentScheduledHour: {
-    type: Number, // The parsed hour from scheduleTime (e.g., 4 for "4:00", 9 for "09:00")
-    required: false,
-  },
-  windowCheckResult: {
-    type: Boolean, // Whether the agent's scheduled hour was in the cron window
-    required: false,
-  },
   skipReason: {
     type: String, // Why agent was skipped
     required: false,
@@ -80,6 +72,22 @@ const AgentCronLogSchema = new mongoose.Schema({
   executedAt: {
     type: Date,
     default: Date.now,
+  },
+  cronExecutionTime: {
+    type: String, // When the cron job ran (e.g., "2026-01-28 06:00:00")
+    required: false,
+  },
+  cronExecutionHour: {
+    type: Number, // The hour when cron ran (0-23)
+    required: false,
+  },
+  agentScheduledHour: {
+    type: Number, // The hour the agent is scheduled for (0-23, parsed from scheduleTime)
+    required: false,
+  },
+  windowCheckResult: {
+    type: String, // Result of window check (e.g., "IN_WINDOW", "OUT_OF_WINDOW")
+    required: false,
   },
 });
 

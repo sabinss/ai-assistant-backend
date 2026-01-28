@@ -231,16 +231,15 @@ app.post("/api/send-whatsapp", async (req, res) => {
 require("./service/userAuth");
 require("./models");
 require("./routes")(app);
-// Run every day at 6 AM UTC (1 AM EST)
-let cronTrigger = "0 6 * * *";
-// let cronTrigger = '*/1 * * * *';
+// Run every 2 hours at minute 0 (0:00, 2:00, 4:00, 6:00, 8:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00)
+const cronTrigger = "0 */2 * * *";
 cron.schedule(cronTrigger, async () => {
-  console.log("Running job at 6:00 AM GMT / 1:00 AM EST");
+  console.log(`⏰ Running agent scheduler at ${new Date().toISOString()}`);
   try {
     await handleTaskAgentCronJob();
-    console.log("task agent cron job completed");
+    console.log("✅ Agent cron job completed");
   } catch (err) {
-    console.log("Cron job error", err);
+    console.log("❌ Cron job error", err);
   }
 });
 

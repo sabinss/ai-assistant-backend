@@ -23,6 +23,18 @@ const agentModel = new mongoose.Schema(
     dayTime: {
       type: String,
     },
+    scheduleTime: {
+      type: String,
+      default: null, // Time string "HH:mm" for Weekly/Monthly schedules (e.g., "09:00", "14:30")
+    },
+    timezone: {
+      type: String,
+      default: 'UTC', // e.g., "America/New_York", "Asia/Kolkata", "Europe/London"
+    },
+    lastTriggeredAt: {
+      type: Date,
+      default: null, // Track last execution to prevent duplicates
+    },
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',

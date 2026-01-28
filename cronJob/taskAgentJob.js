@@ -1,4 +1,5 @@
 // cronJob/taskAgentJob.js - Simplified version (no timezone)
+// cronJob/taskAgentJob.js - Simplified version (no timezone)
 const cron = require('node-cron');
 const axios = require('axios');
 const Organization = require('../models/Organization');
@@ -223,9 +224,12 @@ const handleTaskAgentCronJob = async () => {
     let totalAgentsTriggered = 0;
     let totalAgentsSkipped = 0;
 
+
     for (const org of allOrgs) {
       // Find active agents with scheduling configured
+      // Find active agents with scheduling configured
       const activeAgents = await AgentModel.find({
+        // active: true,
         // active: true,
         isAgent: true,
         organization: org._id,
@@ -381,6 +385,7 @@ const handleTaskAgentCronJob = async () => {
             await AgentCronLogSchema.create({
               organization: org._id,
               agent: agent._id,
+              agentName: agent.name,
               agentName: agent.name,
               status: 'failure',
               frequency: agent.frequency,

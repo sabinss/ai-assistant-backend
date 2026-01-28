@@ -1,4 +1,5 @@
 // models/AgentCronLogSchema.js
+// models/AgentCronLogSchema.js
 const mongoose = require('mongoose');
 
 const AgentCronLogSchema = new mongoose.Schema({
@@ -10,6 +11,10 @@ const AgentCronLogSchema = new mongoose.Schema({
   agent: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Agent',
+    required: false,
+  },
+  agentName: {
+    type: String,
     required: false,
   },
   agentName: {

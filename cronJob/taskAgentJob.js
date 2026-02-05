@@ -26,6 +26,20 @@ const parseScheduleHour = (scheduleTime) => {
 };
 
 /**
+ * Get sort key from scheduleTime for ascending order (e.g. "4:00" -> 240, "14:30" -> 870)
+ * Agents without scheduleTime sort last (use 24*60 = 1440)
+ */
+const getScheduleSortKey = (scheduleTime) => {
+  if (!scheduleTime) return 24 * 60;
+  if (typeof scheduleTime === 'string' && scheduleTime.includes(':')) {
+    const [h, m] = scheduleTime.split(':').map((x) => parseInt(x, 10) || 0);
+    return (h % 24) * 60 + (m % 60);
+  }
+  const h = parseInt(scheduleTime) || 0;
+  return (h % 24) * 60;
+};
+
+/**
  * Parse dayTime string to extract numeric value
  * Handles formats like "W-1" (Weekly), "M-15" (Monthly), or plain "1", "15"
  */
@@ -95,16 +109,37 @@ const shouldTriggerAgent = (agent, currentHour, windowStartHour, windowEndHour, 
         console.log(`      Last triggered: Never (first run)`);
       }
 
-      // Check if hour is in window
-      const inWindow = isHourInWindow(targetHour, windowStartHour, windowEndHour);
-      console.log(`      Window check: ${targetHour}:00 in [${windowStartHour}:00-${windowEndHour}:00]? ${inWindow}`);
-      if (!inWindow) {
+      // For Daily agents: Trigger if the scheduled hour has passed today
+      // This ensures ANY agent scheduled for ANY time (0-23) will be found and executed within the day
+      // Logic: 
+      //   1. Normal case: targetHour <= currentHour (scheduled time has passed)
+      //   2. Edge case: At midnight (0:00), catch agents from previous evening (22:00-23:00) that might have been missed
+      // This works for all hours:
+      //   - Agent at 0:00: triggers at 0:00, 2:00, 4:00... until executed
+      //   - Agent at 4:00: triggers at 4:00, 6:00, 8:00... until executed  
+      //   - Agent at 22:00: triggers at 22:00, or at 0:00 next day if missed
+      //   - Agent at 23:00: triggers at 0:00 next day (catches late evening agents)
+      const hasTargetHourPassed = targetHour <= currentHour;
+      const isMidnightCatch = currentHour === 0 && targetHour >= 22; // Catch late evening agents at midnight
+      const shouldTriggerByTime = hasTargetHourPassed || isMidnightCatch;
+
+      console.log(`      Target hour check: Scheduled ${targetHour}:00 <= Current ${currentHour}:00? ${hasTargetHourPassed}`);
+      if (isMidnightCatch) {
+        console.log(`      Midnight catch: At 0:00, catching late evening agent scheduled for ${targetHour}:00`);
+      }
+
+      if (!shouldTriggerByTime) {
         return {
           shouldTrigger: false,
-          skipReason: `Hour ${targetHour}:00 not in window ${windowStartHour}:00-${windowEndHour}:00`
+          skipReason: `Scheduled hour ${targetHour}:00 has not passed yet (current hour: ${currentHour}:00). Will check again in next cron run.`
         };
       }
 
+      // Also check if it's in the window for better tracking (informational only)
+      const inWindow = isHourInWindow(targetHour, windowStartHour, windowEndHour);
+      console.log(`      Window check: ${targetHour}:00 in [${windowStartHour}:00-${windowEndHour}:00]? ${inWindow} (informational)`);
+
+      // Agent scheduled time has passed and hasn't been triggered today - SELECT IT
       return { shouldTrigger: true, skipReason: null };
     }
 
@@ -202,13 +237,15 @@ const handleTaskAgentCronJob = async () => {
   const currentDay = now.isoWeekday(); // 1-7 (Mon-Sun)
   const currentDate = now.date(); // 1-31
 
-  console.log(`⏰ Cron job started at ${now.format('YYYY-MM-DD HH:mm:ss')}`);
+  // Define these outside try block so they're available in catch block
+  const cronExecutionTime = now.format('YYYY-MM-DD HH:mm:ss');
+  const cronExecutionHour = currentHour;
+
+  console.log(`⏰ Cron job started at ${cronExecutionTime}`);
   console.log(`📅 Checking window: ${windowStartHour}:00 - ${windowEndHour}:00 (24-hour format)`);
   console.log(`   Current day: ${currentDay}, Current date: ${currentDate}`);
 
   try {
-    const cronExecutionTime = now.format('YYYY-MM-DD HH:mm:ss');
-    const cronExecutionHour = currentHour;
 
     // Log cron start
     await AgentCronLogSchema.create({
@@ -227,10 +264,7 @@ const handleTaskAgentCronJob = async () => {
 
     for (const org of allOrgs) {
       // Find active agents with scheduling configured
-      // Find active agents with scheduling configured
-      const activeAgents = await AgentModel.find({
-        // active: true,
-        // active: true,
+      let activeAgents = await AgentModel.find({
         isAgent: true,
         organization: org._id,
         frequency: { $in: ['Daily', 'Weekly', 'Monthly'] },
@@ -243,7 +277,16 @@ const handleTaskAgentCronJob = async () => {
 
       if (activeAgents.length === 0) continue;
 
-      console.log(`🏢 Org ${org._id}: Found ${activeAgents.length} scheduled agents`);
+      // Sort agents by scheduleTime ascending so earliest runs first (e.g. 4:00 → 6:00 → 8:00)
+      // getScheduleSortKey converts "HH:mm" to minutes; agents without scheduleTime sort last
+      activeAgents = activeAgents.sort((a, b) => {
+        const keyA = getScheduleSortKey(a.scheduleTime);
+        const keyB = getScheduleSortKey(b.scheduleTime);
+        if (keyA !== keyB) return keyA - keyB;
+        return String(a._id).localeCompare(String(b._id)); // stable order when same time
+      });
+
+      console.log(`🏢 Org ${org._id}: Found ${activeAgents.length} scheduled agents (sorted by scheduleTime ascending)`);
 
       for (const agent of activeAgents) {
         totalAgentsChecked++;

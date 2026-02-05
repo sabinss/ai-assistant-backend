@@ -231,6 +231,27 @@ app.post("/api/send-whatsapp", async (req, res) => {
 require("./service/userAuth");
 require("./models");
 require("./routes")(app);
+
+// Test endpoint to manually trigger cron job (for testing only)
+app.get("/api/test-cron", async (req, res) => {
+  try {
+    console.log("🧪 Manual cron job trigger requested");
+    await handleTaskAgentCronJob();
+    res.status(200).json({
+      success: true,
+      message: "Cron job executed successfully. Check logs for details.",
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("❌ Manual cron job error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Run every 2 hours at minute 0 (0:00, 2:00, 4:00, 6:00, 8:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00)
 const cronTrigger = "0 */2 * * *";
 cron.schedule(cronTrigger, async () => {

@@ -81,10 +81,13 @@ function createOrUpdateSession(senderNumber) {
   }
 
   const sessionId = existing?.sessionId || uuidv4(); // use old or new session
-  const timeoutId = setTimeout(() => {
-    console.log(`🕒 Session expired for ${senderNumber}`);
-    sessions.delete(senderNumber);
-  }, SESSION_TIMEOUT_MINUTES * 60 * 1000); // 10 minutes
+  const timeoutId = setTimeout(
+    () => {
+      console.log(`🕒 Session expired for ${senderNumber}`);
+      sessions.delete(senderNumber);
+    },
+    SESSION_TIMEOUT_MINUTES * 60 * 1000
+  ); // 10 minutes
 
   sessions.set(senderNumber, { sessionId, timeoutId });
   return sessionId;
@@ -240,20 +243,20 @@ app.get("/api/test-cron", async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Cron job executed successfully. Check logs for details.",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     console.error("❌ Manual cron job error:", error);
     res.status(500).json({
       success: false,
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 });
 
-// Run every 2 hours at minute 0 (0:00, 2:00, 4:00, 6:00, 8:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00)
-const cronTrigger = "0 */2 * * *";
+// Run every 1 hour at minute 0 (0:00, 1:00, 2:00, 3:00, ...)
+const cronTrigger = "0 * * * *";
 cron.schedule(cronTrigger, async () => {
   console.log(`⏰ Running agent scheduler at ${new Date().toISOString()}`);
   try {

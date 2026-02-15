@@ -1,28 +1,25 @@
-const User = require('../models/User');
-const GoogleUser = require('../models/GoogleUser');
-const {
-  getGoogleAuthTokens,
-  getGoogleUser,
-} = require('../service/userService');
-const jwt = require('jsonwebtoken');
+const User = require("../models/User");
+const GoogleUser = require("../models/GoogleUser");
+const { getGoogleAuthTokens, getGoogleUser } = require("../service/userService");
+const jwt = require("jsonwebtoken");
 
 async function googleOauthHandler(req, res) {
   try {
-    console.log('1-> Webhook hit');
+    console.log("1-> Webhook hit");
     // get the code from qs
     const code = req.query.code;
     const state = req.query.state;
-    console.log('State received', state);
+    console.log("State received", state);
     // Parse the 'state' to retrieve orgId
     let orgId = null;
     if (state) {
       try {
         const parsedState = JSON.parse(state); // Assuming state is a JSON string
-        console.log('parsed satte', parsedState);
+        console.log("parsed satte", parsedState);
         orgId = parsedState.orgId; // Extract orgId from the state
       } catch (err) {
-        console.log('Error parsing state:', err);
-        return res.redirect(process.env.CLIENT_URI + '?oauth-completed=true');
+        console.log("Error parsing state:", err);
+        return res.redirect(process.env.CLIENT_URI + "?oauth-completed=true");
       }
     }
 
@@ -35,9 +32,9 @@ async function googleOauthHandler(req, res) {
       id_token: emailCredential.id_token,
       access_token: emailCredential.access_token,
     });
-    console.log('googleUser', googleUser);
+    console.log("googleUser", googleUser);
     if (!googleUser || !googleUser.email) {
-      console.log('Failed to retrieve google user details');
+      console.log("Failed to retrieve google user details");
     }
     // upsert the user
     const existingUser = await User.findOne({
@@ -55,18 +52,18 @@ async function googleOauthHandler(req, res) {
     if (orgId) {
       googleUserPayload.organization = orgId;
     }
-    console.log('Google user payload', googleUserPayload);
+    console.log("Google user payload", googleUserPayload);
     const newGoogleUser = await GoogleUser.findOneAndUpdate(
       { email: googleUser.email },
       googleUserPayload,
       { new: true, upsert: true }
     );
-    console.log('newGoogleUser', newGoogleUser);
+    console.log("newGoogleUser", newGoogleUser);
     //redirect back to client
     res.redirect(process.env.CLIENT_URI);
   } catch (err) {
-    console.log('Error', err);
-    res.redirect(process.env.CLIENT_URI + '?oauth-completed=true');
+    console.log("Error", err);
+    res.redirect(process.env.CLIENT_URI + "?oauth-completed=true");
   }
 }
 

@@ -54,6 +54,8 @@ app.get("/health-check", async (req, res) => {
   }
   res.status(200).send("CoWrkr API running..");
 });
+// Google OAuth callback: set GOOGLE_REDIRECT_URL in .env to this route's full URL
+// e.g. https://your-api.com/api/sessions/oauth/google (must match Google Console exactly)
 app.get("/api/sessions/oauth/google", googleOauthHandler);
 // app.use('/webhook', webhookRoute);;
 app.get("/webhook", (req, res) => {

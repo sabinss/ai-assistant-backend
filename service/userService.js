@@ -1,27 +1,27 @@
-const axios = require('axios');
-const qs = require('qs');
+const axios = require("axios");
+const qs = require("qs");
 
 async function getGoogleAuthTokens({ code }) {
-  const url = 'https://oauth2.googleapis.com/token';
+  const url = "https://oauth2.googleapis.com/token";
   const values = {
     code,
     client_id: process.env.GOOGLE_CLIENT_ID,
     client_secret: process.env.GOOGLE_CLIENT_SECRET,
     redirect_uri: process.env.GOOGLE_REDIRECT_URL,
-    grant_type: 'authorization_code',
+    grant_type: "authorization_code",
   };
-  console.log('2->values', values);
+  console.log("getGoogleAuthTokens called----", values);
   try {
     const res = await axios.post(url, qs.stringify(values), {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        "Content-Type": "application/x-www-form-urlencoded",
       },
     });
-    console.log('url response->', res.data);
+    console.log("url response->", res.data);
     return res.data;
   } catch (err) {
     console.error(err.response.data.error);
-    console.log('Failed to fetch google oauth token', err);
+    console.log("Failed to fetch google oauth token", err);
   }
 }
 
@@ -37,7 +37,7 @@ async function getGoogleUser({ id_token, access_token }) {
     );
     return res.data;
   } catch (err) {
-    console.log('Error fetching google user', err);
+    console.log("Error fetching google user", err);
   }
 }
 

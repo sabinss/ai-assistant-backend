@@ -561,7 +561,7 @@ exports.sendConfirmEmailToken = async (req, res) => {
     if (account_type === "individual") {
       role = await Role.findOne({ name: "individual" });
     } else {
-      role = await Role.findOne({ name: "user" });
+      role = await Role.findOne({ name: "admin" });
     }
     const status = await Status.findOne({ name: "active" });
     const role_id = role ? role._id : null;

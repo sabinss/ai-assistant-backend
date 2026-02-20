@@ -38,17 +38,27 @@ exports.verifyOrganization = async (req, res) => {
 exports.signup = async (req, res) => {
   const { first_name, last_name, email, organization_name, ai_assistant_name, password } = req.body;
 
+  // Validate required fields before processing
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required" });
+  }
+  if (!organization_name) {
+    return res.status(400).json({ message: "Organization name is required" });
+  }
+
   try {
     const isUserExist = await User.findOne({ email });
     if (isUserExist) {
-      return res.status(400).json({ message: "User aleady exist" });
+      return res.status(400).json({ message: "User already exist" });
     }
     const existingOrg = await Organization.findOne({ name: organization_name });
-    if (existingOrg) return res.status(409).json({ message: "Organization name already taken." });
+    if (existingOrg) {
+      return res.status(409).json({ message: "Organization name already taken." });
+    }
 
     const newOrg = new Organization({
       name: organization_name,
-      assistant_name: ai_assistant_name,
+      assistant_name: ai_assistant_name || "",
     });
     await newOrg.save();
 
@@ -62,18 +72,18 @@ exports.signup = async (req, res) => {
     const newUser = new User({
       organization: newOrg._id,
       email,
-      first_name,
-      last_name,
+      first_name: first_name || "",
+      last_name: last_name || "",
       password: hashed_password,
       role: role_id,
       status: status_id,
     });
 
     await newUser.save();
-    res.status(201).json({ message: "User created successfully" });
+    return res.status(201).json({ message: "User created successfully" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Signup error:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 const revokeGoogleToken = async (refreshToken) => {

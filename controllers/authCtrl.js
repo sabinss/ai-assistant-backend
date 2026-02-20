@@ -11,6 +11,7 @@ const rolePermission = require("../helper/rolePermission");
 const GoogleUser = require("../models/GoogleUser");
 const axios = require("axios");
 const { getGoogleAuthTokens, getGoogleUser } = require("../service/userService");
+const { buildOrgGoogleCredential } = require("../helper/googleCredential");
 const AgentModel = require("../models/AgentModel");
 const AgentTask = require("../models/AgentTask");
 const INDIVIDUAL_USER_DEFAULT_AGENT = require("../constants/individual-user-default-agent");
@@ -37,6 +38,14 @@ exports.verifyOrganization = async (req, res) => {
 };
 exports.signup = async (req, res) => {
   const { first_name, last_name, email, organization_name, ai_assistant_name, password } = req.body;
+
+  // Validate required fields
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required" });
+  }
+  if (!organization_name) {
+    return res.status(400).json({ message: "Organization name is required" });
+  }
 
   try {
     const isUserExist = await User.findOne({ email });
@@ -131,9 +140,12 @@ exports.googleOauthCodeExchange = async (req, res) => {
       googleUserPayload,
       { new: true, upsert: true }
     );
-    console.log("newGoogleUser", newGoogleUser);
-    //redirect back to client
-    // res.redirect(process.env.CLIENT_URI);
+    // When connected to an org, set orgGoogleCredential in shape Python expects (client_id, project_id, auth_uri, token_uri, etc. + tokens)
+    if (orgId && emailCredential) {
+      await Organization.findByIdAndUpdate(orgId, {
+        orgGoogleCredential: buildOrgGoogleCredential(emailCredential),
+      });
+    }
     res.status(200).json({
       success: true,
       message: "Google oauth success",
@@ -145,23 +157,32 @@ exports.disconnectOrgGoogleUser = async (req, res) => {
   try {
     const organization = req.user?.organization;
     if (!organization) {
-      res.status(500).json({ message: "Organization is required", err });
+      return res.status(500).json({ message: "Organization is required", err });
     }
 
     const googleUserRecord = await GoogleUser.findOne({
       organization: organization,
     });
+    if (!googleUserRecord) {
+      return res.status(404).json({ message: "No Google user connected for this organization" });
+    }
 
-    const refreshToken = googleUserRecord.emailCredential.access_token;
-    console.log("refresh token", googleUserRecord.emailCredential.access_token);
-    refreshToken && (await revokeGoogleToken(googleUserRecord.emailCredential.access_token));
-    await GoogleUser.deleteOne({ organization: organization });
+    const refreshToken = googleUserRecord.emailCredential?.access_token;
+    refreshToken && (await revokeGoogleToken(refreshToken));
+    await GoogleUser.deleteOne({ _id: googleUserRecord._id });
+
+    // Update orgGoogleCredential: use another connected user's credential (Python shape), or clear
+    const remaining = await GoogleUser.findOne({ organization }).sort({ updatedAt: -1 }).lean();
+    await Organization.findByIdAndUpdate(organization, {
+      orgGoogleCredential: buildOrgGoogleCredential(remaining?.emailCredential),
+    });
+
     return res.status(200).json({
       message: "Disconnected google user successfully",
       success: true,
     });
   } catch (err) {
-    res.status(500).json({ message: "Internal server error", err });
+    return res.status(500).json({ message: "Internal server error", err });
   }
 };
 

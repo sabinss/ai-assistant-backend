@@ -1,7 +1,8 @@
 const User = require("../models/User");
 const GoogleUser = require("../models/GoogleUser");
+const Organization = require("../models/Organization");
 const { getGoogleAuthTokens, getGoogleUser } = require("../service/userService");
-const jwt = require("jsonwebtoken");
+const { buildOrgGoogleCredential } = require("../helper/googleCredential");
 
 async function googleOauthHandler(req, res) {
   try {
@@ -58,7 +59,12 @@ async function googleOauthHandler(req, res) {
       googleUserPayload,
       { new: true, upsert: true }
     );
-    console.log("newGoogleUser", newGoogleUser);
+    // When connected to an org, set orgGoogleCredential in shape Python expects (client_id, project_id, auth_uri, token_uri, etc. + tokens)
+    if (orgId && emailCredential) {
+      await Organization.findByIdAndUpdate(orgId, {
+        orgGoogleCredential: buildOrgGoogleCredential(emailCredential),
+      });
+    }
     //redirect back to client
     res.redirect(process.env.CLIENT_URI);
   } catch (err) {

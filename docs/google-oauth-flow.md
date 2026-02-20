@@ -89,6 +89,30 @@ flowchart LR
 
 ---
 
+## orgGoogleCredential (for the client)
+
+When a Google user is connected to an organization, the client often needs **orgGoogleCredential** (tokens for sending email, etc.). Here is how it is set and how to get it.
+
+### How it is set
+
+- **On connect:** When a user connects their Google account to an org (via session OAuth or code exchange), the backend:
+  1. Saves the user in **GoogleUser** (with `emailCredential` and `organization`).
+  2. Updates **Organization.orgGoogleCredential** with that user’s `emailCredential` (so the org has a usable credential).
+- **On disconnect:** When the last (or only) Google user for the org is disconnected, **orgGoogleCredential** is set to `{}`. If there are other connected users, it is set to one of the remaining user’s credentials.
+
+So **orgGoogleCredential** is set automatically when connecting/disconnecting; the client does not set it.
+
+### How to get it
+
+- **Endpoint:** `GET {APP_URL}/organization/google-users`
+- **Auth:** Requires `verifyGoogleAuthUser` (logged-in user with organization).
+- **Response:**  
+  `data.user_email`, `data.orgGoogleCredential`, `data.connectedEmails` (list of connected GoogleUser records).
+
+Use `data.orgGoogleCredential` on the client when you need the organization’s Google credential (e.g. for Gmail API or sending email as the org).
+
+---
+
 ## Env variables
 
 | Variable               | Purpose                                                                                     |

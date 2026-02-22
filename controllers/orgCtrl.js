@@ -507,9 +507,24 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
       ).lean();
       const connectedGmailUsers = await GoogleUser.find(connectedGmailUsersQuery).lean();
 
+      const defaultOrgGoogleCredential = {
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uris: [process.env.GOOGLE_REDIRECT_URL],
+        project_id: "cowrkr-prod",
+        auth_uri: "https://accounts.google.com/o/oauth2/v2/auth",
+        token_uri: "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+      };
+      let orgGoogleCredential = orgDetail?.orgGoogleCredential;
+      if (!orgGoogleCredential || Object.keys(orgGoogleCredential).length === 0) {
+        orgGoogleCredential = defaultOrgGoogleCredential;
+      }
+
       const responsePayload = {
         user_email,
-        orgGoogleCredential: orgDetail.orgGoogleCredential,
+        orgGoogleCredential,
         connectedEmails: connectedGmailUsers ? connectedGmailUsers : [],
       };
       res.status(200).json({

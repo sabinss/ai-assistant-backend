@@ -505,7 +505,12 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
         req.organization._id,
         "orgGoogleCredential"
       ).lean();
-      const connectedGmailUsers = await GoogleUser.find(connectedGmailUsersQuery).lean();
+      let connectedGmailUsers = await GoogleUser.find(connectedGmailUsersQuery).lean();
+      // So Python can use the exact granted scope when refreshing/building credentials (avoids scope mismatch)
+      connectedGmailUsers = connectedGmailUsers.map((u) => ({
+        ...u,
+        granted_scope: u.emailCredential?.scope || "",
+      }));
 
       const defaultOrgGoogleCredential = {
         client_id: process.env.GOOGLE_CLIENT_ID,
@@ -525,7 +530,7 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
       const responsePayload = {
         user_email,
         orgGoogleCredential,
-        connectedEmails: connectedGmailUsers ? connectedGmailUsers : [],
+        connectedEmails: connectedGmailUsers,
       };
       res.status(200).json({
         data: responsePayload,

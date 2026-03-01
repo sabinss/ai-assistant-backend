@@ -808,8 +808,8 @@ exports.getConversationByUserId = async (req, res) => {
     // });
     const conversation = await Conversation.find(searchCondition)
       .populate("customer") // Populate the 'customer' field
-      .populate("user_id") // Populate the 'customer' field
-      .sort({ createdAt: 1 }) // Sort by createdAt in descending order
+      .populate("user_id") // Populate the 'user_id' field
+      .sort({ createdAt: 1 }) // Oldest first so latest conversation shows at bottom in chat UI
       .exec(); // Execute the query
 
     res.json(conversation);

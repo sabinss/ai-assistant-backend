@@ -60,6 +60,8 @@ async function googleOauthHandler(req, res) {
     );
     console.log("newGoogleUser", newGoogleUser);
     //redirect back to client
+
+    console.log("Redirecting to client URI********", process.env.CLIENT_URI);
     res.redirect(process.env.CLIENT_URI);
   } catch (err) {
     console.log("Error", err);

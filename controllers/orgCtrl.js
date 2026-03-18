@@ -201,6 +201,7 @@ exports.getOrg = async (req, res) => {
       zendesk_subdomain,
       hubspot_bearer_token,
       whatsappConfig,
+      tenant_isolation,
     } = org;
     const orgResponsePayload = {
       _id,
@@ -233,6 +234,7 @@ exports.getOrg = async (req, res) => {
       zendesk_subdomain,
       hubspot_bearer_token,
       whatsappConfig,
+      tenant_isolation,
     };
     return res.json({ org: orgResponsePayload });
   } catch (error) {

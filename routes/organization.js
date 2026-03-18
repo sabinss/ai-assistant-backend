@@ -172,6 +172,20 @@ module.exports = (app) => {
     permissonCheck,
     ctl.editOrg
   );
+
+  app.get(
+    `${process.env.APP_URL}/organization/:orgId/detail`,
+    authUser,
+    permissonCheck,
+    ctl.getOrganizationDetail
+  );
+  app.post(
+    `${process.env.APP_URL}/organization/:orgId/detail`,
+    authUser,
+    permissonCheck,
+    ctl.upsertOrganizationDetail
+  );
+
   app.post(
     `${process.env.APP_URL}/organization`,
     authUser,

@@ -14,6 +14,7 @@ const fs = require("fs");
 const FormData = require("form-data");
 const { organizationPromptDefaultData } = require("../seeders/saveOrganizationPrompt");
 const OrganizationToken = require("../models/OrganizationToken");
+const OrganizationDetail = require("../models/OrganizationDetail");
 exports.create = async (req, res) => {
   const {
     name,
@@ -317,6 +318,64 @@ exports.editOrg = async (req, res) => {
     return res.json(org);
   } catch (error) {
     res.status(500).json({ error });
+  }
+};
+
+exports.upsertOrganizationDetail = async (req, res) => {
+  const { orgId } = req.params;
+  const { organizationDetail, website, subscriptionPlan, industry } = req.body;
+
+  try {
+    const org = await Organization.findById(orgId);
+    if (!org) {
+      return res.status(404).json({ message: "Organization not found" });
+    }
+
+    const payload = {
+      organization: orgId,
+      organizationDetail: organizationDetail ?? "",
+      website: website ?? "",
+      ...(subscriptionPlan != null && { subscriptionPlan }),
+      ...(industry != null && { industry }),
+    };
+
+    const detail = await OrganizationDetail.findOneAndUpdate(
+      { organization: orgId },
+      payload,
+      { new: true, runValidators: true, upsert: true }
+    );
+
+    if (org.organizationDetail?.toString() !== detail._id.toString()) {
+      await Organization.findByIdAndUpdate(orgId, {
+        organizationDetail: detail._id,
+      });
+    }
+
+    return res.status(200).json(detail);
+  } catch (error) {
+    console.error("upsertOrganizationDetail error", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+exports.getOrganizationDetail = async (req, res) => {
+  const { orgId } = req.params;
+
+  try {
+    const org = await Organization.findById(orgId);
+    if (!org) {
+      return res.status(404).json({ message: "Organization not found" });
+    }
+
+    const detail = await OrganizationDetail.findOne({ organization: orgId });
+    if (!detail) {
+      return res.status(404).json({ message: "Organization detail not found" });
+    }
+
+    return res.status(200).json(detail);
+  } catch (error) {
+    console.error("getOrganizationDetail error", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 

@@ -48,7 +48,12 @@ const orgSchema = new mongoose.Schema(
         whatsappConfig: {
             type: Object,
             default: {}
-        }
+        },
+        organizationDetail: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'OrganizationDetail',
+            default: null,
+        },
     },
     {
         timestamps: true

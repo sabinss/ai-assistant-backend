@@ -308,21 +308,32 @@ exports.forgotPassword = async (req, res) => {
 };
 
 const sendEmail = async (email, token, isReset = true) => {
-  console.log(process.env.MAIL_API_EMAIL, process.env.MAIL_API_PASSWORD);
+  const mailUser = process.env.MAIL_API_EMAIL;
+  const mailPass = process.env.MAIL_API_PASSWORD;
+  console.log(
+    "[Mail] Using email:",
+    mailUser,
+    "| Password length:",
+    mailPass ? mailPass.length : 0
+  );
+
+  if (!mailUser || !mailPass) {
+    console.error("[Mail] Missing MAIL_API_EMAIL or MAIL_API_PASSWORD in .env");
+    throw new Error("Mail configuration missing");
+  }
+
   const transporter = nodemailer.createTransport({
-    // service: "gmail",
     host: "smtp.gmail.com",
     port: 587,
     secure: false,
     auth: {
-      user: process.env.MAIL_API_EMAIL,
-      pass: process.env.MAIL_API_PASSWORD,
+      user: mailUser,
+      pass: mailPass,
     },
   });
 
   const mailOptions = {
-    // from: 'theagilemove@gmail.com',,
-    from: process.env.MAIL_API_EMAIL,
+    from: mailUser,
     to: email,
     subject: isReset ? "Reset Password" : "Email Confirmation",
     html: `
@@ -383,12 +394,20 @@ const sendEmail = async (email, token, isReset = true) => {
       </html>
     `,
   };
-  console.log("mailOptions", mailOptions);
+  console.log("[Mail] Sending to:", email);
+  try {
+    await transporter.verify();
+  } catch (verifyErr) {
+    console.error("[Mail] SMTP verify failed (check credentials/network):", verifyErr.message);
+    throw verifyErr;
+  }
   try {
     const mailResponse = await transporter.sendMail(mailOptions);
-    console.log("mailResponse", mailResponse);
+    console.log("[Mail] Sent successfully:", mailResponse.messageId);
+    return mailResponse;
   } catch (err) {
-    console.log("Send Email error", err);
+    console.error("[Mail] Send failed:", err.message, err.response || "");
+    throw err;
   }
 };
 

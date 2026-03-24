@@ -12,5 +12,5 @@ module.exports = {
     "organization",
     "configuration",
   ],
-  individual: ["chat", "users", "source", "configuration"],
+  individual: ["chat", "source", "configuration"],
 };

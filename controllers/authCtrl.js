@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Organization = require("../models/Organization");
+const OrganizationDetail = require("../models/OrganizationDetail");
 const Role = require("../models/Role");
 const Status = require("../models/Status");
 const bcrypt = require("bcrypt");
@@ -573,6 +574,15 @@ exports.sendConfirmEmailToken = async (req, res) => {
       });
       await newOrg.save();
       organizationId = newOrg._id;
+
+      if (account_type === "individual") {
+        const detail = new OrganizationDetail({
+          organization: newOrg._id,
+          subscriptionPlan: "Free",
+        });
+        await detail.save();
+        await Organization.findByIdAndUpdate(newOrg._id, { organizationDetail: detail._id });
+      }
     }
 
     // Get role and status

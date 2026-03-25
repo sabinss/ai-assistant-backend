@@ -1070,10 +1070,9 @@ exports.uploadOrganizationSourceUpload = async (req, res) => {
       formData.append("files", fs.createReadStream(file.path), file.originalname);
     }
     const headers = {
-      ...formData.getHeaders(), // Required to set correct `Content-Type` with boundary
       accept: "application/json",
       "X-API-KEY": process.env.NEXT_PUBLIC_OPEN_API_KEY_FOR_CHAT,
-      "Content-Type": "multipart/form-data",
+      ...formData.getHeaders(), // must be last: sets multipart Content-Type with boundary
     };
     const params = {
       company_id: req.user.organization,

@@ -32,12 +32,19 @@ module.exports = (app) => {
       authUser,
       (req, res, next) => {
         uploadMiddleware(req, res, (err) => {
-          console.log('Rag file upload error', err);
+          if (err) {
+            console.error('Rag file upload error', err.code || err.message, err);
+          }
           if (err instanceof multer.MulterError) {
             if (err.code === 'LIMIT_FILE_SIZE') {
               return res
                 .status(400)
                 .json({ error: 'File too large. Max size is 40mMB.' });
+            }
+            if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+              return res.status(400).json({
+                error: 'Unexpected form field. Files must be sent under the field name "files".',
+              });
             }
             return res.status(400).json({ error: err.message });
           } else if (err) {

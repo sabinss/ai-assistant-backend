@@ -341,11 +341,11 @@ exports.upsertOrganizationDetail = async (req, res) => {
       ...(industry != null && { industry }),
     };
 
-    const detail = await OrganizationDetail.findOneAndUpdate(
-      { organization: orgId },
-      payload,
-      { new: true, runValidators: true, upsert: true }
-    );
+    const detail = await OrganizationDetail.findOneAndUpdate({ organization: orgId }, payload, {
+      new: true,
+      runValidators: true,
+      upsert: true,
+    });
 
     if (org.organizationDetail?.toString() !== detail._id.toString()) {
       await Organization.findByIdAndUpdate(orgId, {
@@ -1061,6 +1061,7 @@ exports.deleteSourceFile = async (req, res) => {
 exports.uploadOrganizationSourceUpload = async (req, res) => {
   try {
     const url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant/upload-pdfs`;
+    console.log("uploadOrganizationSourceUpload called", url);
     const formData = new FormData();
     const files = req.files;
     if (!files || files.length == 0) {
@@ -1078,8 +1079,10 @@ exports.uploadOrganizationSourceUpload = async (req, res) => {
       company_id: req.user.organization,
     };
     const response = await axios.post(url, formData, { headers, params });
+    console.log("uploadOrganizationSourceUpload response", response.data);
     res.status(201).json(response.data);
   } catch (err) {
+    console.error("uploadOrganizationSourceUpload error", err);
     res.status(500).json({ message: "Failed to upload file", err });
   }
 };

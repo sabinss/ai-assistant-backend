@@ -220,13 +220,30 @@ const shouldTriggerAgent = (agent, currentHour, windowStartHour, windowEndHour, 
       return { shouldTrigger: true, skipReason: null };
     }
 
+    case 'Hourly':
+    case 'hourly': {
+      // Cron runs hourly (`0 * * * *`); trigger at most once per calendar hour
+      if (lastTriggeredAt) {
+        const lastRun = moment(lastTriggeredAt);
+        const now = moment();
+        if (lastRun.isSame(now, 'hour')) {
+          return {
+            shouldTrigger: false,
+            skipReason: `Already triggered this hour at ${lastRun.format('HH:mm:ss')}`,
+          };
+        }
+      }
+      return { shouldTrigger: true, skipReason: null };
+    }
+
     default:
       return { shouldTrigger: false, skipReason: `Unknown frequency: ${frequency}` };
   }
 };
 
 /**
- * Main cron job handler - runs every 2 hours
+ * Main cron job handler — invoked each hour by `index.js` (`0 * * * *`).
+ * Handles Daily / Weekly / Monthly / Hourly agents.
  */
 const handleTaskAgentCronJob = async () => {
   const now = moment();
@@ -267,11 +284,13 @@ const handleTaskAgentCronJob = async () => {
       let activeAgents = await AgentModel.find({
         isAgent: true,
         organization: org._id,
-        frequency: { $in: ['Daily', 'Weekly', 'Monthly'] },
+        frequency: { $in: ['Daily', 'Weekly', 'Monthly', 'Hourly', 'hourly'] },
         $or: [
           { frequency: 'Daily', scheduleTime: { $ne: null } },
           { frequency: 'Weekly', dayTime: { $ne: null } },
           { frequency: 'Monthly', dayTime: { $ne: null } },
+          { frequency: 'Hourly' },
+          { frequency: 'hourly' },
         ],
       });
 
@@ -280,8 +299,14 @@ const handleTaskAgentCronJob = async () => {
       // Sort agents by scheduleTime ascending so earliest runs first (e.g. 4:00 → 6:00 → 8:00)
       // getScheduleSortKey converts "HH:mm" to minutes; agents without scheduleTime sort last
       activeAgents = activeAgents.sort((a, b) => {
-        const keyA = getScheduleSortKey(a.scheduleTime);
-        const keyB = getScheduleSortKey(b.scheduleTime);
+        const keyA =
+          a.frequency === 'Hourly' || a.frequency === 'hourly'
+            ? -1
+            : getScheduleSortKey(a.scheduleTime);
+        const keyB =
+          b.frequency === 'Hourly' || b.frequency === 'hourly'
+            ? -1
+            : getScheduleSortKey(b.scheduleTime);
         if (keyA !== keyB) return keyA - keyB;
         return String(a._id).localeCompare(String(b._id)); // stable order when same time
       });

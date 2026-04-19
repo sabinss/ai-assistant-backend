@@ -41,7 +41,7 @@ async function getGoogleUser({ id_token, access_token }) {
   }
 }
 
-async function getMicrosoftAuthTokens({ code }) {
+async function getMicrosoftAuthTokens({ code, code_verifier }) {
   const url = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
   const values = {
     code,
@@ -50,6 +50,9 @@ async function getMicrosoftAuthTokens({ code }) {
     redirect_uri: process.env.MICROSOFT_REDIRECT_URL,
     grant_type: "authorization_code",
   };
+  if (code_verifier) {
+    values.code_verifier = code_verifier;
+  }
   try {
     const res = await axios.post(url, qs.stringify(values), {
       headers: {
@@ -58,7 +61,12 @@ async function getMicrosoftAuthTokens({ code }) {
     });
     return res.data;
   } catch (err) {
-    console.error("Failed to fetch Microsoft oauth token", err.response?.data || err.message);
+    const ms = err.response?.data;
+    console.error(
+      "[Microsoft token] Request failed:",
+      ms ? JSON.stringify(ms, null, 2) : err.message
+    );
+    throw err;
   }
 }
 

@@ -160,8 +160,15 @@ exports.googleOauthCodeExchange = async (req, res) => {
 
 exports.outlookOauthCodeExchange = async (req, res) => {
   try {
-    const { code, orgId } = req.body;
-    const emailCredential = await getMicrosoftAuthTokens({ code });
+    const { code, orgId, code_verifier } = req.body;
+    console.log(
+      "[outlook-oauth/exchange]",
+      "orgId=",
+      orgId,
+      "code_verifier=",
+      code_verifier ? "present" : "missing"
+    );
+    const emailCredential = await getMicrosoftAuthTokens({ code, code_verifier });
     if (!emailCredential || !emailCredential.access_token) {
       return res.status(400).json({
         success: false,
@@ -190,20 +197,23 @@ exports.outlookOauthCodeExchange = async (req, res) => {
     if (orgId) {
       outlookUserPayload.organization = orgId;
     }
-    await OutlookUser.findOneAndUpdate(
-      { email: msUser.email },
-      outlookUserPayload,
-      { new: true, upsert: true }
-    );
+    await OutlookUser.findOneAndUpdate({ email: msUser.email }, outlookUserPayload, {
+      new: true,
+      upsert: true,
+    });
     res.status(200).json({
       success: true,
       message: "Microsoft oauth success",
     });
   } catch (err) {
-    console.error("outlookOauthCodeExchange", err);
-    res.status(500).json({
+    const ms = err.response?.data;
+    console.error("outlookOauthCodeExchange", ms ? JSON.stringify(ms, null, 2) : err.message);
+    const sc = err.response?.status;
+    const status = typeof sc === "number" && sc >= 400 && sc < 600 ? sc : 500;
+    return res.status(status).json({
       success: false,
-      message: "Microsoft oauth failed",
+      message: ms?.error_description || ms?.error || err.message || "Microsoft oauth failed",
+      error: ms?.error,
     });
   }
 };

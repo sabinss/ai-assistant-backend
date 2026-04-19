@@ -1,72 +1,57 @@
-const ctl = require('../controllers/orgCtrl');
-const verifyGoogleAuthUser = require('../middleware/google-auth-verify');
-const permitUser = require('../middleware/permitUser');
-const authUser = require('../middleware/authUser')['authenticate'];
-const checkPermissions = require('../middleware/rolePermit');
-const checkSessionApiKey = require('../middleware/sessionapi');
-const verifySameOrganization = require('../middleware/verifySameOrganization');
-const permissonCheck = checkPermissions('organization');
-const multer = require('multer');
-const path = require('path');
+const ctl = require("../controllers/orgCtrl");
+const verifyGoogleAuthUser = require("../middleware/google-auth-verify");
+const permitUser = require("../middleware/permitUser");
+const authUser = require("../middleware/authUser")["authenticate"];
+const checkPermissions = require("../middleware/rolePermit");
+const checkSessionApiKey = require("../middleware/sessionapi");
+const verifySameOrganization = require("../middleware/verifySameOrganization");
+const permissonCheck = checkPermissions("organization");
+const multer = require("multer");
+const path = require("path");
 const upload = multer({
-  dest: path.join(__dirname, '../uploads/'),
+  dest: path.join(__dirname, "../uploads/"),
   limits: {
     fileSize: 40 * 1024 * 1024, // 40 MB in bytes
   },
 }); // ensure folder exists
-const uploadMiddleware = upload.array('files');
+const uploadMiddleware = upload.array("files");
 
 module.exports = (app) => {
-  app.delete(
-    `${process.env.APP_URL}/organization/source`,
-    authUser,
-    ctl.deleteSourceFile
-  ),
-    app.get(
-      `${process.env.APP_URL}/organization/agent/:id/start`,
-      authUser,
-      ctl.triggerAgent
-    ),
+  (app.delete(`${process.env.APP_URL}/organization/source`, authUser, ctl.deleteSourceFile),
+    app.get(`${process.env.APP_URL}/organization/agent/:id/start`, authUser, ctl.triggerAgent),
     app.post(
       `${process.env.APP_URL}/organization/source/upload-pdf`,
       authUser,
       (req, res, next) => {
         uploadMiddleware(req, res, (err) => {
           if (err) {
-            console.error('Rag file upload error', err.code || err.message, err);
+            console.error("Rag file upload error", err.code || err.message, err);
           }
           if (err instanceof multer.MulterError) {
-            if (err.code === 'LIMIT_FILE_SIZE') {
-              return res
-                .status(400)
-                .json({ error: 'File too large. Max size is 40mMB.' });
+            if (err.code === "LIMIT_FILE_SIZE") {
+              return res.status(400).json({ error: "File too large. Max size is 40mMB." });
             }
-            if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            if (err.code === "LIMIT_UNEXPECTED_FILE") {
               return res.status(400).json({
                 error: 'Unexpected form field. Files must be sent under the field name "files".',
               });
             }
             return res.status(400).json({ error: err.message });
           } else if (err) {
-            return res.status(500).json({ error: 'File upload failed.' });
+            return res.status(500).json({ error: "File upload failed." });
           }
           next(); // proceed to controller if no errors
         });
       },
       ctl.uploadOrganizationSourceUpload
-    );
+    ));
   app.get(
     `${process.env.APP_URL}/organization/source/file/list`,
     authUser,
     ctl.fetchSourceFileList
   );
   app.get(`${process.env.APP_URL}/customers/`, ctl.getCustomerDetail);
-  app.get(
-    `${process.env.APP_URL}/organization/`,
-    authUser,
-    permissonCheck,
-    ctl.getOrg
-  );
+  app.get(`${process.env.APP_URL}/organization/`, authUser, permissonCheck, ctl.getOrg);
 
   app.get(
     `${process.env.APP_URL}/organization/google-users`,
@@ -75,16 +60,14 @@ module.exports = (app) => {
     ctl.getConnectedGmailsWithOrg
   );
 
-  app.post(
-    `${process.env.APP_URL}/organization/prompts`,
-    authUser,
-    ctl.createOrganizationPrompt
-  );
   app.get(
-    `${process.env.APP_URL}/organization/prompts`,
-    authUser,
-    ctl.getOrganizationPrompt
+    `${process.env.APP_URL}/organization/microsoft-users`,
+    verifyGoogleAuthUser,
+    ctl.getConnectedOutlooksWithOrg
   );
+
+  app.post(`${process.env.APP_URL}/organization/prompts`, authUser, ctl.createOrganizationPrompt);
+  app.get(`${process.env.APP_URL}/organization/prompts`, authUser, ctl.getOrganizationPrompt);
   app.post(
     `${process.env.APP_URL}/organization/prompts/category`,
     authUser,
@@ -97,11 +80,7 @@ module.exports = (app) => {
     ctl.callTaskAgentPythonApi
   );
 
-  app.post(
-    `${process.env.APP_URL}/organization/agent`,
-    authUser,
-    ctl.createOrgAgentInstructions
-  );
+  app.post(`${process.env.APP_URL}/organization/agent`, authUser, ctl.createOrgAgentInstructions);
 
   app.post(
     `${process.env.APP_URL}/organization/agent/:agentId/task/:taskId/status`,
@@ -115,11 +94,7 @@ module.exports = (app) => {
     ctl.getAgentTaskStatus
   );
 
-  app.put(
-    `${process.env.APP_URL}/organization/agent`,
-    authUser,
-    ctl.updateOrgAgentInstructions
-  );
+  app.put(`${process.env.APP_URL}/organization/agent`, authUser, ctl.updateOrgAgentInstructions);
   app.get(
     `${process.env.APP_URL}/organization/agent/instruction`,
     authUser,
@@ -173,12 +148,7 @@ module.exports = (app) => {
     ctl.updateOrgTaskAgents
   );
 
-  app.put(
-    `${process.env.APP_URL}/organization`,
-    authUser,
-    permissonCheck,
-    ctl.editOrg
-  );
+  app.put(`${process.env.APP_URL}/organization`, authUser, permissonCheck, ctl.editOrg);
 
   app.get(
     `${process.env.APP_URL}/organization/:orgId/detail`,
@@ -193,41 +163,18 @@ module.exports = (app) => {
     ctl.upsertOrganizationDetail
   );
 
-  app.post(
-    `${process.env.APP_URL}/organization`,
-    authUser,
-    permissonCheck,
-    ctl.create
-  );
+  app.post(`${process.env.APP_URL}/organization`, authUser, permissonCheck, ctl.create);
   app.put(
     `${process.env.APP_URL}/organization/support-workflow`,
     authUser,
     permissonCheck,
     ctl.saveOrgSupportWorkflow
   );
-  app.get(
-    `${process.env.APP_URL}/organization/greeting_botname`,
-    ctl.getGreeting_botName
-  );
-  app.post(
-    `${process.env.APP_URL}/organization/user`,
-    authUser,
-    permitUser,
-    ctl.createUser
-  );
+  app.get(`${process.env.APP_URL}/organization/greeting_botname`, ctl.getGreeting_botName);
+  app.post(`${process.env.APP_URL}/organization/user`, authUser, permitUser, ctl.createUser);
 
-  app.post(
-    `${process.env.APP_URL}/organization/users`,
-    authUser,
-    permitUser,
-    ctl.findUsers
-  );
-  app.put(
-    `${process.env.APP_URL}/organization/user/:user_id`,
-    authUser,
-    permitUser,
-    ctl.editUser
-  );
+  app.post(`${process.env.APP_URL}/organization/users`, authUser, permitUser, ctl.findUsers);
+  app.put(`${process.env.APP_URL}/organization/user/:user_id`, authUser, permitUser, ctl.editUser);
   app.delete(
     `${process.env.APP_URL}/organization/user/:user_id`,
     authUser,

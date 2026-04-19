@@ -1,6 +1,7 @@
 const AGENT_SETUP_DATA = require("../constants/agent-setup-sample-data");
 const Customer = require("../models/Customer");
 const GoogleUser = require("../models/GoogleUser");
+const OutlookUser = require("../models/OutlookUser");
 const Organization = require("../models/Organization");
 const TaskAgentModel = require("../models/TaskAgentModel");
 const User = require("../models/User");
@@ -597,7 +598,53 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
         data: responsePayload,
       });
     } else {
-      res.status(500).json({ message: "Internal server error", err });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error", err });
+  }
+};
+
+/**
+ * Same JWT/org-token contract as getConnectedGmailsWithOrg, for the AI agent and Microsoft Graph.
+ * Query: token (JWT), email (optional), from_email (mailbox to use).
+ */
+exports.getConnectedOutlooksWithOrg = async (req, res) => {
+  try {
+    const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;
+    const from_email = req.query.from_email;
+    let connectedOutlookQuery = {
+      organization: req.organization._id,
+    };
+    if (isVerifiedFromExternalCall) {
+      if (from_email) {
+        connectedOutlookQuery.email = from_email;
+      }
+      const user_email = req.user.email;
+
+      let connectedOutlookUsers = await OutlookUser.find(connectedOutlookQuery).lean();
+      connectedOutlookUsers = connectedOutlookUsers.map((u) => ({
+        ...u,
+        granted_scope: u.emailCredential?.scope || "",
+      }));
+
+      const orgMicrosoftCredential = {
+        client_id: process.env.MICROSOFT_CLIENT_ID || "",
+        client_secret: process.env.MICROSOFT_CLIENT_SECRET || "",
+        secret_id: process.env.MICROSOFT_SECRET_ID || "",
+        tenant_id: process.env.MICROSOFT_TENANT_ID || "common",
+      };
+
+      const responsePayload = {
+        user_email,
+        orgMicrosoftCredential,
+        connectedOutlooks: connectedOutlookUsers,
+      };
+      res.status(200).json({
+        data: responsePayload,
+      });
+    } else {
+      res.status(500).json({ message: "Internal server error" });
     }
   } catch (err) {
     res.status(500).json({ message: "Internal server error", err });

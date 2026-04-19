@@ -17,6 +17,13 @@ module.exports = (app) => {
     ctl.disconnectOrgGoogleUser
   );
   app.post(`${process.env.APP_URL}/auth/google-oauth/exchange`, ctl.googleOauthCodeExchange);
+  app.post(`${process.env.APP_URL}/auth/outlook-login-verify`, authUser, ctl.verifyOutlookLogin);
+  app.post(
+    `${process.env.APP_URL}/auth/outlook-login/disconnect`,
+    authUser,
+    ctl.disconnectOrgOutlookUser
+  );
+  app.post(`${process.env.APP_URL}/auth/outlook-oauth/exchange`, ctl.outlookOauthCodeExchange);
 
   // app.post(`${process.env.APP_URL}/auth/tokenRefresh`, ctl.tokenRefresh);
 };

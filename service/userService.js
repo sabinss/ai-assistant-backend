@@ -41,4 +41,47 @@ async function getGoogleUser({ id_token, access_token }) {
   }
 }
 
-module.exports = { getGoogleAuthTokens, getGoogleUser };
+async function getMicrosoftAuthTokens({ code }) {
+  const url = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+  const values = {
+    code,
+    client_id: process.env.MICROSOFT_CLIENT_ID,
+    client_secret: process.env.MICROSOFT_CLIENT_SECRET,
+    redirect_uri: process.env.MICROSOFT_REDIRECT_URL,
+    grant_type: "authorization_code",
+  };
+  try {
+    const res = await axios.post(url, qs.stringify(values), {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+    return res.data;
+  } catch (err) {
+    console.error("Failed to fetch Microsoft oauth token", err.response?.data || err.message);
+  }
+}
+
+async function getMicrosoftUser({ access_token }) {
+  try {
+    const res = await axios.get("https://graph.microsoft.com/v1.0/me", {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+      },
+    });
+    const data = res.data;
+    return {
+      id: data.id,
+      email: data.mail || data.userPrincipalName,
+    };
+  } catch (err) {
+    console.log("Error fetching Microsoft user", err.response?.data || err.message);
+  }
+}
+
+module.exports = {
+  getGoogleAuthTokens,
+  getGoogleUser,
+  getMicrosoftAuthTokens,
+  getMicrosoftUser,
+};

@@ -10,8 +10,14 @@ const ResetToken = require("../models/ResetToken");
 const ConfirmToken = require("../models/ConfirmToken");
 const rolePermission = require("../helper/rolePermission");
 const GoogleUser = require("../models/GoogleUser");
+const OutlookUser = require("../models/OutlookUser");
 const axios = require("axios");
-const { getGoogleAuthTokens, getGoogleUser } = require("../service/userService");
+const {
+  getGoogleAuthTokens,
+  getGoogleUser,
+  getMicrosoftAuthTokens,
+  getMicrosoftUser,
+} = require("../service/userService");
 const AgentModel = require("../models/AgentModel");
 const AgentTask = require("../models/AgentTask");
 const INDIVIDUAL_USER_DEFAULT_AGENT = require("../constants/individual-user-default-agent");
@@ -152,6 +158,56 @@ exports.googleOauthCodeExchange = async (req, res) => {
   } catch (err) {}
 };
 
+exports.outlookOauthCodeExchange = async (req, res) => {
+  try {
+    const { code, orgId } = req.body;
+    const emailCredential = await getMicrosoftAuthTokens({ code });
+    if (!emailCredential || !emailCredential.access_token) {
+      return res.status(400).json({
+        success: false,
+        message: "Failed to exchange Microsoft OAuth code",
+      });
+    }
+    const msUser = await getMicrosoftUser({
+      access_token: emailCredential.access_token,
+    });
+    if (!msUser || !msUser.email) {
+      return res.status(400).json({
+        success: false,
+        message: "Failed to retrieve Microsoft user details",
+      });
+    }
+    const existingUser = await User.findOne({
+      email: msUser.email,
+    });
+    let outlookUserPayload = {
+      microsoftId: msUser.id,
+      isOutlookUser: true,
+      user: existingUser ? existingUser.id : null,
+      emailCredential,
+      isActive: true,
+    };
+    if (orgId) {
+      outlookUserPayload.organization = orgId;
+    }
+    await OutlookUser.findOneAndUpdate(
+      { email: msUser.email },
+      outlookUserPayload,
+      { new: true, upsert: true }
+    );
+    res.status(200).json({
+      success: true,
+      message: "Microsoft oauth success",
+    });
+  } catch (err) {
+    console.error("outlookOauthCodeExchange", err);
+    res.status(500).json({
+      success: false,
+      message: "Microsoft oauth failed",
+    });
+  }
+};
+
 exports.disconnectOrgGoogleUser = async (req, res) => {
   try {
     const organization = req.user?.organization;
@@ -169,6 +225,22 @@ exports.disconnectOrgGoogleUser = async (req, res) => {
     await GoogleUser.deleteOne({ organization: organization });
     return res.status(200).json({
       message: "Disconnected google user successfully",
+      success: true,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error", err });
+  }
+};
+
+exports.disconnectOrgOutlookUser = async (req, res) => {
+  try {
+    const organization = req.user?.organization;
+    if (!organization) {
+      return res.status(400).json({ message: "Organization is required", success: false });
+    }
+    await OutlookUser.deleteOne({ organization: organization });
+    return res.status(200).json({
+      message: "Disconnected outlook user successfully",
       success: true,
     });
   } catch (err) {
@@ -199,6 +271,30 @@ exports.verifyGoogleLogin = async (req, res) => {
         googleEmail: null,
       });
     }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.verifyOutlookLogin = async (req, res) => {
+  try {
+    const outlookLoginUser = await OutlookUser.findOne({
+      organization: req.user.organization,
+      isActive: true,
+    }).lean();
+    if (outlookLoginUser) {
+      return res.status(200).json({
+        message: "User successfully connected Outlook",
+        success: true,
+        data: outlookLoginUser,
+      });
+    }
+    return res.status(200).json({
+      message: "Outlook user not found",
+      success: false,
+      outlookEmail: null,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });

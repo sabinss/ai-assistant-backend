@@ -633,6 +633,7 @@ exports.getConnectedOutlooksWithOrg = async (req, res) => {
         client_secret: process.env.MICROSOFT_CLIENT_SECRET || "",
         secret_id: process.env.MICROSOFT_SECRET_ID || "",
         tenant_id: process.env.MICROSOFT_TENANT_ID || "common",
+        redirect_url: process.env.MICROSOFT_REDIRECT_URL || "",
       };
 
       const responsePayload = {

@@ -19,7 +19,7 @@ sequenceDiagram
     Microsoft->>Frontend: Redirect to redirect_uri with ?code=...&state=...
 
     Frontend->>Backend: POST APP_URL/auth/outlook-oauth/exchange { code, orgId }
-    Backend->>Microsoft: POST token endpoint (code, client_id, client_secret, redirect_uri)
+    Backend->>Microsoft: POST token endpoint (code, client_id, redirect_uri, code_verifier[, Origin])
     Microsoft->>Backend: access_token, refresh_token, ...
 
     Backend->>Microsoft: GET https://graph.microsoft.com/v1.0/me (Bearer access_token)
@@ -49,7 +49,7 @@ The custom agent fetches Microsoft tokens the same way it does for Gmail: **`GET
 **Response `data`:**
 
 - `user_email` — email of the authenticated user.
-- `orgMicrosoftCredential` — `{ client_id, client_secret, secret_id, tenant_id }` from env (`MICROSOFT_*`), used with stored refresh tokens for MSAL/Graph.
+- `orgMicrosoftCredential` — `{ client_id, client_secret, secret_id, tenant_id, redirect_url }` from env (`MICROSOFT_*`), used with stored refresh tokens for Graph token refresh and Origin derivation.
 - `connectedOutlooks` — list of Outlook connections for the org (each includes `email`, `emailCredential`, `granted_scope`, etc.).
 
 The Python agent mirrors the Gmail tools pattern (`gmail_outreach`): read, draft, and send via Microsoft Graph using these credentials.
@@ -61,7 +61,7 @@ The Python agent mirrors the Gmail tools pattern (`gmail_outreach`): read, draft
 | Variable                  | Purpose                                                                                                                                           |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MICROSOFT_CLIENT_ID`     | App registration (client) ID in Azure Entra ID.                                                                                                   |
-| `MICROSOFT_CLIENT_SECRET` | Client secret for the confidential client app.                                                                                                    |
+| `MICROSOFT_CLIENT_SECRET` | Optional fallback for confidential web-client token exchange (used only when PKCE verifier is not present).                                       |
 | `MICROSOFT_REDIRECT_URL`  | Must **exactly** match the redirect URI used in the authorize request (same value as `NEXT_PUBLIC_MICROSOFT_OAUTH_REDIRECT_URL` on the frontend). |
 
 ### Frontend
@@ -84,6 +84,16 @@ The string Microsoft redirects to after login must match **both** the authorize 
 
 ## PKCE (Proof Key for Code Exchange)
 
-The main Next.js app sends **`code_challenge`** / **`code_challenge_method=S256`** on the authorize request and stores a **`code_verifier`** in `sessionStorage`. The `/oauthcallback` page posts **`code_verifier`** to `POST .../auth/outlook-oauth/exchange` with the **`code`**. The backend includes **`code_verifier`** in the token request. This satisfies Microsoft’s requirement for browser-based (“cross-origin”) authorization code redemption when using a public authorize URL from the SPA.
+The main Next.js app sends **`code_challenge`** / **`code_challenge_method=S256`** on the authorize request and stores a **`code_verifier`** in `sessionStorage`. The `/oauthcallback` page posts **`code_verifier`** to `POST .../auth/outlook-oauth/exchange` with the **`code`**.
+
+Backend exchange behavior:
+
+- If `code_verifier` is present, backend redeems the code as SPA/public flow:
+  - sends `code_verifier`
+  - sends `Origin` header derived from `MICROSOFT_REDIRECT_URL`
+  - does **not** send `client_secret`
+- If `code_verifier` is absent, backend falls back to confidential web-client exchange with `client_secret`.
+
+This avoids Microsoft error `AADSTS90023` ("Tokens issued for the 'Single-Page Application' client-type should only be redeemed via cross-origin requests").
 
 Server logs: `[Microsoft token]` and `outlookOauthCodeExchange` print the Microsoft error JSON on failure. Browser DevTools: `[Outlook OAuth]` logs each step.

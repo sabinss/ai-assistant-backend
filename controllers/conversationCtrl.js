@@ -391,12 +391,6 @@ exports.addCustomAgentConversation = async (req, res) => {
         const messagesToProcess = isComplete ? parts : parts.slice(0, -1);
         buffer = isComplete ? "" : parts[parts.length - 1]; // Keep incomplete message in buffer
 
-        console.log(
-          `*** Messages for agent ${agentName} - Chunk #${chunkCounter} - ${
-            messagesToProcess.length
-          } complete messages${!isComplete ? " (1 incomplete in buffer)" : ""}`
-        );
-
         for (const msgText of messagesToProcess) {
           const trimmedMsg = msgText.trim();
           if (!trimmedMsg) continue; // Skip empty messages
@@ -412,33 +406,8 @@ exports.addCustomAgentConversation = async (req, res) => {
 
               // Add content to the complete message
               if (data.message) {
-                const messageLength = data.message.length;
-                const previousLength = completeMessage.length;
                 completeMessage += data.message;
-                console.log(
-                  `*** Python API Chunk #${chunkCounter} - Message fragment: ${messageLength} chars | Total accumulated: ${completeMessage.length} chars`
-                );
-                console.log(
-                  `*** Message fragment preview: ${data.message.substring(0, 100)}${
-                    data.message.length > 100 ? "..." : ""
-                  }`
-                );
               }
-
-              // Log all data fields from Python response
-              console.log(
-                `*** Python API Response Data (Chunk #${chunkCounter}):`,
-                JSON.stringify(
-                  {
-                    ...data,
-                    message: data.message
-                      ? `${data.message.substring(0, 50)}... (${data.message.length} chars)`
-                      : null,
-                  },
-                  null,
-                  2
-                )
-              );
 
               // Ensure proper SSE format with data: prefix and double newline
               res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -450,21 +419,8 @@ exports.addCustomAgentConversation = async (req, res) => {
             }
           } else if (trimmedMsg) {
             // For non-data prefixed lines, add the prefix
-            console.log(
-              `*** Non-data message in chunk #${chunkCounter}:`,
-              trimmedMsg.substring(0, 100)
-            );
             res.write(`data: ${JSON.stringify({ chunk: trimmedMsg })}\n\n`);
           }
-        }
-
-        // Log buffer state if there's an incomplete message
-        if (buffer && !isComplete) {
-          console.log(
-            `*** Incomplete message buffered (${buffer.length} chars): ${buffer.substring(0, 100)}${
-              buffer.length > 100 ? "..." : ""
-            }`
-          );
         }
       } catch (e) {
         console.error(`*** Error processing chunk #${chunkCounter}:`, e.message);

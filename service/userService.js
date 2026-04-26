@@ -53,10 +53,9 @@ async function getMicrosoftAuthTokens({ code, code_verifier }) {
     "Content-Type": "application/x-www-form-urlencoded",
   };
 
-  // When the code came from the browser authorize request (PKCE), redeem as SPA/public client:
-  // - include code_verifier
-  // - do not send client_secret
-  // - include Origin header so Azure AD accepts cross-origin style redemption
+  // When the code came from the browser authorize request (PKCE), include code_verifier.
+  // For Web/confidential app registrations, Azure can still require client_secret.
+  // Include Origin header so Azure AD accepts cross-origin style redemption.
   if (code_verifier) {
     values.code_verifier = code_verifier;
     let redirectOrigin = null;
@@ -70,8 +69,10 @@ async function getMicrosoftAuthTokens({ code, code_verifier }) {
     if (redirectOrigin) {
       headers.Origin = redirectOrigin;
     }
-  } else if (process.env.MICROSOFT_CLIENT_SECRET) {
-    // Non-PKCE fallback for confidential web-client flows.
+  }
+
+  // For confidential web-client flows, include client_secret regardless of PKCE usage.
+  if (process.env.MICROSOFT_CLIENT_SECRET) {
     values.client_secret = process.env.MICROSOFT_CLIENT_SECRET;
   }
   try {

@@ -43,6 +43,20 @@ async function getGoogleUser({ id_token, access_token }) {
 
 async function getMicrosoftAuthTokens({ code, code_verifier }) {
   const url = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+  const rawMicrosoftSecret = process.env.MICROSOFT_CLIENT_SECRET || "";
+  const microsoftSecretPreview =
+    rawMicrosoftSecret.length > 6
+      ? `${rawMicrosoftSecret.slice(0, 3)}${"*".repeat(rawMicrosoftSecret.length - 6)}${rawMicrosoftSecret.slice(-3)}`
+      : rawMicrosoftSecret;
+  console.log("[Microsoft token debug]", {
+    client_id: process.env.MICROSOFT_CLIENT_ID || "",
+    has_client_secret: Boolean(rawMicrosoftSecret),
+    client_secret_length: rawMicrosoftSecret.length,
+    client_secret_preview: microsoftSecretPreview,
+    redirect_uri: process.env.MICROSOFT_REDIRECT_URL || "",
+    has_code_verifier: Boolean(code_verifier),
+  });
+
   const values = {
     code,
     client_id: process.env.MICROSOFT_CLIENT_ID,

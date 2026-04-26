@@ -43,20 +43,6 @@ async function getGoogleUser({ id_token, access_token }) {
 
 async function getMicrosoftAuthTokens({ code, code_verifier }) {
   const url = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-  const rawMicrosoftSecret = process.env.MICROSOFT_CLIENT_SECRET || "";
-  const microsoftSecretPreview =
-    rawMicrosoftSecret.length > 6
-      ? `${rawMicrosoftSecret.slice(0, 3)}${"*".repeat(rawMicrosoftSecret.length - 6)}${rawMicrosoftSecret.slice(-3)}`
-      : rawMicrosoftSecret;
-  console.log("[Microsoft token debug]", {
-    client_id: process.env.MICROSOFT_CLIENT_ID || "",
-    has_client_secret: Boolean(rawMicrosoftSecret),
-    client_secret_length: rawMicrosoftSecret.length,
-    client_secret_preview: microsoftSecretPreview,
-    redirect_uri: process.env.MICROSOFT_REDIRECT_URL || "",
-    has_code_verifier: Boolean(code_verifier),
-  });
-
   const values = {
     code,
     client_id: process.env.MICROSOFT_CLIENT_ID,
@@ -67,9 +53,10 @@ async function getMicrosoftAuthTokens({ code, code_verifier }) {
     "Content-Type": "application/x-www-form-urlencoded",
   };
 
-  // When the code came from the browser authorize request (PKCE), include code_verifier.
-  // For Web/confidential app registrations, Azure can still require client_secret.
-  // Include Origin header so Azure AD accepts cross-origin style redemption.
+  // When the code came from the browser authorize request (PKCE), redeem as SPA/public client:
+  // - include code_verifier
+  // - do not send client_secret
+  // - include Origin header so Azure AD accepts cross-origin style redemption
   if (code_verifier) {
     values.code_verifier = code_verifier;
     let redirectOrigin = null;
@@ -83,10 +70,8 @@ async function getMicrosoftAuthTokens({ code, code_verifier }) {
     if (redirectOrigin) {
       headers.Origin = redirectOrigin;
     }
-  }
-
-  // For confidential web-client flows, include client_secret regardless of PKCE usage.
-  if (process.env.MICROSOFT_CLIENT_SECRET) {
+  } else if (process.env.MICROSOFT_CLIENT_SECRET) {
+    // Non-PKCE fallback for confidential web-client flows.
     values.client_secret = process.env.MICROSOFT_CLIENT_SECRET;
   }
   try {

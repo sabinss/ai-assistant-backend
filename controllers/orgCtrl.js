@@ -1195,10 +1195,12 @@ exports.organizationActionCenter = async (req, res) => {
     const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
       base_query
     )}&session_id=${session_id}&org_id=${org_id}`;
-
+    console.log("actionStatsQuery", url);
     const actionDetailQuery = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
       actionDetailBaseQuery
     )}&session_id=${session_id}&org_id=${org_id}`;
+
+    console.log("actionDetailQuery", actionDetailQuery);
 
     const [actionStatsResponse, actionDetailResponse] = await Promise.all([
       axiosInstance.post(url, {}, { timeout: 300000 }),
@@ -1206,7 +1208,10 @@ exports.organizationActionCenter = async (req, res) => {
     ]);
 
     if (actionStatsResponse?.data?.error || actionDetailResponse?.data?.error) {
-      return res.status(502).json({ message: "SQL query failed", error: response.data.error });
+      return res.status(502).json({
+        message: "SQL query failed",
+        error: actionStatsResponse?.data?.error || actionDetailResponse?.data?.error,
+      });
     }
 
     const actionStats = response?.data?.result?.result_set ?? [];

@@ -181,4 +181,10 @@ module.exports = (app) => {
     permitUser,
     ctl.deleteUser
   );
+
+  app.get(
+    `${process.env.APP_URL}/organization/:org_id/action-center`,
+    authUser,
+    ctl.organizationActionCenter
+  );
 };

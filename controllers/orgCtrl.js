@@ -16,6 +16,27 @@ const FormData = require("form-data");
 const { organizationPromptDefaultData } = require("../seeders/saveOrganizationPrompt");
 const OrganizationToken = require("../models/OrganizationToken");
 const OrganizationDetail = require("../models/OrganizationDetail");
+
+// Configure axios with proper timeouts and retry logic
+const axiosInstance = axios.create({
+  timeout: 300000, // 5 minutes timeout
+  maxRedirects: 5,
+  validateStatus: function (status) {
+    return status >= 200 && status < 300; // Accept only 2xx status codes
+  },
+});
+
+// Add request interceptor for logging
+axiosInstance.interceptors.request.use(
+  (config) => {
+    console.log(`🚀 Making request to: ${config.url}`);
+    return config;
+  },
+  (error) => {
+    console.error("❌ Request interceptor error:", error);
+    return Promise.reject(error);
+  }
+);
 exports.create = async (req, res) => {
   const {
     name,
@@ -1153,5 +1174,46 @@ exports.fetchSourceFileList = async (req, res) => {
     res.status(200).json(response.data);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetc files", err });
+  }
+};
+
+exports.organizationActionCenter = async (req, res) => {
+  try {
+    const { org_id } = req.params;
+    const organization = await Organization.findById(org_id);
+    if (!organization) {
+      return res.status(404).json({ message: "Organization not found" });
+    }
+
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const base_query = `SELECT * FROM db${org_id}.action_assigned_counts`;
+    const actionDetailBaseQuery = `SELECT * FROM db${org_id}.actions`;
+
+    /**
+     * Action Stats Query
+     */
+    const url = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
+      base_query
+    )}&session_id=${session_id}&org_id=${org_id}`;
+
+    const actionDetailQuery = `${process.env.AI_AGENT_SERVER_URI}/run-sql-query?sql_query=${encodeURIComponent(
+      actionDetailBaseQuery
+    )}&session_id=${session_id}&org_id=${org_id}`;
+
+    const [actionStatsResponse, actionDetailResponse] = await Promise.all([
+      axiosInstance.post(url, {}, { timeout: 300000 }),
+      axiosInstance.post(actionDetailQuery, {}, { timeout: 300000 }),
+    ]);
+
+    if (actionStatsResponse?.data?.error || actionDetailResponse?.data?.error) {
+      return res.status(502).json({ message: "SQL query failed", error: response.data.error });
+    }
+
+    const actionStats = response?.data?.result?.result_set ?? [];
+    const actionDetail = actionDetailResponse?.data?.result?.result_set ?? [];
+    res.status(200).json({ actionStats, actionDetail });
+  } catch (err) {
+    console.error("organizationActionCenter error", err?.message);
+    res.status(500).json({ message: "Internal server error", error: err.message });
   }
 };

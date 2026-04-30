@@ -1214,7 +1214,7 @@ exports.organizationActionCenter = async (req, res) => {
       });
     }
 
-    const actionStats = response?.data?.result?.result_set ?? [];
+    const actionStats = actionStatsResponse?.data?.result?.result_set ?? [];
     const actionDetail = actionDetailResponse?.data?.result?.result_set ?? [];
     res.status(200).json({ actionStats, actionDetail });
   } catch (err) {

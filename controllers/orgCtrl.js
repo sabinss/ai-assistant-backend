@@ -1180,14 +1180,21 @@ exports.fetchSourceFileList = async (req, res) => {
 exports.organizationActionCenter = async (req, res) => {
   try {
     const { org_id } = req.params;
+    const userEmail = req.user?.email;
+    console.log("userEmail", userEmail);
+    if (!userEmail) {
+      return res.status(400).json({ message: "Logged-in user email is required" });
+    }
+    const assignedToLiteral = String(userEmail).replace(/'/g, "''");
+
     const organization = await Organization.findById(org_id);
     if (!organization) {
       return res.status(404).json({ message: "Organization not found" });
     }
 
     const session_id = Math.floor(1000 + Math.random() * 9000);
-    const base_query = `SELECT * FROM db${org_id}.action_assigned_counts`;
-    const actionDetailBaseQuery = `SELECT * FROM db${org_id}.actions`;
+    const base_query = `SELECT * FROM db${org_id}.action_assigned_counts aac WHERE aac.assigned_to = '${assignedToLiteral}'`;
+    const actionDetailBaseQuery = `SELECT * FROM db${org_id}.actions a WHERE a.assigned_to = '${assignedToLiteral}'`;
 
     /**
      * Action Stats Query

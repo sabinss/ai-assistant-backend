@@ -633,6 +633,9 @@ exports.verifyPasswordResetToken = async (req, res) => {
 };
 
 exports.sendConfirmEmailToken = async (req, res) => {
+  const session = await mongoose.startSession();
+  let token;
+
   try {
     const {
       email,
@@ -644,105 +647,111 @@ exports.sendConfirmEmailToken = async (req, res) => {
       account_type = null,
     } = req.body;
 
-    // Check if user already exists
-    const isUserExist = await User.findOne({ email });
-    const isUserVerified = isUserExist ? isUserExist.isVerified : false;
+    await session.withTransaction(async () => {
+      const isUserExist = await User.findOne({ email }).session(session);
+      const isUserVerified = isUserExist ? isUserExist.isVerified : false;
 
-    // If user exists and is verified, return error
-    if (isUserExist && isUserVerified) {
-      return res.status(400).json({ message: "User already exists and is verified" });
-    }
+      if (isUserExist && isUserVerified) {
+        const err = new Error("USER_ALREADY_VERIFIED");
+        err.statusCode = 400;
+        throw err;
+      }
 
-    const token = Math.floor(Math.random() * 100000 + 1);
-    const confirmTokenData = new ConfirmToken({
-      email: email,
-      token,
+      token = Math.floor(Math.random() * 100000 + 1);
+      const confirmTokenData = new ConfirmToken({
+        email: email,
+        token,
+      });
+      await confirmTokenData.save({ session });
+
+      let organizationId = null;
+      if (organization_name) {
+        const existingOrg = await Organization.findOne({
+          name: organization_name,
+        }).session(session);
+        if (existingOrg) {
+          const err = new Error("ORG_NAME_TAKEN");
+          err.statusCode = 409;
+          throw err;
+        }
+
+        const newOrg = new Organization({
+          name: organization_name,
+          assistant_name: ai_assistant_name,
+          ...(account_type === "individual"
+            ? { redshit_work_space: "default", redshift_db: "default", database_name: "default" }
+            : {}),
+        });
+        await newOrg.save({ session });
+        organizationId = newOrg._id;
+
+        if (account_type === "individual") {
+          const detail = new OrganizationDetail({
+            organization: newOrg._id,
+            subscriptionPlan: "Free",
+          });
+          await detail.save({ session });
+          await Organization.findByIdAndUpdate(
+            newOrg._id,
+            { organizationDetail: detail._id },
+            { session }
+          );
+        }
+      }
+
+      let role = null;
+      if (account_type === "individual") {
+        role = await Role.findOne({ name: "individual" }).session(session);
+      } else {
+        role = await Role.findOne({ name: "admin" }).session(session);
+      }
+      const status = await Status.findOne({ name: "active" }).session(session);
+      const role_id = role ? role._id : null;
+      const status_id = status ? status._id : null;
+
+      const hashed_password = password ? bcrypt.hashSync(password, 10) : null;
+
+      if (isUserExist && !isUserVerified) {
+        isUserExist.first_name = first_name || isUserExist.first_name;
+        isUserExist.last_name = last_name || isUserExist.last_name;
+        if (password) {
+          isUserExist.password = hashed_password;
+        }
+        if (organizationId) {
+          isUserExist.organization = organizationId;
+        }
+        isUserExist.role = role_id;
+        isUserExist.status = status_id;
+        isUserExist.isVerified = false;
+        await isUserExist.save({ session });
+      } else if (!isUserExist) {
+        const newUser = new User({
+          organization: organizationId,
+          email,
+          first_name: first_name || null,
+          last_name: last_name || null,
+          password: hashed_password,
+          role: role_id,
+          status: status_id,
+          isVerified: false,
+        });
+        await newUser.save({ session });
+      }
     });
 
-    await confirmTokenData.save();
-
-    // Create organization if provided
-    let organizationId = null;
-    if (organization_name) {
-      const existingOrg = await Organization.findOne({
-        name: organization_name,
-      });
-      if (existingOrg) {
-        return res.status(409).json({ message: "Organization name already taken." });
-      }
-
-      const newOrg = new Organization({
-        name: organization_name,
-        assistant_name: ai_assistant_name,
-        ...(account_type === "individual"
-          ? { redshit_work_space: "default", redshift_db: "default", database_name: "default" }
-          : {}),
-      });
-      await newOrg.save();
-      organizationId = newOrg._id;
-
-      if (account_type === "individual") {
-        const detail = new OrganizationDetail({
-          organization: newOrg._id,
-          subscriptionPlan: "Free",
-        });
-        await detail.save();
-        await Organization.findByIdAndUpdate(newOrg._id, { organizationDetail: detail._id });
-      }
-    }
-
-    // Get role and status
-    let role = null;
-    if (account_type === "individual") {
-      role = await Role.findOne({ name: "individual" });
-    } else {
-      role = await Role.findOne({ name: "admin" });
-    }
-    const status = await Status.findOne({ name: "active" });
-    const role_id = role ? role._id : null;
-    const status_id = status ? status._id : null;
-
-    // Create or update user with isVerified: false
-    const hashed_password = password ? bcrypt.hashSync(password, 10) : null;
-
-    // If user exists but is not verified, update the user
-    if (isUserExist && !isUserVerified) {
-      isUserExist.first_name = first_name || isUserExist.first_name;
-      isUserExist.last_name = last_name || isUserExist.last_name;
-      if (password) {
-        isUserExist.password = hashed_password;
-      }
-      if (organizationId) {
-        isUserExist.organization = organizationId;
-      }
-      isUserExist.role = role_id;
-      isUserExist.status = status_id;
-      isUserExist.isVerified = false;
-      await isUserExist.save();
-      console.log("User updated successfully with isVerified: false");
-    } else {
-      // Create new user
-      const newUser = new User({
-        organization: organizationId,
-        email,
-        first_name: first_name || null,
-        last_name: last_name || null,
-        password: hashed_password,
-        role: role_id,
-        status: status_id,
-        isVerified: false,
-      });
-
-      await newUser.save();
-      console.log("User created successfully with isVerified: false");
-    }
-
-    console.log("Sending Email");
     await sendEmail(email, token, false);
     res.status(200).json({ message: "Verification code has been sent to your email." });
   } catch (error) {
+    if (error.message === "USER_ALREADY_VERIFIED") {
+      return res.status(400).json({ message: "User already exists and is verified" });
+    }
+    if (error.message === "ORG_NAME_TAKEN") {
+      return res.status(409).json({ message: "Organization name already taken." });
+    }
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
+  } finally {
+    session.endSession();
   }
 };
 

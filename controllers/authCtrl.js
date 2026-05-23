@@ -645,6 +645,7 @@ exports.sendConfirmEmailToken = async (req, res) => {
       ai_assistant_name,
       password,
       account_type = null,
+      industry = null,
     } = req.body;
 
     await session.withTransaction(async () => {
@@ -678,6 +679,7 @@ exports.sendConfirmEmailToken = async (req, res) => {
         const newOrg = new Organization({
           name: organization_name,
           assistant_name: ai_assistant_name,
+          industry: industry,
           ...(account_type === "individual"
             ? { redshit_work_space: "default", redshift_db: "default", database_name: "default" }
             : {}),

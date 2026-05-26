@@ -796,22 +796,24 @@ const createDefaultOrganizationCustomerInsightsPrompts = async (orgId) => {
 
 const createTenantViews = async (data) => {
   const { orgId, industry = "SaaS" } = data;
-  console.log("** Create Tenant Views called **", { orgId, industry });
+  const organizationId =
+    orgId == null ? "" : typeof orgId === "string" ? orgId : String(orgId);
+  console.log("** Create Tenant Views called **", { organizationId, industry });
   try {
-    if (!orgId) {
+    if (!organizationId) {
       console.error("Organization id is required to create tenant views");
       return;
     }
     const url = `${process.env.AI_AGENT_SERVER_URI}/create-tenant-views`;
     console.log("** Create Tenant Views url **", url);
     console.log("** Create Tenant Views data **", {
-      organization_id: orgId.toString(), // sedn string id
+      organization_id: organizationId,
       industry: industry,
     });
     const response = await axios.post(
       url,
       {
-        organization_id: orgId.toString(), // sedn string id
+        organization_id: organizationId,
         industry: industry,
       },
       {

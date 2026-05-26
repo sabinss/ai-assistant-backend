@@ -802,21 +802,27 @@ const createTenantViews = async (data) => {
       console.error("Organization id is required to create tenant views");
       return;
     }
-    const response = await axiosInstance.post(
-      `${process.env.AI_AGENT_SERVER_URI}/create-tenant-views`,
+    const url = `${process.env.AI_AGENT_SERVER_URI}/create-tenant-views`;
+    console.log("** Create Tenant Views url **", url);
+    const response = await axios.post(
+      url,
       {
         organization_id: orgId,
         industry: industry,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
       }
     );
-
-    return res.status(200).json({ message: "Tenant views created", data: response?.data });
+    return response?.data;
   } catch (error) {
     console.error("createTenantViews error", error);
-    return res.status(500).json({ message: "Internal server error", error: error.message });
+    return null;
   }
 };
-
 const createDefaultAgentForIndividualUser = async (user) => {
   const session = await mongoose.startSession();
   session.startTransaction();

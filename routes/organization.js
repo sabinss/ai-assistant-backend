@@ -149,7 +149,6 @@ module.exports = (app) => {
   );
 
   app.put(`${process.env.APP_URL}/organization`, authUser, permissonCheck, ctl.editOrg);
-
   app.get(
     `${process.env.APP_URL}/organization/:orgId/detail`,
     authUser,

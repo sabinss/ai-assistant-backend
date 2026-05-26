@@ -22,6 +22,7 @@ const AgentModel = require("../models/AgentModel");
 const AgentTask = require("../models/AgentTask");
 const INDIVIDUAL_USER_DEFAULT_AGENT = require("../constants/individual-user-default-agent");
 const mongoose = require("mongoose");
+const DEFAULT_ORG_CUSTOMER_INSIGHTS_PROMPTS = require("../constants/default_org_customer_insights_prompts");
 
 exports.verifyOrganization = async (req, res) => {
   try {
@@ -645,8 +646,10 @@ exports.sendConfirmEmailToken = async (req, res) => {
       ai_assistant_name,
       password,
       account_type = null,
-      industry = null,
+      industry = "SaaS",
     } = req.body;
+
+    let organizationId = null;
 
     await session.withTransaction(async () => {
       const isUserExist = await User.findOne({ email }).session(session);
@@ -665,7 +668,6 @@ exports.sendConfirmEmailToken = async (req, res) => {
       });
       await confirmTokenData.save({ session });
 
-      let organizationId = null;
       if (organization_name) {
         const existingOrg = await Organization.findOne({
           name: organization_name,
@@ -741,6 +743,19 @@ exports.sendConfirmEmailToken = async (req, res) => {
       }
     });
 
+    try {
+      // once orgnization is created call tenant views creation api
+      const tenantViewData = {
+        orgId: organizationId,
+        industry: industry,
+      };
+      await createDefaultOrganizationCustomerInsightsPrompts(organizationId);
+      const response = await createTenantViews(tenantViewData);
+      console.log("tenant views created", response?.data);
+    } catch (error) {
+      console.error("Error creating tenant views:", error);
+    }
+
     await sendEmail(email, token, false);
     res.status(200).json({ message: "Verification code has been sent to your email." });
   } catch (error) {
@@ -754,6 +769,51 @@ exports.sendConfirmEmailToken = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   } finally {
     session.endSession();
+  }
+};
+
+const createDefaultOrganizationCustomerInsightsPrompts = async (orgId) => {
+  try {
+    const prompts = DEFAULT_ORG_CUSTOMER_INSIGHTS_PROMPTS;
+    const organization = await Organization.findById(orgId);
+    console.log(
+      "** Create Default Organization Customer Insights Prompts **",
+      organization ? "Found" : "Not Found"
+    );
+    if (!organization) {
+      console.error("Organization not found");
+      return;
+    }
+    organization.schema_prompt = prompts.schema_prompt;
+    organization.abstract_refinement_prompt = prompts.abstract_refinement_prompt;
+    organization.nltosql_prompt = prompts.nltosql_prompt;
+    await organization.save();
+    console.log("Default Organization Customer Insights Prompts created successfully");
+  } catch (error) {
+    console.error("Error creating default organization customer insights prompts:", error);
+  }
+};
+
+const createTenantViews = async (data) => {
+  const { orgId, industry = "SaaS" } = data;
+  console.log("** Create Tenant Views called **", { orgId, industry });
+  try {
+    if (!orgId) {
+      console.error("Organization id is required to create tenant views");
+      return;
+    }
+    const response = await axiosInstance.post(
+      `${process.env.AI_AGENT_SERVER_URI}/create-tenant-views`,
+      {
+        organization_id: orgId,
+        industry: industry,
+      }
+    );
+
+    return res.status(200).json({ message: "Tenant views created", data: response?.data });
+  } catch (error) {
+    console.error("createTenantViews error", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 

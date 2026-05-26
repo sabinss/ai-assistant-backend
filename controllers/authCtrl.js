@@ -804,10 +804,14 @@ const createTenantViews = async (data) => {
     }
     const url = `${process.env.AI_AGENT_SERVER_URI}/create-tenant-views`;
     console.log("** Create Tenant Views url **", url);
+    console.log("** Create Tenant Views data **", {
+      organization_id: orgId.toString(), // sedn string id
+      industry: industry,
+    });
     const response = await axios.post(
       url,
       {
-        organization_id: orgId,
+        organization_id: orgId.toString(), // sedn string id
         industry: industry,
       },
       {

@@ -1136,7 +1136,7 @@ exports.uploadOrganizationSourceUpload = async (req, res) => {
     if (fileExtension === "pdf") {
       url += "/upload-pdfs";
     } else {
-      url += "/upload-files";
+      url += "/upload-file";
     }
     console.log("uploadOrganizationSourceUpload called", url);
     const formData = new FormData();

@@ -1129,7 +1129,15 @@ exports.deleteSourceFile = async (req, res) => {
 
 exports.uploadOrganizationSourceUpload = async (req, res) => {
   try {
-    const url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant/upload-pdfs`;
+    // get file extension from the file name
+    const fileExtension = req.files[0].originalname.split(".").pop();
+    let url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant`;
+
+    if (fileExtension === "pdf") {
+      url += "/upload-pdfs";
+    } else {
+      url += "/upload-files";
+    }
     console.log("uploadOrganizationSourceUpload called", url);
     const formData = new FormData();
     const files = req.files;

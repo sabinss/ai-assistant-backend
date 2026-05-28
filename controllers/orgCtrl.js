@@ -1131,13 +1131,8 @@ exports.uploadOrganizationSourceUpload = async (req, res) => {
   try {
     // get file extension from the file name
     const fileExtension = req.files[0].originalname.split(".").pop();
-    let url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant`;
+    let url = `${process.env.NEXT_PUBLIC_OPEN_API_FOR_CHAT}/assistant/upload-pdfs`;
 
-    if (fileExtension === "pdf") {
-      url += "/upload-pdfs";
-    } else {
-      url += "/upload-file";
-    }
     console.log("uploadOrganizationSourceUpload called", url);
     const formData = new FormData();
     const files = req.files;

@@ -1122,6 +1122,7 @@ exports.getHighRiskChurnStats = async (req, res) => {
           }
 
           console.log(`✅ ${queryName} - Success on attempt ${attempt}`);
+          console.log("Response-- getHighRiskChurnStats:", response);
           return response;
         } catch (error) {
           console.error(`❌ ${queryName} - Attempt ${attempt} failed:`, error.message);

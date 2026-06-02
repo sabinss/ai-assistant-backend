@@ -1765,6 +1765,7 @@ exports.fetchCustomerDetailsFromRedshift = async (req, res) => {
       return;
     }
     const data = response.data.result.result_set || [];
+    console.log("Data--:", data);
     // Pagination metadata
     const pagination = {
       currentPage: page,

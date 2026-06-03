@@ -224,6 +224,7 @@ exports.getOrg = async (req, res) => {
       hubspot_bearer_token,
       whatsappConfig,
       tenant_isolation,
+      industry,
     } = org;
     const orgResponsePayload = {
       _id,
@@ -257,6 +258,7 @@ exports.getOrg = async (req, res) => {
       hubspot_bearer_token,
       whatsappConfig,
       tenant_isolation,
+      industry,
     };
     return res.json({ org: orgResponsePayload });
   } catch (error) {

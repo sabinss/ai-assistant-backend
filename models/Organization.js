@@ -52,6 +52,9 @@ const orgSchema = new mongoose.Schema(
     tenant_isolation: {
       type: String,
     },
+    industry: {
+      type: String,
+    },
     organizationDetail: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "OrganizationDetail",

@@ -744,17 +744,15 @@ exports.sendConfirmEmailToken = async (req, res) => {
     });
 
     try {
-      // once orgnization is created call tenant views creation api
-      const tenantViewData = {
-        orgId: organizationId,
-        industry: industry,
-      };
       await createDefaultOrganizationCustomerInsightsPrompts(organizationId);
-      const response = await createTenantViews(tenantViewData);
-      console.log("tenant views created", response?.data);
     } catch (error) {
-      console.error("Error creating tenant views:", error);
+      console.error("Error creating default organization customer insights prompts:", error);
     }
+
+    // Fire-and-forget: do not block signup response on external tenant setup
+    createTenantViews({ orgId: organizationId, industry }).then((response) => {
+      console.log("tenant views created", response);
+    });
 
     await sendEmail(email, token, false);
     res.status(200).json({ message: "Verification code has been sent to your email." });
@@ -765,7 +763,7 @@ exports.sendConfirmEmailToken = async (req, res) => {
     if (error.message === "ORG_NAME_TAKEN") {
       return res.status(409).json({ message: "Organization name already taken." });
     }
-    console.error(error);
+    console.error("Sign up error", error);
     res.status(500).json({ message: "Internal server error" });
   } finally {
     session.endSession();
@@ -796,8 +794,7 @@ const createDefaultOrganizationCustomerInsightsPrompts = async (orgId) => {
 
 const createTenantViews = async (data) => {
   const { orgId, industry = "SaaS" } = data;
-  const organizationId =
-    orgId == null ? "" : typeof orgId === "string" ? orgId : String(orgId);
+  const organizationId = orgId == null ? "" : typeof orgId === "string" ? orgId : String(orgId);
   console.log("** Create Tenant Views called **", { organizationId, industry });
   try {
     if (!organizationId) {
@@ -826,7 +823,6 @@ const createTenantViews = async (data) => {
     return response?.data;
   } catch (error) {
     console.error("createTenantViews error", error);
-    return null;
   }
 };
 const createDefaultAgentForIndividualUser = async (user) => {

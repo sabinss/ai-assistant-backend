@@ -750,9 +750,9 @@ exports.sendConfirmEmailToken = async (req, res) => {
     }
 
     // Fire-and-forget: do not block signup response on external tenant setup
-    // createTenantViews({ orgId: organizationId, industry }).then((response) => {
-    //   console.log("tenant views created", response);
-    // });
+    createTenantViews({ orgId: organizationId, industry }).then((response) => {
+      console.log("tenant views created", response);
+    });
 
     await sendEmail(email, token, false);
     res.status(200).json({ message: "Verification code has been sent to your email." });

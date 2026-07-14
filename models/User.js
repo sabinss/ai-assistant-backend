@@ -35,4 +35,11 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+userSchema.pre('save', function (next) {
+  if (this.email) {
+    this.email = this.email.trim().toLowerCase();
+  }
+  next();
+});
+
 module.exports = mongoose.model('User', userSchema);

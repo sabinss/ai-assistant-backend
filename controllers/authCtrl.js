@@ -23,6 +23,7 @@ const AgentTask = require("../models/AgentTask");
 const INDIVIDUAL_USER_DEFAULT_AGENT = require("../constants/individual-user-default-agent");
 const mongoose = require("mongoose");
 const DEFAULT_ORG_CUSTOMER_INSIGHTS_PROMPTS = require("../constants/default_org_customer_insights_prompts");
+const { normalizeEmail, findUserByEmail, EMAIL_COLLATION } = require("../helper/email");
 
 exports.verifyOrganization = async (req, res) => {
   try {
@@ -55,7 +56,8 @@ exports.signup = async (req, res) => {
   }
 
   try {
-    const isUserExist = await User.findOne({ email });
+    const normalizedEmail = normalizeEmail(email);
+    const isUserExist = await findUserByEmail(normalizedEmail);
     if (isUserExist) {
       return res.status(400).json({ message: "User already exist" });
     }
@@ -79,7 +81,7 @@ exports.signup = async (req, res) => {
 
     const newUser = new User({
       organization: newOrg._id,
-      email,
+      email: normalizedEmail,
       first_name: first_name || "",
       last_name: last_name || "",
       password: hashed_password,
@@ -321,7 +323,7 @@ exports.signin = async (req, res) => {
     return res.status(400).json({ message: "Password must be at least 6 characters long" });
 
   try {
-    const user = await User.findOne({ email: email });
+    const user = await findUserByEmail(email);
     if (!user) return res.status(404).json({ message: "Email not found" });
     if (!user.isVerified)
       return res.status(200).json({ message: "User is not verified", isVerified: user.isVerified });
@@ -383,8 +385,8 @@ exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
   try {
-    // Find the user by email
-    const user = await User.findOne({ email });
+    const normalizedEmail = normalizeEmail(email);
+    const user = await findUserByEmail(normalizedEmail);
     if (!user) return res.status(404).json({ message: "Email not found" });
 
     // Check if a reset token already exists for the user
@@ -405,7 +407,7 @@ exports.forgotPassword = async (req, res) => {
     await resetTokenData.save();
 
     // Send email with the reset token
-    await sendEmail(email, resetToken, true);
+    await sendEmail(normalizedEmail, resetToken, true);
     res.status(200).json({
       message: "The reset password link has been sent to your email.",
     });
@@ -615,7 +617,8 @@ exports.verifyPasswordResetToken = async (req, res) => {
   const { token, email, newPassword } = req.body;
 
   try {
-    const user = await User.findOne({ email });
+    const normalizedEmail = normalizeEmail(email);
+    const user = await findUserByEmail(normalizedEmail);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const tokenInDb = await ResetToken.findOne({ resetToken: token });
@@ -649,10 +652,11 @@ exports.sendConfirmEmailToken = async (req, res) => {
       industry = "SaaS",
     } = req.body;
 
+    const normalizedEmail = normalizeEmail(email);
     let organizationId = null;
 
     await session.withTransaction(async () => {
-      const isUserExist = await User.findOne({ email }).session(session);
+      const isUserExist = await findUserByEmail(normalizedEmail, { session });
       const isUserVerified = isUserExist ? isUserExist.isVerified : false;
 
       if (isUserExist && isUserVerified) {
@@ -663,7 +667,7 @@ exports.sendConfirmEmailToken = async (req, res) => {
 
       token = Math.floor(Math.random() * 100000 + 1);
       const confirmTokenData = new ConfirmToken({
-        email: email,
+        email: normalizedEmail,
         token,
       });
       await confirmTokenData.save({ session });
@@ -731,7 +735,7 @@ exports.sendConfirmEmailToken = async (req, res) => {
       } else if (!isUserExist) {
         const newUser = new User({
           organization: organizationId,
-          email,
+          email: normalizedEmail,
           first_name: first_name || null,
           last_name: last_name || null,
           password: hashed_password,
@@ -754,7 +758,7 @@ exports.sendConfirmEmailToken = async (req, res) => {
       console.log("tenant views created", response);
     });
 
-    await sendEmail(email, token, false);
+    await sendEmail(normalizedEmail, token, false);
     res.status(200).json({ message: "Verification code has been sent to your email." });
   } catch (error) {
     if (error.message === "USER_ALREADY_VERIFIED") {
@@ -899,11 +903,16 @@ exports.verifyEmail = async (req, res) => {
   const { token, email } = req.body;
 
   try {
-    const tokenInDb = await ConfirmToken.findOne({ email, token });
+    const normalizedEmail = normalizeEmail(email);
+    const tokenInDb = await ConfirmToken.findOne({ email: normalizedEmail, token }).collation(
+      EMAIL_COLLATION
+    );
     if (!tokenInDb) return res.status(400).json({ message: "Invalid token" });
 
-    await ConfirmToken.findOneAndDelete({ email, token });
-    const user = await User.findOne({ email });
+    await ConfirmToken.findOneAndDelete({ email: normalizedEmail, token }).collation(
+      EMAIL_COLLATION
+    );
+    const user = await findUserByEmail(normalizedEmail);
     if (!user) return res.status(404).json({ message: "User not found" });
     user.isVerified = true;
     await user.save();

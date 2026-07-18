@@ -23,7 +23,12 @@ const AgentTask = require("../models/AgentTask");
 const INDIVIDUAL_USER_DEFAULT_AGENT = require("../constants/individual-user-default-agent");
 const mongoose = require("mongoose");
 const DEFAULT_ORG_CUSTOMER_INSIGHTS_PROMPTS = require("../constants/default_org_customer_insights_prompts");
-const { normalizeEmail, findUserByEmail, EMAIL_COLLATION } = require("../helper/email");
+const {
+  normalizeEmail,
+  findUserByEmail,
+  findConfirmTokenByEmailAndToken,
+  deleteConfirmTokenByEmailAndToken,
+} = require("../helper/email");
 
 exports.verifyOrganization = async (req, res) => {
   try {
@@ -904,14 +909,10 @@ exports.verifyEmail = async (req, res) => {
 
   try {
     const normalizedEmail = normalizeEmail(email);
-    const tokenInDb = await ConfirmToken.findOne({ email: normalizedEmail, token }).collation(
-      EMAIL_COLLATION
-    );
+    const tokenInDb = await findConfirmTokenByEmailAndToken(normalizedEmail, token);
     if (!tokenInDb) return res.status(400).json({ message: "Invalid token" });
 
-    await ConfirmToken.findOneAndDelete({ email: normalizedEmail, token }).collation(
-      EMAIL_COLLATION
-    );
+    await deleteConfirmTokenByEmailAndToken(normalizedEmail, token);
     const user = await findUserByEmail(normalizedEmail);
     if (!user) return res.status(404).json({ message: "User not found" });
     user.isVerified = true;

@@ -423,24 +423,23 @@ exports.forgotPassword = async (req, res) => {
 };
 
 const sendEmail = async (email, token, isReset = true) => {
-  const mailUser = process.env.MAIL_API_EMAIL;
-  const mailPass = process.env.MAIL_API_PASSWORD;
-  console.log(
-    "[Mail] Using email:",
-    mailUser,
-    "| Password length:",
-    mailPass ? mailPass.length : 0
-  );
+  const mailUser = process.env.MAIL_API_EMAIL?.trim();
+  const mailPass = process.env.MAIL_API_PASSWORD?.replace(/\s/g, "");
+  const smtpHost = process.env.MAIL_SMTP_HOST?.trim() || "smtp.gmail.com";
+  const smtpPort = Number(process.env.MAIL_SMTP_PORT || 587);
+  const smtpSecure = process.env.MAIL_SMTP_SECURE === "true";
 
   if (!mailUser || !mailPass) {
     console.error("[Mail] Missing MAIL_API_EMAIL or MAIL_API_PASSWORD in .env");
-    throw new Error("Mail configuration missing");
+    const err = new Error("Mail configuration missing");
+    err.code = "MAIL_CONFIG_MISSING";
+    throw err;
   }
 
   const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
     auth: {
       user: mailUser,
       pass: mailPass,
@@ -509,11 +508,11 @@ const sendEmail = async (email, token, isReset = true) => {
       </html>
     `,
   };
-  console.log("[Mail] Sending to:", email);
+  console.log("[Mail] Sending to:", email, "| SMTP:", smtpHost, smtpPort);
   try {
     await transporter.verify();
   } catch (verifyErr) {
-    console.error("[Mail] SMTP verify failed (check credentials/network):", verifyErr.message);
+    console.error("[Mail] SMTP verify failed:", verifyErr.code, verifyErr.message);
     throw verifyErr;
   }
   try {
@@ -521,7 +520,7 @@ const sendEmail = async (email, token, isReset = true) => {
     console.log("[Mail] Sent successfully:", mailResponse.messageId);
     return mailResponse;
   } catch (err) {
-    console.error("[Mail] Send failed:", err.message, err.response || "");
+    console.error("[Mail] Send failed:", err.code, err.message, err.response || "");
     throw err;
   }
 };
@@ -771,6 +770,14 @@ exports.sendConfirmEmailToken = async (req, res) => {
     }
     if (error.message === "ORG_NAME_TAKEN") {
       return res.status(409).json({ message: "Organization name already taken." });
+    }
+    if (error.code === "EAUTH" || error.code === "MAIL_CONFIG_MISSING") {
+      console.error("Sign up mail error", error);
+      return res.status(503).json({
+        message:
+          "Account was created but we could not send the verification email. Check server mail settings (MAIL_API_EMAIL / MAIL_API_PASSWORD).",
+        code: error.code,
+      });
     }
     console.error("Sign up error", error);
     res.status(500).json({ message: "Internal server error" });

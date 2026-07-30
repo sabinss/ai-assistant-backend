@@ -560,7 +560,7 @@ const handleHourlyTaskAgentCronJob = async () => {
       const activeAgents = await AgentModel.find({
         isAgent: true,
         organization: org._id,
-        frequency: { $in: ["Hourly", "hourly"] },
+        frequency: { $in: ["Realtime", "realtime"] },
       });
 
       if (activeAgents.length === 0) continue;

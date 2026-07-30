@@ -14,7 +14,7 @@ const helmet = require("helmet");
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require("./helper/db");
 const { googleOauthHandler } = require("./controllers/session.controller");
-const { handleTaskAgentCronJob } = require("./cronJob/taskAgentJob");
+const { handleTaskAgentCronJob, handleHourlyTaskAgentCronJob } = require("./cronJob/taskAgentJob");
 const webhookRoute = require("./webhook");
 const Organization = require("./models/Organization");
 const User = require("./models/User");
@@ -267,6 +267,13 @@ cron.schedule(cronTrigger, async () => {
   } catch (err) {
     console.log("❌ Cron job error", err);
   }
+});
+
+// Run every 5 minutes
+const fiveMinuteCronTrigger = "*/5 * * * *";
+cron.schedule(fiveMinuteCronTrigger, async () => {
+  console.log(`⏰ Running 5-minute cron job at ${new Date().toISOString()}`);
+  await handleHourlyTaskAgentCronJob();
 });
 
 app.listen(port, () => {

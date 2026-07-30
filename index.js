@@ -14,7 +14,10 @@ const helmet = require("helmet");
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 const db = require("./helper/db");
 const { googleOauthHandler } = require("./controllers/session.controller");
-const { handleTaskAgentCronJob } = require("./cronJob/taskAgentJob");
+const {
+  handleTaskAgentCronJob,
+  handleHourlyTaskAgentCronJob,
+} = require("./cronJob/taskAgentJob");
 const webhookRoute = require("./webhook");
 const Organization = require("./models/Organization");
 const User = require("./models/User");
@@ -266,6 +269,18 @@ cron.schedule(cronTrigger, async () => {
     console.log("✅ Agent cron job completed");
   } catch (err) {
     console.log("❌ Cron job error", err);
+  }
+});
+
+// Run every 5 minutes (0:00, 0:05, 0:10, ...) — Hourly agents only
+const fiveMinCronTrigger = "*/5 * * * *";
+cron.schedule(fiveMinCronTrigger, async () => {
+  console.log(`⏰ Running 5-min hourly-agent scheduler at ${new Date().toISOString()}`);
+  try {
+    await handleHourlyTaskAgentCronJob();
+    console.log("✅ 5-min hourly-agent cron job completed");
+  } catch (err) {
+    console.log("❌ 5-min hourly-agent cron job error", err);
   }
 });
 

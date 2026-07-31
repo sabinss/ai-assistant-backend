@@ -194,7 +194,6 @@ exports.getOrg = async (req, res) => {
       });
     }
     const org = await Organization.findById(id);
-    console.log("getOrg org", org);
     if (!id) res.status(500).json({ message: "Organization is is required" });
     if (!org) {
       return res.status(404).json({ message: "Organization not found" });

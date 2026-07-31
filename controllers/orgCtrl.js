@@ -166,8 +166,11 @@ exports.getOrg = async (req, res) => {
     if (req?.user?.organization) {
       id = req?.user?.organization;
     } else {
+      console.log("getOrg id from query", req.query.organization);
       id = req.query.organization;
     }
+    console.log("getOrg id", id);
+
     // 66158fe71bfe10b58cb23eea
     let organizationTokenRecord = null;
     let organizationEmail = req?.user?.externalEmail || null;
@@ -190,6 +193,7 @@ exports.getOrg = async (req, res) => {
       });
     }
     const org = await Organization.findById(id);
+    console.log("getOrg org", org);
     if (!id) res.status(500).json({ message: "Organization is is required" });
     if (!org) {
       return res.status(404).json({ message: "Organization not found" });

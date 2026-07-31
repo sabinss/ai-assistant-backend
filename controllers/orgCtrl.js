@@ -162,6 +162,7 @@ exports.updateOrgSettings = async (req, res) => {
 
 exports.getOrg = async (req, res) => {
   try {
+    console.log("Get Org api called");
     let id = req?.user?.organization;
     if (req?.user?.organization) {
       id = req?.user?.organization;
@@ -174,7 +175,7 @@ exports.getOrg = async (req, res) => {
     // 66158fe71bfe10b58cb23eea
     let organizationTokenRecord = null;
     let organizationEmail = req?.user?.externalEmail || null;
-
+    console.log("organizationEmail", organizationEmail);
     if (!organizationEmail) {
       if (req.user.organization) {
         const user = await User.findOne({
@@ -185,7 +186,7 @@ exports.getOrg = async (req, res) => {
         }
       }
     }
-
+    console.log("req.user?.email", req.user?.email);
     if (req.user?.email || organizationEmail) {
       const email = req.user?.email || organizationEmail;
       organizationTokenRecord = await OrganizationToken.findOne({

@@ -1622,12 +1622,19 @@ exports.fetchCustomerStageListForDropdown = async (req, res) => {
       )}&session_id=${session_id}&org_id=${org_id}`;
     const response = await axiosInstance.post(url, {}, { timeout: 300000 });
     console.log("Usage Funel response from query:", response.data);
+    const resultSet = response?.data?.result?.result_set ?? [];
+    if (!Array.isArray(response?.data?.result?.result_set)) {
+      console.warn(
+        `Customer stage dropdown: result_set missing/null for org ${org_id}. SQL response:`,
+        JSON.stringify(response?.data)
+      );
+    }
     return res.status(200).json({
-      data: response.data.result.result_set.filter((item) => item.stage !== null),
+      data: Array.isArray(resultSet) ? resultSet.filter((item) => item?.stage != null) : [],
     });
   } catch (error) {
     console.error("Error fetching customer stage list for dropdown:", error);
-    return res.status(500).json({ message: "Internal Server Error", error });
+    return res.status(500).json({ message: "Internal Server Error", error: error.message });
   }
 };
 exports.fetchCustomerStageList = async (req, res) => {
@@ -1641,12 +1648,19 @@ exports.fetchCustomerStageList = async (req, res) => {
         sql_query
       )}&session_id=${session_id}&org_id=${org_id}`;
     const response = await axiosInstance.post(url, {}, { timeout: 300000 });
+    const resultSet = response?.data?.result?.result_set ?? [];
+    if (!Array.isArray(response?.data?.result?.result_set)) {
+      console.warn(
+        `Customer stage list: result_set missing/null for org ${org_id}. SQL response:`,
+        JSON.stringify(response?.data)
+      );
+    }
     return res.status(200).json({
-      data: response.data.result.result_set.filter((item) => item.stage !== null),
+      data: Array.isArray(resultSet) ? resultSet.filter((item) => item?.stage != null) : [],
     });
   } catch (error) {
     console.error("Error fetching customer stage list:", error);
-    return res.status(500).json({ message: "Internal Server Error", error });
+    return res.status(500).json({ message: "Internal Server Error", error: error.message });
   }
 };
 

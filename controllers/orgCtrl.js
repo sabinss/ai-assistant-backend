@@ -575,11 +575,15 @@ exports.getOrganizationPrompt = async (req, res) => {
 
 exports.getConnectedGmailsWithOrg = async (req, res) => {
   try {
+    console.log("******* Get Gmail user api called *******");
     const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;
+    console.log("isVerifiedFromExternalCall", isVerifiedFromExternalCall);
     const from_email = req.query.from_email;
+    console.log("from_email", from_email);
     let connectedGmailUsersQuery = {
       organization: req.organization._id,
     };
+    console.log("connectedGmailUsersQuery", connectedGmailUsersQuery);
     if (isVerifiedFromExternalCall) {
       if (from_email) {
         connectedGmailUsersQuery.email = from_email;
@@ -590,12 +594,15 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
         req.organization._id,
         "orgGoogleCredential"
       ).lean();
+      console.log("orgDetail", orgDetail);
       let connectedGmailUsers = await GoogleUser.find(connectedGmailUsersQuery).lean();
+      console.log("connectedGmailUsers", connectedGmailUsers);
       // So Python can use the exact granted scope when refreshing/building credentials (avoids scope mismatch)
       connectedGmailUsers = connectedGmailUsers.map((u) => ({
         ...u,
         granted_scope: u.emailCredential?.scope || "",
       }));
+      console.log("connectedGmailUsers", connectedGmailUsers);
 
       const defaultOrgGoogleCredential = {
         client_id: process.env.GOOGLE_CLIENT_ID,
@@ -607,7 +614,9 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
         auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
         client_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
       };
+      console.log("defaultOrgGoogleCredential", defaultOrgGoogleCredential);
       let orgGoogleCredential = orgDetail?.orgGoogleCredential;
+      console.log("orgGoogleCredential", orgGoogleCredential);
       if (!orgGoogleCredential || Object.keys(orgGoogleCredential).length === 0) {
         orgGoogleCredential = defaultOrgGoogleCredential;
       }
@@ -617,6 +626,7 @@ exports.getConnectedGmailsWithOrg = async (req, res) => {
         orgGoogleCredential,
         connectedEmails: connectedGmailUsers,
       };
+      console.log("responsePayload", responsePayload);
       res.status(200).json({
         data: responsePayload,
       });

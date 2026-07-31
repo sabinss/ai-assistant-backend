@@ -1,11 +1,12 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
 const verifySameOrganization = async (req, res, next) => {
   try {
     // Extract API key from request headers
     const { token, email } = req.query;
-
+    console.log("verifySameOrganization", token);
+    console.log("verifySameOrganization email", email);
     // Check if API key is provided
     if (!req.query.token && !req.query.email) {
       // this call is from Frontend
@@ -13,7 +14,10 @@ const verifySameOrganization = async (req, res, next) => {
       next();
     } else {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log("decoded", decoded);
       const user = await User.findOne({ email: decoded.email });
+      console.log("user", user);
+      console.log("user.organization", user.organization);
       if (decoded.email === email) {
         req.orgTokenAuth = true;
         req.externalApiCall = true;
@@ -23,15 +27,15 @@ const verifySameOrganization = async (req, res, next) => {
         next();
       } else {
         return res.status(500).json({
-          error: 'Internal Server Error',
-          message: 'Authentication failed',
+          error: "Internal Server Error",
+          message: "Authentication failed",
         });
       }
     }
   } catch (error) {
     return res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Email not matched with orgnization token',
+      error: "Internal Server Error",
+      message: "Email not matched with orgnization token",
     });
   }
 };

@@ -1,6 +1,6 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const { Types } = require('mongoose');
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const { Types } = require("mongoose");
 
 /**
  *
@@ -44,13 +44,13 @@ const { Types } = require('mongoose');
 // };
 const verifyGoogleAuthUser = async (req, res, next) => {
   try {
-    console.log('verifyGoogleAuthUser called----');
+    console.log("verifyGoogleAuthUser called----");
     // Extract API key from request headers
     const { token, orgId } = req.query;
     if (!req.query.token && !req.query.orgId) {
       return res.status(400).json({
-        error: 'Org token and Organization Id is missing',
-        message: 'Authentication failed',
+        error: "Org token and Organization Id is missing",
+        message: "Authentication failed",
       });
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -58,8 +58,11 @@ const verifyGoogleAuthUser = async (req, res, next) => {
     console.log({ decoded });
     const user = await User.findOne({ email: decoded.email });
     console.log({ user });
-    console.log('matched', user.organization.toString() === organizationId);
-    if (user.organization.toString() === organizationId) {
+    console.log("organizationId--", organizationId);
+    console.log("user.organization", user.organization);
+    console.log("matched", user.organization.toString() === organizationId);
+    console.log("matched2", user.organization.toString() === organizationId.toString());
+    if (user.organization.toString() === organizationId.toString()) {
       // Organization matches
       req.orgTokenAuth = true;
       req.externalApiCall = true;
@@ -68,16 +71,16 @@ const verifyGoogleAuthUser = async (req, res, next) => {
       next();
     } else {
       return res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Authentication failed',
+        error: "Internal Server Error",
+        message: "Authentication failed",
       });
     }
     // Check if API key is provided
   } catch (error) {
-    console.log('Error', error);
+    console.log("Error", error);
     return res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Email not matched with orgnization token',
+      error: "Internal Server Error",
+      message: "Email not matched with orgnization token",
     });
   }
 };

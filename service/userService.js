@@ -46,6 +46,7 @@ async function getMicrosoftAuthTokens({ code, code_verifier }) {
   const values = {
     code,
     client_id: process.env.MICROSOFT_CLIENT_ID,
+    client_secret: process.env.MICROSOFT_CLIENT_SECRET,
     redirect_uri: process.env.MICROSOFT_REDIRECT_URL,
     grant_type: "authorization_code",
   };
@@ -53,26 +54,12 @@ async function getMicrosoftAuthTokens({ code, code_verifier }) {
     "Content-Type": "application/x-www-form-urlencoded",
   };
 
-  // When the code came from the browser authorize request (PKCE), redeem as SPA/public client:
-  // - include code_verifier
-  // - do not send client_secret
-  // - include Origin header so Azure AD accepts cross-origin style redemption
+  // The redirect URI is registered under the Web (confidential) platform in Azure,
+  // so client_secret is required on every redemption — including PKCE ones.
+  // Refresh tokens issued this way are server-redeemable and last 90 days,
+  // unlike SPA-platform tokens which hard-expire after 24 hours (AADSTS9002327).
   if (code_verifier) {
     values.code_verifier = code_verifier;
-    let redirectOrigin = null;
-    if (process.env.MICROSOFT_REDIRECT_URL) {
-      try {
-        redirectOrigin = new URL(process.env.MICROSOFT_REDIRECT_URL).origin;
-      } catch (e) {
-        redirectOrigin = null;
-      }
-    }
-    if (redirectOrigin) {
-      headers.Origin = redirectOrigin;
-    }
-  } else if (process.env.MICROSOFT_CLIENT_SECRET) {
-    // Non-PKCE fallback for confidential web-client flows.
-    values.client_secret = process.env.MICROSOFT_CLIENT_SECRET;
   }
   try {
     const res = await axios.post(url, qs.stringify(values), { headers });

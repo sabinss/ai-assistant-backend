@@ -66,6 +66,12 @@ module.exports = (app) => {
     ctl.getConnectedOutlooksWithOrg
   );
 
+  app.post(
+    `${process.env.APP_URL}/organization/microsoft-users/credentials`,
+    verifyGoogleAuthUser,
+    ctl.updateOutlookCredentialWithOrg
+  );
+
   app.post(`${process.env.APP_URL}/organization/prompts`, authUser, ctl.createOrganizationPrompt);
   app.get(`${process.env.APP_URL}/organization/prompts`, authUser, ctl.getOrganizationPrompt);
   app.post(

@@ -54,6 +54,18 @@ The custom agent fetches Microsoft tokens the same way it does for Gmail: **`GET
 
 The Python agent mirrors the Gmail tools pattern (`gmail_outreach`): read, draft, and send via Microsoft Graph using these credentials.
 
+### Refresh-token rotation write-back
+
+Unlike Google, **Entra ID rotates refresh tokens**: every `refresh_token` grant returns a *new* refresh token, and the stored one eventually expires (90-day inactivity limit; `AADSTS700082 invalid_grant`). After each successful refresh the agent must persist the new token response:
+
+**`POST APP_URL/organization/microsoft-users/credentials`** — same auth contract as `microsoft-users` (org JWT in query `token`, plus `orgId`), body:
+
+```json
+{ "from_email": "<mailbox>", "emailCredential": { ...full token response... } }
+```
+
+The agent refresh call itself is a plain confidential-client request — `POST https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token` with `client_id`, `client_secret`, `grant_type=refresh_token`, `refresh_token`, `scope` — no `Origin` header.
+
 ## Environment variables
 
 ### Backend
@@ -61,7 +73,7 @@ The Python agent mirrors the Gmail tools pattern (`gmail_outreach`): read, draft
 | Variable                  | Purpose                                                                                                                                           |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MICROSOFT_CLIENT_ID`     | App registration (client) ID in Azure Entra ID.                                                                                                   |
-| `MICROSOFT_CLIENT_SECRET` | Optional fallback for confidential web-client token exchange (used only when PKCE verifier is not present).                                       |
+| `MICROSOFT_CLIENT_SECRET` | **Required.** The redirect URI is registered under the Web (confidential) platform, so every token request — code exchange and refresh — must include it. |
 | `MICROSOFT_REDIRECT_URL`  | Must **exactly** match the redirect URI used in the authorize request (same value as `NEXT_PUBLIC_MICROSOFT_OAUTH_REDIRECT_URL` on the frontend). |
 
 ### Frontend
@@ -75,8 +87,8 @@ The Python agent mirrors the Gmail tools pattern (`gmail_outreach`): read, draft
 
 1. Register an **Web** application in Microsoft Entra ID (Azure AD).
 2. Add a **client secret** (for confidential client).
-3. Under **Authentication**, add a **Redirect URI** of type **Web** with the same value as `MICROSOFT_REDIRECT_URL` / `NEXT_PUBLIC_MICROSOFT_OAUTH_REDIRECT_URL` (for example production `https://your-domain.com/oauthcallback`; local Next `http://localhost:3000/oauthcallback`).
-4. Grant **API permissions** (Microsoft Graph, delegated): at minimum `openid`, `profile`, `email`, `offline_access`, `User.Read`, `Mail.Read`, `Mail.ReadWrite` (aligned with the scopes requested in the frontend authorize URL).
+3. Under **Authentication**, add a **Redirect URI** under the **Web** platform (NOT "Single-page application") with the same value as `MICROSOFT_REDIRECT_URL` / `NEXT_PUBLIC_MICROSOFT_OAUTH_REDIRECT_URL` (for example production `https://your-domain.com/oauthcallback`; local Next `http://localhost:3000/oauthcallback`). If the URI is currently listed under the SPA platform, **remove it there first** — SPA-platform tokens can only be redeemed via cross-origin browser requests (`AADSTS9002327`) and their refresh tokens hard-expire after 24 hours, which breaks the server-side agent.
+4. Grant **API permissions** (Microsoft Graph, delegated): at minimum `openid`, `profile`, `email`, `offline_access`, `User.Read`, `Mail.Read`, `Mail.ReadWrite`, `Mail.Send` (aligned with the scopes requested in the frontend authorize URL; `Mail.Send` is required for the agent's outreach send step).
 
 ## Redirect URI mismatch
 
@@ -88,12 +100,8 @@ The main Next.js app sends **`code_challenge`** / **`code_challenge_method=S256`
 
 Backend exchange behavior:
 
-- If `code_verifier` is present, backend redeems the code as SPA/public flow:
-  - sends `code_verifier`
-  - sends `Origin` header derived from `MICROSOFT_REDIRECT_URL`
-  - does **not** send `client_secret`
-- If `code_verifier` is absent, backend falls back to confidential web-client exchange with `client_secret`.
-
-This avoids Microsoft error `AADSTS90023` ("Tokens issued for the 'Single-Page Application' client-type should only be redeemed via cross-origin requests").
+- Always sends `client_secret` (Web/confidential platform requires it on every redemption).
+- Sends `code_verifier` alongside it when present (PKCE and client_secret are complementary, not exclusive).
+- Never sends an `Origin` header — that was a workaround for the redirect URI being misregistered under the SPA platform, which issued 24-hour SPA refresh tokens the Python agent could not redeem (`AADSTS9002327`).
 
 Server logs: `[Microsoft token]` and `outlookOauthCodeExchange` print the Microsoft error JSON on failure. Browser DevTools: `[Outlook OAuth]` logs each step.

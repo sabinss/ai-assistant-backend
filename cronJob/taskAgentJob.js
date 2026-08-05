@@ -308,6 +308,7 @@ const handleTaskAgentCronJob = async () => {
       // Find active agents with scheduling configured
       let activeAgents = await AgentModel.find({
         isAgent: true,
+        active: true,
         organization: org._id,
         frequency: { $in: ["Daily", "Weekly", "Monthly", "Hourly", "hourly"] },
         $or: [
@@ -559,6 +560,7 @@ const handleHourlyTaskAgentCronJob = async () => {
     for (const org of allOrgs) {
       const activeAgents = await AgentModel.find({
         isAgent: true,
+        active: true,
         organization: org._id,
         frequency: { $in: ["Realtime", "realtime"] },
       });

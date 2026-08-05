@@ -689,6 +689,42 @@ exports.getConnectedOutlooksWithOrg = async (req, res) => {
   }
 };
 
+/**
+ * Persist rotated Microsoft tokens from the AI agent. Entra ID returns a new
+ * refresh_token on every redemption; the newest one must replace the stored one
+ * or the saved credential eventually expires (AADSTS700082 invalid_grant).
+ * Same JWT/org-token contract as getConnectedOutlooksWithOrg.
+ * Body: from_email (mailbox), emailCredential (full token response).
+ */
+exports.updateOutlookCredentialWithOrg = async (req, res) => {
+  try {
+    const isVerifiedFromExternalCall = req?.externalApiCall && req.organization;
+    if (!isVerifiedFromExternalCall) {
+      return res.status(500).json({ message: "Internal server error" });
+    }
+    const { from_email, emailCredential } = req.body;
+    if (!from_email || !emailCredential?.refresh_token) {
+      return res.status(400).json({
+        message: "from_email and emailCredential.refresh_token are required",
+      });
+    }
+    const updated = await OutlookUser.findOneAndUpdate(
+      { organization: req.organization._id, email: from_email },
+      { emailCredential },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ message: "Outlook user not found" });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Outlook credential updated",
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error", err });
+  }
+};
+
 exports.callTaskAgentPythonApi = async (req, res) => {
   try {
     const { task_name, org_id } = req.body;

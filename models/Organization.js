@@ -49,6 +49,11 @@ const orgSchema = new mongoose.Schema(
       type: Object,
       default: {},
     },
+    // Twilio SMS: { phoneNumber: "+1..." } — used to resolve org on inbound webhook
+    twilioConfig: {
+      type: Object,
+      default: {},
+    },
     tenant_isolation: {
       type: String,
     },

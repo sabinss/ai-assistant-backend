@@ -74,8 +74,8 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-// Twilio inbound SMS → agent SMS door
-app.post("/webhook/sms/:orgId", handleInboundSms);
+// Twilio inbound SMS (all orgs) → SMS_Reply_Agent
+app.post("/api/webhook/send-twilio", handleInboundSms);
 
 const processedMessages = new Set(); // Use Redis or DB for production
 const sessions = new Map(); // In-memory map: { senderNumber => sessionId }

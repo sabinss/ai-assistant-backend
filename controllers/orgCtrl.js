@@ -223,6 +223,7 @@ exports.getOrg = async (req, res) => {
       zendesk_subdomain,
       hubspot_bearer_token,
       whatsappConfig,
+      twilioConfig,
       tenant_isolation,
       industry,
     } = org;
@@ -257,6 +258,7 @@ exports.getOrg = async (req, res) => {
       zendesk_subdomain,
       hubspot_bearer_token,
       whatsappConfig,
+      twilioConfig,
       tenant_isolation,
       industry,
     };
@@ -305,6 +307,7 @@ exports.editOrg = async (req, res) => {
       additionalPrompt,
       orgDbSetting,
       whatsappConfig,
+      twilioConfig,
     } = req.body;
 
     let payload = null;
@@ -314,6 +317,7 @@ exports.editOrg = async (req, res) => {
         temperature,
         api: apiKey,
         whatsappConfig,
+        twilioConfig,
         ...orgDbSetting,
       };
     } else if (configuration == "configuration") {

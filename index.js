@@ -16,6 +16,7 @@ const db = require("./helper/db");
 const { googleOauthHandler } = require("./controllers/session.controller");
 const { handleTaskAgentCronJob, handleHourlyTaskAgentCronJob } = require("./cronJob/taskAgentJob");
 const webhookRoute = require("./webhook");
+const { handleInboundSms } = require("./controllers/smsWebhookCtrl");
 const Organization = require("./models/Organization");
 const User = require("./models/User");
 app.use(express.json());
@@ -72,6 +73,10 @@ app.get("/webhook", (req, res) => {
     res.sendStatus(403);
   }
 });
+
+// Twilio inbound SMS → agent SMS door
+app.post("/webhook/sms/:orgId", handleInboundSms);
+
 const processedMessages = new Set(); // Use Redis or DB for production
 const sessions = new Map(); // In-memory map: { senderNumber => sessionId }
 

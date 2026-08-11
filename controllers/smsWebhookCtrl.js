@@ -1,4 +1,5 @@
 const axios = require("axios");
+const twilio = require("twilio");
 const Organization = require("../models/Organization");
 const AgentModel = require("../models/AgentModel");
 
@@ -48,11 +49,46 @@ function emptyTwiml() {
 }
 
 /**
+ * Public URL Twilio called — must match webhook config exactly for signature checks.
+ * Prefer TWILIO_WEBHOOK_URL when behind ngrok/proxies.
+ */
+function getTwilioWebhookUrl(req) {
+  if (process.env.TWILIO_WEBHOOK_URL) {
+    return process.env.TWILIO_WEBHOOK_URL.replace(/\/$/, "");
+  }
+  const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https")
+    .toString()
+    .split(",")[0]
+    .trim();
+  const host = (req.headers["x-forwarded-host"] || req.headers.host || "")
+    .toString()
+    .split(",")[0]
+    .trim();
+  return `${proto}://${host}${req.originalUrl}`;
+}
+
+function isValidTwilioRequest(req) {
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!authToken) {
+    console.error("TWILIO_AUTH_TOKEN is not set — rejecting webhook");
+    return false;
+  }
+  const signature = req.headers["x-twilio-signature"];
+  if (!signature) return false;
+  return twilio.validateRequest(authToken, signature, getTwilioWebhookUrl(req), req.body || {});
+}
+
+/**
  * Twilio inbound SMS webhook (all orgs).
  * URL: POST /api/webhook/send-twilio
  * Resolves org from Twilio "To" number, requires custom agent SMS_Reply_Agent.
  */
 async function handleInboundSms(req, res) {
+  if (!isValidTwilioRequest(req)) {
+    console.log("Rejected SMS webhook: invalid Twilio signature");
+    return res.sendStatus(403);
+  }
+
   const from = req.body.From;
   const to = req.body.To;
   const body = req.body.Body || "";

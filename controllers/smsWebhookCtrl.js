@@ -5,37 +5,6 @@ const AgentModel = require("../models/AgentModel");
 
 const SMS_REPLY_AGENT_NAME = "SMS_Reply_Agent";
 
-function normalizePhone(phone) {
-  if (!phone) return "";
-  const cleaned = String(phone)
-    .replace(/[^\d+]/g, "")
-    .trim();
-  if (cleaned.startsWith("00")) return `+${cleaned.slice(2)}`;
-  return cleaned;
-}
-
-function phonesMatch(a, b) {
-  const na = normalizePhone(a).replace(/^\+/, "");
-  const nb = normalizePhone(b).replace(/^\+/, "");
-  return na.length > 0 && na === nb;
-}
-
-async function findOrgByTwilioNumber(toPhone) {
-  const normalizedTo = normalizePhone(toPhone);
-  if (!normalizedTo) return null;
-
-  // Prefer indexed exact match on stored E.164, then fall back to scan.
-  let organization = await Organization.findOne({
-    "twilioConfig.phoneNumber": normalizedTo,
-  });
-  if (organization) return organization;
-
-  const orgs = await Organization.find({
-    "twilioConfig.phoneNumber": { $exists: true, $ne: null },
-  }).select("_id name twilioConfig");
-  return orgs.find((org) => phonesMatch(org.twilioConfig?.phoneNumber, toPhone)) || null;
-}
-
 function twimlMessage(text) {
   const safe = String(text || "")
     .replace(/&/g, "&amp;")
@@ -50,12 +19,13 @@ function emptyTwiml() {
 
 /**
  * Public URL Twilio called — must match webhook config exactly for signature checks.
- * Prefer TWILIO_WEBHOOK_URL when behind ngrok/proxies.
+ * Prefer TWILIO_WEBHOOK_BASE (origin only, e.g. https://xxx.ngrok-free.dev) behind proxies.
  */
 function getTwilioWebhookUrl(req) {
-  if (process.env.TWILIO_WEBHOOK_URL) {
-    return process.env.TWILIO_WEBHOOK_URL.replace(/\/$/, "");
-  }
+  const path = req.originalUrl;
+  const base = (process.env.TWILIO_WEBHOOK_BASE || "").replace(/\/$/, "");
+  if (base) return `${base}${path}`;
+
   const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https")
     .toString()
     .split(",")[0]
@@ -64,7 +34,7 @@ function getTwilioWebhookUrl(req) {
     .toString()
     .split(",")[0]
     .trim();
-  return `${proto}://${host}${req.originalUrl}`;
+  return `${proto}://${host}${path}`;
 }
 
 function isValidTwilioRequest(req) {
@@ -79,9 +49,9 @@ function isValidTwilioRequest(req) {
 }
 
 /**
- * Twilio inbound SMS webhook (all orgs).
- * URL: POST /api/webhook/send-twilio
- * Resolves org from Twilio "To" number, requires custom agent SMS_Reply_Agent.
+ * Twilio inbound SMS webhook (per org).
+ * URL: POST /api/webhook/send-twilio/:orgId
+ * Requires custom agent SMS_Reply_Agent for that org.
  */
 async function handleInboundSms(req, res) {
   if (!isValidTwilioRequest(req)) {
@@ -89,29 +59,34 @@ async function handleInboundSms(req, res) {
     return res.sendStatus(403);
   }
 
+  const orgId = (req.params.orgId || "").trim();
   const from = req.body.From;
   const to = req.body.To;
   const body = req.body.Body || "";
   const messageSid = req.body.MessageSid;
 
   try {
+    if (!orgId) {
+      console.log("SMS webhook missing orgId in URL");
+      return res
+        .type("text/xml")
+        .status(200)
+        .send(twimlMessage("Invalid webhook URL: organization is required."));
+    }
+
     if (!from || !to) {
       console.log("SMS webhook missing From/To");
       return res.type("text/xml").status(200).send(twimlMessage("Invalid SMS payload."));
     }
 
-    const organization = await findOrgByTwilioNumber(to);
+    const organization = await Organization.findById(orgId);
     if (!organization) {
-      console.log("No organization found for Twilio number", to);
+      console.log("No organization found for orgId", orgId);
       return res
         .type("text/xml")
         .status(200)
-        .send(
-          twimlMessage("This number is not linked to an organization. Please contact support.")
-        );
+        .send(twimlMessage("This organization was not found. Please contact support."));
     }
-
-    const orgId = organization._id.toString();
 
     const smsAgent = await AgentModel.findOne({
       organization: organization._id,
@@ -221,5 +196,4 @@ async function handleInboundSms(req, res) {
 module.exports = {
   handleInboundSms,
   SMS_REPLY_AGENT_NAME,
-  normalizePhone,
 };

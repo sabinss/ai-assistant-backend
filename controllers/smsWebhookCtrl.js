@@ -34,6 +34,7 @@ function getTwilioWebhookUrl(req) {
     .toString()
     .split(",")[0]
     .trim();
+  console.log("getTwilioWebhookUrl", `${proto}://${host}${path}`);
   return `${proto}://${host}${path}`;
 }
 
@@ -56,6 +57,7 @@ function isValidTwilioRequest(req) {
  * Requires custom agent SMS_Reply_Agent for that org.
  */
 async function handleInboundSms(req, res) {
+  console.log("is valid twilio requet", isValidTwilioRequest(req));
   if (!isValidTwilioRequest(req)) {
     console.log("Rejected SMS webhook: invalid Twilio signature");
     return res.sendStatus(403);

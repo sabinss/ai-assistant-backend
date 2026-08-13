@@ -48,7 +48,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/health-check", async (req, res) => {
+app.get("/api/health-check", async (req, res) => {
   const check = await db.connect();
   if (!check) {
     res.status(500).send("Not OK");
@@ -73,9 +73,8 @@ app.get("/webhook", (req, res) => {
     res.sendStatus(403);
   }
 });
-
 // Twilio inbound SMS (per org) → SMS_Reply_Agent
-app.post("/api/webhook/send-twilio/:orgId", handleInboundSms);
+https: app.post("/api/webhook/send-twilio/:orgId", handleInboundSms);
 
 const processedMessages = new Set(); // Use Redis or DB for production
 const sessions = new Map(); // In-memory map: { senderNumber => sessionId }

@@ -34,21 +34,27 @@ function getTwilioWebhookUrl(req) {
     .toString()
     .split(",")[0]
     .trim();
-  console.log("getTwilioWebhookUrl", `${proto}://${host}${path}`);
-  return `${proto}://${host}${path}`;
+  const url = `${proto}://${host}${path}`;
+  if (/localhost|127\.0\.0\.1/i.test(url)) {
+    console.warn(
+      "Twilio webhook URL resolved to localhost — set TWILIO_WEBHOOK_BASE to your public HTTPS origin or signature checks will fail:",
+      url
+    );
+  }
+  return url;
 }
 
 function isValidTwilioRequest(req) {
-  console.log("authToken", process.env.TWILIO_AUTH_TOKEN);
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   if (!authToken) {
     console.error("TWILIO_AUTH_TOKEN is not set — rejecting webhook");
     return false;
   }
-  console.log("signature", req.headers["x-twilio-signature"]);
   const signature = req.headers["x-twilio-signature"];
   if (!signature) return false;
-  return twilio.validateRequest(authToken, signature, getTwilioWebhookUrl(req), req.body || {});
+  const webhookUrl = getTwilioWebhookUrl(req);
+  console.log("Twilio signature check URL:", webhookUrl);
+  return twilio.validateRequest(authToken, signature, webhookUrl, req.body || {});
 }
 
 /**

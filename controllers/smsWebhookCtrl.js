@@ -63,7 +63,7 @@ function isValidTwilioRequest(req) {
  * Requires custom agent SMS_Reply_Agent for that org.
  */
 async function handleInboundSms(req, res) {
-  console.lop("Request in twilio webhook", req.body);
+  console.log("Request in twilio webhook", req.body);
   console.log("is valid twilio requet", isValidTwilioRequest(req));
   if (!isValidTwilioRequest(req)) {
     console.log("Rejected SMS webhook: invalid Twilio signature");

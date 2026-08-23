@@ -158,6 +158,8 @@ async function resolveSmsAgent(orgId, from, to) {
     name: SMS_REPLY_AGENT_NAME,
   });
 
+  console.log("smsAgent", smsAgent);
+
   if (!smsAgent) {
     console.log(`SMS_Reply_Agent missing for org ${orgId} (${organization.name})`);
     return {
@@ -173,12 +175,20 @@ async function resolveSmsAgent(orgId, from, to) {
 /**
  * Forwards the inbound SMS (already known to belong to a configured org) to the
  * SMS_Reply_Agent, which replies to the customer itself via send_sms_tool.
+ *
+ * The actual Telnyx/Twilio send happens inside the Python agent, not here — this
+ * function's job is to surface whether that round-trip completed and what the agent
+ * said it did, via one greppable "[SMS <provider>] SEND SUCCESS|FAILED" log line.
  */
-async function forwardInboundSmsToAgent({ orgId, from, to, body, messageSid }) {
+async function forwardInboundSmsToAgent({ orgId, from, to, body, messageSid, provider }) {
+  const tag = `[SMS ${provider || "unknown"}]`;
+  console.log("forwardInboundSmsToAgent", { orgId, from, to, body, messageSid, provider });
   const agentBase = process.env.AI_AGENT_SERVER_URI;
   if (!agentBase) {
-    console.error("AI_AGENT_SERVER_URI is not set");
-    return;
+    console.error(
+      `${tag} SEND FAILED — AI_AGENT_SERVER_URI is not set org=${orgId} messageSid=${messageSid}`
+    );
+    return { ok: false, error: "AI_AGENT_SERVER_URI not set" };
   }
 
   // Save inbound + load thread context (agent repo / Messages table).
@@ -228,7 +238,7 @@ async function forwardInboundSmsToAgent({ orgId, from, to, body, messageSid }) {
     `&org_id=${encodeURIComponent(orgId)}` +
     `&session_id=${encodeURIComponent(String(sessionId))}`;
 
-  console.log("Forwarding inbound SMS to SMS_Reply_Agent", {
+  console.log(`${tag} Forwarding inbound SMS to SMS_Reply_Agent`, {
     orgId,
     from,
     to,
@@ -236,18 +246,56 @@ async function forwardInboundSmsToAgent({ orgId, from, to, body, messageSid }) {
     agent: SMS_REPLY_AGENT_NAME,
   });
 
-  const pythonResponse = await axios({
-    method: "get",
-    url: agentUrl,
-    responseType: "stream",
-    timeout: 180000,
-  });
+  try {
+    const pythonResponse = await axios({
+      method: "get",
+      url: agentUrl,
+      responseType: "stream",
+      timeout: 180000,
+    });
 
-  await new Promise((resolve, reject) => {
-    pythonResponse.data.on("data", () => {});
-    pythonResponse.data.on("end", resolve);
-    pythonResponse.data.on("error", reject);
-  });
+    // Agent streams SSE ("data: {...}\n\n"). Accumulate its text reply and watch
+    // for an explicit error field so the outcome log below reflects what actually happened.
+    let completeMessage = "";
+    let sawError = false;
+    let sseBuffer = "";
+
+    await new Promise((resolve, reject) => {
+      pythonResponse.data.on("data", (chunk) => {
+        sseBuffer += chunk.toString();
+        const isComplete = sseBuffer.endsWith("\n\n");
+        const parts = sseBuffer.split("\n\n");
+        const messagesToProcess = isComplete ? parts : parts.slice(0, -1);
+        sseBuffer = isComplete ? "" : parts[parts.length - 1];
+
+        for (const msgText of messagesToProcess) {
+          const trimmed = msgText.trim();
+          if (!trimmed.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(trimmed.slice("data: ".length));
+            if (data.message) completeMessage += data.message;
+            if (data.error) sawError = true;
+          } catch {
+            // Ignore an unparsable SSE fragment — doesn't affect the overall outcome.
+          }
+        }
+      });
+      pythonResponse.data.on("end", resolve);
+      pythonResponse.data.on("error", reject);
+    });
+
+    const ok = !sawError;
+    console.log(
+      `${tag} SEND ${ok ? "SUCCESS" : "FAILED"} org=${orgId} messageSid=${messageSid} from=${from} to=${to}`
+    );
+    console.log(`${tag} agent response: ${completeMessage || "(empty)"}`);
+    return { ok, message: completeMessage };
+  } catch (err) {
+    console.error(
+      `${tag} SEND FAILED (agent request error) org=${orgId} messageSid=${messageSid} from=${from} to=${to}: ${err.message}`
+    );
+    return { ok: false, error: err.message };
+  }
 }
 
 /**
@@ -279,7 +327,7 @@ async function handleInboundSms(req, res) {
     // Ack Twilio before slower agent work.
     res.type("text/xml").status(200).send(emptyTwiml());
 
-    await forwardInboundSmsToAgent({ orgId, from, to, body, messageSid });
+    await forwardInboundSmsToAgent({ orgId, from, to, body, messageSid, provider: "Twilio" });
   } catch (err) {
     console.error("SMS webhook error", err.message);
     // If headers not sent yet, return an error TwiML; otherwise Twilio already got empty Response.
@@ -315,12 +363,11 @@ async function handleInboundTelnyxSms(req, res) {
   const messageSid = payload.id;
   console.log("from", from);
   console.log("to", to);
-  console.log("body", body);
   console.log("messageSid", messageSid);
   console.log("orgId", orgId);
-  console.log("payload", payload);
   try {
     const check = await resolveSmsAgent(orgId, from, to);
+    console.log("check", check);
     if (!check.ok) {
       // Telnyx webhooks have no TwiML-style auto-reply channel — just ack the webhook.
       console.log("Telnyx inbound SMS not processed:", check.replyText);
@@ -330,7 +377,7 @@ async function handleInboundTelnyxSms(req, res) {
     // Ack Telnyx before slower agent work.
     res.sendStatus(200);
 
-    await forwardInboundSmsToAgent({ orgId, from, to, body, messageSid });
+    await forwardInboundSmsToAgent({ orgId, from, to, body, messageSid, provider: "Telnyx" });
   } catch (err) {
     console.error("Telnyx SMS webhook error", err.message);
     if (!res.headersSent) {

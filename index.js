@@ -16,10 +16,18 @@ const db = require("./helper/db");
 const { googleOauthHandler } = require("./controllers/session.controller");
 const { handleTaskAgentCronJob, handleHourlyTaskAgentCronJob } = require("./cronJob/taskAgentJob");
 const webhookRoute = require("./webhook");
-const { handleInboundSms } = require("./controllers/smsWebhookCtrl");
+const { handleInboundSms, handleInboundTelnyxSms } = require("./controllers/smsWebhookCtrl");
 const Organization = require("./models/Organization");
 const User = require("./models/User");
-app.use(express.json());
+// Keep raw request bytes for webhook signature verification (e.g. Telnyx Ed25519 checks),
+// which must hash the exact bytes received rather than a re-serialized JS object.
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 const { v4: uuidv4 } = require("uuid");
 const AgentCronLogSchema = require("./models/AgentCronLogSchema");
 const corsOptions = {
@@ -76,6 +84,9 @@ app.get("/webhook", (req, res) => {
 
 // Twilio inbound SMS (per org) → SMS_Reply_Agent
 app.post("/api/webhook/send-twilio/:orgId", handleInboundSms);
+
+// Telnyx inbound SMS (per org) → SMS_Reply_Agent
+app.post("/api/webhook/send-telnyx/:orgId", handleInboundTelnyxSms);
 
 const processedMessages = new Set(); // Use Redis or DB for production
 const sessions = new Map(); // In-memory map: { senderNumber => sessionId }

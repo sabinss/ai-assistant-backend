@@ -288,7 +288,7 @@ if (process.env.ENABLE_CRON !== "false") {
   });
 
   // Run every 5 minutes
-  const fiveMinuteCronTrigger = "*/5 * * * *";
+  const fiveMinuteCronTrigger = "*/1 * * * *";
   cron.schedule(fiveMinuteCronTrigger, async () => {
     console.log(`⏰ Running 5-minute cron job at ${new Date().toISOString()}`);
     await handleHourlyTaskAgentCronJob();

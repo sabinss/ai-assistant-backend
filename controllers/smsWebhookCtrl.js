@@ -42,16 +42,19 @@ function getTwilioWebhookUrl(req) {
       url
     );
   }
+  console.log("url", url);
   return url;
 }
 
 function isValidTwilioRequest(req) {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
+  console.log("authToken", authToken);
   if (!authToken) {
     console.error("TWILIO_AUTH_TOKEN is not set — rejecting webhook");
     return false;
   }
   const signature = req.headers["x-twilio-signature"];
+  console.log("signature", signature);
   if (!signature) return false;
   const webhookUrl = getTwilioWebhookUrl(req);
   console.log("Twilio signature check URL:", webhookUrl);

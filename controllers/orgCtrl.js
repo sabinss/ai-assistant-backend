@@ -419,7 +419,11 @@ exports.getOrganizationDetail = async (req, res) => {
 
 exports.upsertTwilioCredentials = async (req, res) => {
   const { orgId } = req.params;
-  const { twilioAccountSid, twilioAuthToken } = req.body;
+  // Accept client payload keys (account_sid / auth_token) and API-style aliases
+  const twilioAccountSid =
+    req.body.twilioAccountSid ?? req.body.account_sid ?? req.body.accountSid ?? null;
+  const twilioAuthToken =
+    req.body.twilioAuthToken ?? req.body.auth_token ?? req.body.authToken ?? null;
 
   try {
     if (!orgId) {
@@ -427,7 +431,7 @@ exports.upsertTwilioCredentials = async (req, res) => {
     }
     if (twilioAccountSid == null && twilioAuthToken == null) {
       return res.status(400).json({
-        message: "At least one of twilioAccountSid or twilioAuthToken is required",
+        message: "At least one of account_sid or auth_token is required",
       });
     }
 

@@ -62,6 +62,10 @@ const orgSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    telnyx_api_key: {
+      type: String,
+      default: "",
+    },
     tenant_isolation: {
       type: String,
     },

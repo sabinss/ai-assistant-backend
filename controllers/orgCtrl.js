@@ -230,6 +230,7 @@ exports.getOrg = async (req, res) => {
       twilioConfig,
       twilioAccountSid,
       twilioAuthToken,
+      telnyx_api_key,
       tenant_isolation,
       industry,
     } = org;
@@ -267,6 +268,7 @@ exports.getOrg = async (req, res) => {
       twilioConfig,
       twilioAccountSid,
       twilioAuthToken,
+      telnyx_api_key,
       tenant_isolation,
       industry,
     };
@@ -424,14 +426,16 @@ exports.upsertTwilioCredentials = async (req, res) => {
     req.body.twilioAccountSid ?? req.body.account_sid ?? req.body.accountSid ?? null;
   const twilioAuthToken =
     req.body.twilioAuthToken ?? req.body.auth_token ?? req.body.authToken ?? null;
+  const telnyxApiKey =
+    req.body.telnyx_api_key ?? req.body.telnyxApiKey ?? null;
 
   try {
     if (!orgId) {
       return res.status(400).json({ message: "Organization id is required" });
     }
-    if (twilioAccountSid == null && twilioAuthToken == null) {
+    if (twilioAccountSid == null && twilioAuthToken == null && telnyxApiKey == null) {
       return res.status(400).json({
-        message: "At least one of account_sid or auth_token is required",
+        message: "At least one of account_sid, auth_token, or telnyx_api_key is required",
       });
     }
 
@@ -443,15 +447,17 @@ exports.upsertTwilioCredentials = async (req, res) => {
     const update = {};
     if (twilioAccountSid != null) update.twilioAccountSid = String(twilioAccountSid).trim();
     if (twilioAuthToken != null) update.twilioAuthToken = String(twilioAuthToken).trim();
+    if (telnyxApiKey != null) update.telnyx_api_key = String(telnyxApiKey).trim();
 
     const updatedOrg = await Organization.findByIdAndUpdate(orgId, update, { new: true });
 
     return res.status(200).json({
-      message: "Twilio credentials updated",
+      message: "SMS credentials updated",
       org: {
         _id: updatedOrg._id,
         twilioAccountSid: updatedOrg.twilioAccountSid,
         twilioAuthToken: updatedOrg.twilioAuthToken,
+        telnyx_api_key: updatedOrg.telnyx_api_key,
         twilioConfig: updatedOrg.twilioConfig,
       },
     });

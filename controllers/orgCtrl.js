@@ -231,6 +231,7 @@ exports.getOrg = async (req, res) => {
       twilioAccountSid,
       twilioAuthToken,
       telnyx_api_key,
+      telnyx_public_key,
       tenant_isolation,
       industry,
     } = org;
@@ -269,6 +270,7 @@ exports.getOrg = async (req, res) => {
       twilioAccountSid,
       twilioAuthToken,
       telnyx_api_key,
+      telnyx_public_key,
       tenant_isolation,
       industry,
     };
@@ -428,14 +430,22 @@ exports.upsertTwilioCredentials = async (req, res) => {
     req.body.twilioAuthToken ?? req.body.auth_token ?? req.body.authToken ?? null;
   const telnyxApiKey =
     req.body.telnyx_api_key ?? req.body.telnyxApiKey ?? null;
+  const telnyxPublicKey =
+    req.body.telnyx_public_key ?? req.body.telnyxPublicKey ?? null;
 
   try {
     if (!orgId) {
       return res.status(400).json({ message: "Organization id is required" });
     }
-    if (twilioAccountSid == null && twilioAuthToken == null && telnyxApiKey == null) {
+    if (
+      twilioAccountSid == null &&
+      twilioAuthToken == null &&
+      telnyxApiKey == null &&
+      telnyxPublicKey == null
+    ) {
       return res.status(400).json({
-        message: "At least one of account_sid, auth_token, or telnyx_api_key is required",
+        message:
+          "At least one of account_sid, auth_token, telnyx_api_key, or telnyx_public_key is required",
       });
     }
 
@@ -448,6 +458,7 @@ exports.upsertTwilioCredentials = async (req, res) => {
     if (twilioAccountSid != null) update.twilioAccountSid = String(twilioAccountSid).trim();
     if (twilioAuthToken != null) update.twilioAuthToken = String(twilioAuthToken).trim();
     if (telnyxApiKey != null) update.telnyx_api_key = String(telnyxApiKey).trim();
+    if (telnyxPublicKey != null) update.telnyx_public_key = String(telnyxPublicKey).trim();
 
     const updatedOrg = await Organization.findByIdAndUpdate(orgId, update, { new: true });
 
@@ -458,6 +469,7 @@ exports.upsertTwilioCredentials = async (req, res) => {
         twilioAccountSid: updatedOrg.twilioAccountSid,
         twilioAuthToken: updatedOrg.twilioAuthToken,
         telnyx_api_key: updatedOrg.telnyx_api_key,
+        telnyx_public_key: updatedOrg.telnyx_public_key,
         twilioConfig: updatedOrg.twilioConfig,
       },
     });

@@ -92,13 +92,13 @@ const TELNYX_TIMESTAMP_TOLERANCE_SECONDS = 300; // matches Telnyx's own SDK defa
  * Builds an Ed25519 public key object from Telnyx's base64 raw public key
  * (Mission Control Portal > Keys & Credentials > Public Key).
  */
-function getTelnyxPublicKey() {
-  const raw = process.env.TELNYX_PUBLIC_KEY;
+function getTelnyxPublicKey(rawKey) {
+  const raw = (rawKey || "").trim();
   if (!raw) return null;
   try {
     const keyBytes = Buffer.from(raw, "base64");
     if (keyBytes.length !== 32) {
-      console.error("TELNYX_PUBLIC_KEY must decode to 32 raw bytes (Ed25519 public key)");
+      console.error("Telnyx public key must decode to 32 raw bytes (Ed25519 public key)");
       return null;
     }
     return crypto.createPublicKey({
@@ -106,7 +106,7 @@ function getTelnyxPublicKey() {
       format: "jwk",
     });
   } catch (err) {
-    console.error("Invalid TELNYX_PUBLIC_KEY:", err.message);
+    console.error("Invalid Telnyx public key:", err.message);
     return null;
   }
 }
@@ -117,10 +117,21 @@ function getTelnyxPublicKey() {
  * to the Standard Webhooks style `webhook-signature`/`webhook-timestamp` (still Ed25519,
  * value optionally prefixed "v1," and possibly space-separated for key rotation) — accept both.
  */
-function isValidTelnyxRequest(req) {
-  const publicKey = getTelnyxPublicKey();
+async function isValidTelnyxRequest(req, orgId) {
+  if (!orgId) {
+    console.error("Telnyx webhook missing orgId — rejecting webhook");
+    return false;
+  }
+
+  const org = await Organization.findById(orgId).select("telnyx_public_key");
+  if (!org?.telnyx_public_key) {
+    console.error(`Telnyx public key not found for organization ${orgId} — rejecting webhook`);
+    return false;
+  }
+
+  const publicKey = getTelnyxPublicKey(org.telnyx_public_key);
   if (!publicKey) {
-    console.error("TELNYX_PUBLIC_KEY is not set — rejecting webhook");
+    console.error(`Invalid Telnyx public key for organization ${orgId} — rejecting webhook`);
     return false;
   }
 
@@ -378,14 +389,15 @@ async function handleInboundSms(req, res) {
 async function handleInboundTelnyxSms(req, res) {
   console.log("Request in telnyx webhook", req.body);
   console.log("header info", req.headers);
-  const validRequest = isValidTelnyxRequest(req);
+
+  const orgId = (req.params.orgId || "").trim();
+  const validRequest = await isValidTelnyxRequest(req, orgId);
   console.log("is valid telnyx request", validRequest);
   if (!validRequest) {
     console.log("Rejected SMS webhook: invalid Telnyx signature");
     return res.sendStatus(403);
   }
 
-  const orgId = (req.params.orgId || "").trim();
   const payload = req.body?.data?.payload || {};
   const from = payload.from?.phone_number;
   const to = payload.to?.[0]?.phone_number;

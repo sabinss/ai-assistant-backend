@@ -228,6 +228,8 @@ exports.getOrg = async (req, res) => {
       hubspot_bearer_token,
       whatsappConfig,
       twilioConfig,
+      twilioAccountSid,
+      twilioAuthToken,
       tenant_isolation,
       industry,
     } = org;
@@ -263,6 +265,8 @@ exports.getOrg = async (req, res) => {
       hubspot_bearer_token,
       whatsappConfig,
       twilioConfig,
+      twilioAccountSid,
+      twilioAuthToken,
       tenant_isolation,
       industry,
     };
@@ -409,6 +413,46 @@ exports.getOrganizationDetail = async (req, res) => {
     return res.status(200).json(detail);
   } catch (error) {
     console.error("getOrganizationDetail error", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+exports.upsertTwilioCredentials = async (req, res) => {
+  const { orgId } = req.params;
+  const { twilioAccountSid, twilioAuthToken } = req.body;
+
+  try {
+    if (!orgId) {
+      return res.status(400).json({ message: "Organization id is required" });
+    }
+    if (twilioAccountSid == null && twilioAuthToken == null) {
+      return res.status(400).json({
+        message: "At least one of twilioAccountSid or twilioAuthToken is required",
+      });
+    }
+
+    const org = await Organization.findById(orgId);
+    if (!org) {
+      return res.status(404).json({ message: "Organization not found" });
+    }
+
+    const update = {};
+    if (twilioAccountSid != null) update.twilioAccountSid = String(twilioAccountSid).trim();
+    if (twilioAuthToken != null) update.twilioAuthToken = String(twilioAuthToken).trim();
+
+    const updatedOrg = await Organization.findByIdAndUpdate(orgId, update, { new: true });
+
+    return res.status(200).json({
+      message: "Twilio credentials updated",
+      org: {
+        _id: updatedOrg._id,
+        twilioAccountSid: updatedOrg.twilioAccountSid,
+        twilioAuthToken: updatedOrg.twilioAuthToken,
+        twilioConfig: updatedOrg.twilioConfig,
+      },
+    });
+  } catch (error) {
+    console.error("upsertTwilioCredentials error", error);
     return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };

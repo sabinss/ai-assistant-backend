@@ -46,19 +46,44 @@ function getTwilioWebhookUrl(req) {
   return url;
 }
 
-function isValidTwilioRequest(req) {
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  console.log("authToken", authToken);
+async function isValidTwilioRequest(req, orgId) {
+  let authToken = process.env.TWILIO_AUTH_TOKEN;
+
+  if (orgId) {
+    const org = await Organization.findById(orgId).select("twilioAuthToken");
+    if (org?.twilioAuthToken) {
+      authToken = org.twilioAuthToken;
+    }
+  }
+
   if (!authToken) {
-    console.error("TWILIO_AUTH_TOKEN is not set — rejecting webhook");
+    console.error("Twilio auth token is not set for this organization — rejecting webhook");
     return false;
   }
   const signature = req.headers["x-twilio-signature"];
-  console.log("signature", signature);
   if (!signature) return false;
   const webhookUrl = getTwilioWebhookUrl(req);
   console.log("Twilio signature check URL:", webhookUrl);
-  return twilio.validateRequest(authToken, signature, webhookUrl, req.body || {});
+  const valid = twilio.validateRequest(authToken, signature, webhookUrl, req.body || {});
+
+  if (!valid) {
+    const variants = new Set([
+      webhookUrl,
+      webhookUrl.replace(/\/$/, ""),
+      webhookUrl + "/",
+      webhookUrl.replace(/^https:/, "http:"),
+      webhookUrl.replace(/^http:/, "https:"),
+      webhookUrl.replace("://mycowrkr.cloud", "://www.mycowrkr.cloud"),
+      webhookUrl.replace("://www.mycowrkr.cloud", "://mycowrkr.cloud"),
+    ]);
+    for (const candidate of variants) {
+      const ok = twilio.validateRequest(authToken, signature, candidate, req.body || {});
+      console.log(`Twilio signature debug — candidate="${candidate}" valid=${ok}`);
+    }
+    console.log("Twilio signature debug — req.body:", JSON.stringify(req.body || {}));
+  }
+
+  return valid;
 }
 
 const TELNYX_TIMESTAMP_TOLERANCE_SECONDS = 300; // matches Telnyx's own SDK default
@@ -309,13 +334,15 @@ async function forwardInboundSmsToAgent({ orgId, from, to, body, messageSid, pro
 async function handleInboundSms(req, res) {
   console.log("Request in twilio webhook", req.body);
   console.log("header info", req.headers);
-  console.log("is valid twilio requet", isValidTwilioRequest(req));
-  if (!isValidTwilioRequest(req)) {
+
+  const orgId = (req.params.orgId || "").trim();
+  const validRequest = await isValidTwilioRequest(req, orgId);
+  console.log("is valid twilio request", validRequest);
+  if (!validRequest) {
     console.log("Rejected SMS webhook: invalid Twilio signature");
     return res.sendStatus(403);
   }
 
-  const orgId = (req.params.orgId || "").trim();
   const from = req.body.From;
   const to = req.body.To;
   const body = req.body.Body || "";

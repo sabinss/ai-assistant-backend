@@ -54,6 +54,14 @@ const orgSchema = new mongoose.Schema(
       type: Object,
       default: {},
     },
+    twilioAccountSid: {
+      type: String,
+      default: "",
+    },
+    twilioAuthToken: {
+      type: String,
+      default: "",
+    },
     tenant_isolation: {
       type: String,
     },

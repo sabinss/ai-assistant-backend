@@ -167,6 +167,12 @@ module.exports = (app) => {
     permissonCheck,
     ctl.upsertOrganizationDetail
   );
+  app.put(
+    `${process.env.APP_URL}/organization/:orgId/twilio-credentials`,
+    authUser,
+    permissonCheck,
+    ctl.upsertTwilioCredentials
+  );
 
   app.post(`${process.env.APP_URL}/organization`, authUser, permissonCheck, ctl.create);
   app.put(

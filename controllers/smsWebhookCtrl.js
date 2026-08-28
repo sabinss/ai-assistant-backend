@@ -243,8 +243,10 @@ async function forwardInboundSmsToAgent({ orgId, from, to, body, messageSid, pro
     // Continue — still try to run the agent on the latest message.
   }
 
+  // Facts only. The role, the tone, the policy and the tool to call all come from
+  // the SMS_Reply_Agent primary_instruction in the agent config, the same way every
+  // other custom agent works. Do not put instructions here: they override the config.
   const question = [
-    "You are handling an inbound SMS reply.",
     `Our SMS number: ${to}`,
     `Customer phone: ${from}`,
     "",
@@ -252,9 +254,6 @@ async function forwardInboundSmsToAgent({ orgId, from, to, body, messageSid, pro
     historyText,
     "",
     `Latest customer SMS: ${body}`,
-    "",
-    "Reply to the customer using send_sms_tool.",
-    `Use from_phone_number=${to} and to_phone_number=${from}.`,
   ].join("\n");
 
   // Same session_id style as chat/custom-agent conversations (not phone-derived).

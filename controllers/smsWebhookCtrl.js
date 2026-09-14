@@ -398,6 +398,18 @@ async function handleInboundTelnyxSms(req, res) {
     return res.sendStatus(403);
   }
 
+  const eventType = req.body?.data?.event_type;
+  console.log("eventType", eventType);
+  if (eventType !== "message.received") {
+    // Telnyx posts every event for this number to this same URL, including
+    // its own delivery-status callbacks for messages our agent just sent
+    // (message.sent, message.finalized, ...). Those are not new customer
+    // texts — ack and drop them so they don't get saved as inbound or
+    // forwarded to the agent for a reply.
+    console.log("Ignoring Telnyx webhook event:", eventType);
+    return res.sendStatus(200);
+  }
+
   const payload = req.body?.data?.payload || {};
   const from = payload.from?.phone_number;
   const to = payload.to?.[0]?.phone_number;

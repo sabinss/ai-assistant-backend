@@ -1,11 +1,35 @@
-// cronJob/taskAgentJob.js - Simplified version (no timezone)
-// cronJob/taskAgentJob.js - Simplified version (no timezone)
-const cron = require("node-cron");
+// cronJob/taskAgentJob.js — timezone-aware agent scheduler
 const axios = require("axios");
 const Organization = require("../models/Organization");
-const moment = require("moment");
+const moment = require("moment-timezone");
 const AgentModel = require("../models/AgentModel");
 const AgentCronLogSchema = require("../models/AgentCronLogSchema");
+
+/**
+ * Map timezone abbreviations to IANA timezone names
+ */
+const TIMEZONE_MAP = {
+  EST: "America/New_York",
+  EDT: "America/New_York",
+  PST: "America/Los_Angeles",
+  PDT: "America/Los_Angeles",
+  CST: "America/Chicago",
+  CDT: "America/Chicago",
+  MST: "America/Denver",
+  MDT: "America/Denver",
+  UTC: "UTC",
+  GMT: "Europe/London",
+  CET: "Europe/Paris",
+  JST: "Asia/Tokyo",
+  AEST: "Australia/Sydney",
+  IST: "Asia/Kolkata",
+};
+
+const getIANATimezone = (tzAbbr) => {
+  if (!tzAbbr) return "UTC";
+  if (typeof tzAbbr === "string" && tzAbbr.includes("/")) return tzAbbr;
+  return TIMEZONE_MAP[String(tzAbbr).toUpperCase()] || "UTC";
+};
 
 /**
  * Parse scheduleTime string "HH:mm" to extract hour
@@ -13,16 +37,18 @@ const AgentCronLogSchema = require("../models/AgentCronLogSchema");
  * @returns {number} - Hour (0-23)
  */
 const parseScheduleHour = (scheduleTime) => {
-  if (!scheduleTime) return null;
+  if (!scheduleTime && scheduleTime !== 0) return null;
 
   // Handle "HH:mm" format
   if (typeof scheduleTime === "string" && scheduleTime.includes(":")) {
     const [hours] = scheduleTime.split(":");
-    return parseInt(hours) || null;
+    const parsed = parseInt(hours, 10);
+    return Number.isNaN(parsed) ? null : parsed;
   }
 
   // Handle plain number
-  return parseInt(scheduleTime) || null;
+  const parsed = parseInt(scheduleTime, 10);
+  return Number.isNaN(parsed) ? null : parsed;
 };
 
 /**
@@ -75,111 +101,270 @@ const isHourInWindow = (targetHour, windowStartHour, windowEndHour) => {
   return targetHour >= windowStartHour || targetHour <= windowEndHour;
 };
 
+const BUSINESS_HOUR_START = 9; // 9 AM inclusive
+const BUSINESS_HOUR_END = 17; // 5 PM inclusive
+
+const normalizeFrequency = (frequency) =>
+  String(frequency || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+
+const isBusinessDayFrequency = (frequency) => {
+  const f = normalizeFrequency(frequency);
+  return f === "every business day" || f === "business day" || f === "businessday";
+};
+
+const isBusinessHourFrequency = (frequency) => {
+  const f = normalizeFrequency(frequency);
+  return f === "every business hour" || f === "business hour" || f === "businesshour";
+};
+
+const isHourlyLikeFrequency = (frequency) => {
+  const f = normalizeFrequency(frequency);
+  return f === "hourly" || isBusinessHourFrequency(frequency);
+};
+
+const isWeekend = (isoWeekday) => isoWeekday === 6 || isoWeekday === 7; // Sat / Sun
+
 /**
- * Check if agent should be triggered
+ * Shared once-per-day schedule check (Daily / Business Day).
  */
-const shouldTriggerAgent = (
-  agent,
+const shouldTriggerDailyLike = ({
+  scheduleTime,
+  lastTriggeredAt,
+  agentTimezone,
+  nowLocal,
   currentHour,
   windowStartHour,
   windowEndHour,
-  currentDay,
-  currentDate
-) => {
-  const { frequency, dayTime, scheduleTime, lastTriggeredAt } = agent;
-
-  if (!frequency) {
-    return { shouldTrigger: false, skipReason: "Missing frequency" };
+  label,
+}) => {
+  if (!scheduleTime) {
+    return {
+      shouldTrigger: false,
+      skipReason: `Missing scheduleTime for ${label} frequency`,
+      agentTimezone,
+      currentHour,
+      windowStartHour,
+      windowEndHour,
+    };
   }
 
-  switch (frequency) {
-    case "Daily": {
-      if (!scheduleTime) {
-        return { shouldTrigger: false, skipReason: "Missing scheduleTime for Daily frequency" };
-      }
+  const targetHour = parseScheduleHour(scheduleTime);
+  if (targetHour === null) {
+    return {
+      shouldTrigger: false,
+      skipReason: `Invalid scheduleTime: ${scheduleTime}`,
+      agentTimezone,
+      currentHour,
+      windowStartHour,
+      windowEndHour,
+    };
+  }
 
-      const targetHour = parseScheduleHour(scheduleTime);
-      if (targetHour === null) {
-        return { shouldTrigger: false, skipReason: `Invalid scheduleTime: ${scheduleTime}` };
-      }
+  if (lastTriggeredAt) {
+    const lastRunLocal = moment(lastTriggeredAt).tz(agentTimezone);
+    const isSameDay = lastRunLocal.isSame(nowLocal, "day");
+    console.log(
+      `      [${agentTimezone}] Last triggered: ${lastRunLocal.format("YYYY-MM-DD HH:mm:ss")}, Now local: ${nowLocal.format("YYYY-MM-DD HH:mm:ss")}, Same day? ${isSameDay}`
+    );
+    if (isSameDay) {
+      return {
+        shouldTrigger: false,
+        skipReason: `Already triggered today at ${lastRunLocal.format("HH:mm")} (${agentTimezone})`,
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+        targetHour,
+      };
+    }
+  } else {
+    console.log(`      [${agentTimezone}] Last triggered: Never (first run)`);
+  }
 
-      // Check if already triggered today
-      if (lastTriggeredAt) {
-        const lastRun = moment(lastTriggeredAt);
-        const today = moment();
-        const isSameDay = lastRun.isSame(today, "day");
-        console.log(
-          `      Last triggered: ${lastRun.format("YYYY-MM-DD HH:mm:ss")}, Today: ${today.format("YYYY-MM-DD HH:mm:ss")}, Same day? ${isSameDay}`
-        );
-        if (isSameDay) {
-          return {
-            shouldTrigger: false,
-            skipReason: `Already triggered today at ${lastRun.format("HH:mm")}`,
-          };
-        }
-      } else {
-        console.log(`      Last triggered: Never (first run)`);
-      }
+  const hasTargetHourPassed = targetHour <= currentHour;
+  const isMidnightCatch = currentHour === 0 && targetHour >= 22;
+  const shouldTriggerByTime = hasTargetHourPassed || isMidnightCatch;
 
-      // For Daily agents: Trigger if the scheduled hour has passed today
-      // This ensures ANY agent scheduled for ANY time (0-23) will be found and executed within the day
-      // Logic:
-      //   1. Normal case: targetHour <= currentHour (scheduled time has passed)
-      //   2. Edge case: At midnight (0:00), catch agents from previous evening (22:00-23:00) that might have been missed
-      // This works for all hours:
-      //   - Agent at 0:00: triggers at 0:00, 2:00, 4:00... until executed
-      //   - Agent at 4:00: triggers at 4:00, 6:00, 8:00... until executed
-      //   - Agent at 22:00: triggers at 22:00, or at 0:00 next day if missed
-      //   - Agent at 23:00: triggers at 0:00 next day (catches late evening agents)
-      const hasTargetHourPassed = targetHour <= currentHour;
-      const isMidnightCatch = currentHour === 0 && targetHour >= 22; // Catch late evening agents at midnight
-      const shouldTriggerByTime = hasTargetHourPassed || isMidnightCatch;
+  console.log(
+    `      [${agentTimezone}] Target hour check: Scheduled ${targetHour}:00 <= Local now ${currentHour}:00? ${hasTargetHourPassed}`
+  );
 
-      console.log(
-        `      Target hour check: Scheduled ${targetHour}:00 <= Current ${currentHour}:00? ${hasTargetHourPassed}`
-      );
-      if (isMidnightCatch) {
-        console.log(
-          `      Midnight catch: At 0:00, catching late evening agent scheduled for ${targetHour}:00`
-        );
-      }
+  if (!shouldTriggerByTime) {
+    return {
+      shouldTrigger: false,
+      skipReason: `Scheduled hour ${targetHour}:00 has not passed yet in ${agentTimezone} (local hour: ${currentHour}:00). Will check again in next cron run.`,
+      agentTimezone,
+      currentHour,
+      windowStartHour,
+      windowEndHour,
+      targetHour,
+    };
+  }
 
-      if (!shouldTriggerByTime) {
+  return {
+    shouldTrigger: true,
+    skipReason: null,
+    agentTimezone,
+    currentHour,
+    windowStartHour,
+    windowEndHour,
+    targetHour,
+  };
+};
+
+/**
+ * Check if agent should be triggered using the agent's own timezone.
+ * scheduleTime / dayTime are interpreted in agent.timezone (EST, IST, America/New_York, etc.).
+ */
+const shouldTriggerAgent = (agent) => {
+  const { frequency, dayTime, scheduleTime, lastTriggeredAt, timezone } = agent;
+  const agentTimezone = getIANATimezone(timezone);
+  const nowLocal = moment.tz(agentTimezone);
+  const currentHour = nowLocal.hour();
+  const currentDay = nowLocal.isoWeekday(); // 1-7 (Mon-Sun)
+  const currentDate = nowLocal.date(); // 1-31
+  const windowEndHour = currentHour;
+  const windowStartHour = (currentHour - 2 + 24) % 24;
+  const freq = normalizeFrequency(frequency);
+
+  if (!frequency) {
+    return {
+      shouldTrigger: false,
+      skipReason: "Missing frequency",
+      agentTimezone,
+      currentHour,
+      windowStartHour,
+      windowEndHour,
+    };
+  }
+
+  // Every Business Day — same as Daily, but Mon–Fri only (agent timezone)
+  if (isBusinessDayFrequency(frequency)) {
+    if (isWeekend(currentDay)) {
+      return {
+        shouldTrigger: false,
+        skipReason: `Weekend in ${agentTimezone} — Business Day agents do not run Sat/Sun`,
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+      };
+    }
+    return shouldTriggerDailyLike({
+      scheduleTime,
+      lastTriggeredAt,
+      agentTimezone,
+      nowLocal,
+      currentHour,
+      windowStartHour,
+      windowEndHour,
+      label: "Every Business Day",
+    });
+  }
+
+  // Every Business Hour — once per hour, Mon–Fri, 9 AM–5 PM local
+  if (isBusinessHourFrequency(frequency)) {
+    if (isWeekend(currentDay)) {
+      return {
+        shouldTrigger: false,
+        skipReason: `Weekend in ${agentTimezone} — Business Hour agents do not run Sat/Sun`,
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+      };
+    }
+    if (currentHour < BUSINESS_HOUR_START || currentHour > BUSINESS_HOUR_END) {
+      return {
+        shouldTrigger: false,
+        skipReason: `Outside business hours in ${agentTimezone} (local ${currentHour}:00; allowed ${BUSINESS_HOUR_START}:00-${BUSINESS_HOUR_END}:00)`,
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+      };
+    }
+    if (lastTriggeredAt) {
+      const lastRunLocal = moment(lastTriggeredAt).tz(agentTimezone);
+      if (lastRunLocal.isSame(nowLocal, "hour")) {
         return {
           shouldTrigger: false,
-          skipReason: `Scheduled hour ${targetHour}:00 has not passed yet (current hour: ${currentHour}:00). Will check again in next cron run.`,
+          skipReason: `Already triggered this business hour at ${lastRunLocal.format("HH:mm:ss")} (${agentTimezone})`,
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
         };
       }
+    }
+    return {
+      shouldTrigger: true,
+      skipReason: null,
+      agentTimezone,
+      currentHour,
+      windowStartHour,
+      windowEndHour,
+    };
+  }
 
-      // Also check if it's in the window for better tracking (informational only)
-      const inWindow = isHourInWindow(targetHour, windowStartHour, windowEndHour);
-      console.log(
-        `      Window check: ${targetHour}:00 in [${windowStartHour}:00-${windowEndHour}:00]? ${inWindow} (informational)`
-      );
-
-      // Agent scheduled time has passed and hasn't been triggered today - SELECT IT
-      return { shouldTrigger: true, skipReason: null };
+  switch (freq) {
+    case "daily": {
+      return shouldTriggerDailyLike({
+        scheduleTime,
+        lastTriggeredAt,
+        agentTimezone,
+        nowLocal,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+        label: "Daily",
+      });
     }
 
-    case "Weekly": {
+    case "weekly": {
       if (!dayTime) {
-        return { shouldTrigger: false, skipReason: "Missing dayTime for Weekly frequency" };
+        return {
+          shouldTrigger: false,
+          skipReason: "Missing dayTime for Weekly frequency",
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
+        };
       }
 
       const targetDay = parseDayTime(dayTime);
       if (targetDay === null) {
-        return { shouldTrigger: false, skipReason: `Invalid dayTime: ${dayTime}` };
+        return {
+          shouldTrigger: false,
+          skipReason: `Invalid dayTime: ${dayTime}`,
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
+        };
       }
 
-      // Check if already triggered this week
+      // Check if already triggered this week in agent's timezone
       if (lastTriggeredAt) {
-        const lastRun = moment(lastTriggeredAt);
-        if (lastRun.isSame(moment(), "week")) {
-          return { shouldTrigger: false, skipReason: `Already triggered this week` };
+        const lastRunLocal = moment(lastTriggeredAt).tz(agentTimezone);
+        if (lastRunLocal.isSame(nowLocal, "week")) {
+          return {
+            shouldTrigger: false,
+            skipReason: `Already triggered this week (${agentTimezone})`,
+            agentTimezone,
+            currentHour,
+            windowStartHour,
+            windowEndHour,
+          };
         }
       }
 
-      // Check if today is the target day
+      // Check if today (in agent's timezone) is the target day
       if (currentDay !== targetDay) {
         const dayNames = [
           "",
@@ -193,110 +378,171 @@ const shouldTriggerAgent = (
         ];
         return {
           shouldTrigger: false,
-          skipReason: `Today is ${dayNames[currentDay]}, scheduled for ${dayNames[targetDay]}`,
+          skipReason: `Today in ${agentTimezone} is ${dayNames[currentDay]}, scheduled for ${dayNames[targetDay]}`,
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
         };
       }
 
-      // Check if hour is in window
       const targetHour = parseScheduleHour(scheduleTime) || 0;
       if (!isHourInWindow(targetHour, windowStartHour, windowEndHour)) {
         return {
           shouldTrigger: false,
-          skipReason: `Hour ${targetHour} not in window ${windowStartHour}:00-${windowEndHour}:00`,
+          skipReason: `Hour ${targetHour} not in local window ${windowStartHour}:00-${windowEndHour}:00 (${agentTimezone})`,
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
+          targetHour,
         };
       }
 
-      return { shouldTrigger: true, skipReason: null };
+      return {
+        shouldTrigger: true,
+        skipReason: null,
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+        targetHour,
+      };
     }
 
-    case "Monthly": {
+    case "monthly": {
       if (!dayTime) {
-        return { shouldTrigger: false, skipReason: "Missing dayTime for Monthly frequency" };
+        return {
+          shouldTrigger: false,
+          skipReason: "Missing dayTime for Monthly frequency",
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
+        };
       }
 
       const targetDate = parseDayTime(dayTime);
       if (targetDate === null) {
-        return { shouldTrigger: false, skipReason: `Invalid dayTime: ${dayTime}` };
-      }
-
-      // Check if already triggered this month
-      if (lastTriggeredAt) {
-        const lastRun = moment(lastTriggeredAt);
-        if (lastRun.isSame(moment(), "month")) {
-          return { shouldTrigger: false, skipReason: `Already triggered this month` };
-        }
-      }
-
-      // Check if today is the target date
-      if (currentDate !== targetDate) {
         return {
           shouldTrigger: false,
-          skipReason: `Today is ${currentDate}th, scheduled for ${targetDate}th`,
+          skipReason: `Invalid dayTime: ${dayTime}`,
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
         };
       }
 
-      // Check if hour is in window
+      // Check if already triggered this month in agent's timezone
+      if (lastTriggeredAt) {
+        const lastRunLocal = moment(lastTriggeredAt).tz(agentTimezone);
+        if (lastRunLocal.isSame(nowLocal, "month")) {
+          return {
+            shouldTrigger: false,
+            skipReason: `Already triggered this month (${agentTimezone})`,
+            agentTimezone,
+            currentHour,
+            windowStartHour,
+            windowEndHour,
+          };
+        }
+      }
+
+      // Check if today (in agent's timezone) is the target date
+      if (currentDate !== targetDate) {
+        return {
+          shouldTrigger: false,
+          skipReason: `Today in ${agentTimezone} is ${currentDate}th, scheduled for ${targetDate}th`,
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
+        };
+      }
+
       const targetHour = parseScheduleHour(scheduleTime) || 0;
       if (!isHourInWindow(targetHour, windowStartHour, windowEndHour)) {
         return {
           shouldTrigger: false,
-          skipReason: `Hour ${targetHour} not in window ${windowStartHour}:00-${windowEndHour}:00`,
+          skipReason: `Hour ${targetHour} not in local window ${windowStartHour}:00-${windowEndHour}:00 (${agentTimezone})`,
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
+          targetHour,
         };
       }
 
-      return { shouldTrigger: true, skipReason: null };
+      return {
+        shouldTrigger: true,
+        skipReason: null,
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+        targetHour,
+      };
     }
 
-    case "Hourly":
     case "hourly": {
-      // Cron runs hourly (`0 * * * *`); trigger at most once per calendar hour
+      // Trigger at most once per calendar hour in the agent's timezone
       if (lastTriggeredAt) {
-        const lastRun = moment(lastTriggeredAt);
-        const now = moment();
-        if (lastRun.isSame(now, "hour")) {
+        const lastRunLocal = moment(lastTriggeredAt).tz(agentTimezone);
+        if (lastRunLocal.isSame(nowLocal, "hour")) {
           return {
             shouldTrigger: false,
-            skipReason: `Already triggered this hour at ${lastRun.format("HH:mm:ss")}`,
+            skipReason: `Already triggered this hour at ${lastRunLocal.format("HH:mm:ss")} (${agentTimezone})`,
+            agentTimezone,
+            currentHour,
+            windowStartHour,
+            windowEndHour,
           };
         }
       }
-      return { shouldTrigger: true, skipReason: null };
+      return {
+        shouldTrigger: true,
+        skipReason: null,
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+      };
     }
 
     default:
-      return { shouldTrigger: false, skipReason: `Unknown frequency: ${frequency}` };
+      return {
+        shouldTrigger: false,
+        skipReason: `Unknown frequency: ${frequency}`,
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+      };
   }
 };
 
 /**
  * Main cron job handler — invoked each hour by `index.js` (`0 * * * *`).
- * Handles Daily / Weekly / Monthly / Hourly agents.
+ * Handles Daily / Weekly / Monthly / Hourly / Business Day / Business Hour agents.
+ * Each agent's scheduleTime/dayTime is evaluated in that agent's timezone.
  */
 const handleTaskAgentCronJob = async () => {
-  const now = moment();
-  const currentHour = now.hour(); // 0-23
-  const windowEndHour = currentHour;
-  // Calculate window start (2 hours before), handle day boundary
-  const windowStartHour = (currentHour - 2 + 24) % 24;
-  const currentDay = now.isoWeekday(); // 1-7 (Mon-Sun)
-  const currentDate = now.date(); // 1-31
+  const utcNow = moment.utc();
+  const cronExecutionTime = utcNow.format("YYYY-MM-DD HH:mm:ss");
+  const cronExecutionHour = utcNow.hour();
 
-  // Define these outside try block so they're available in catch block
-  const cronExecutionTime = now.format("YYYY-MM-DD HH:mm:ss");
-  const cronExecutionHour = currentHour;
-
-  console.log(`⏰ Cron job started at ${cronExecutionTime}`);
-  console.log(`📅 Checking window: ${windowStartHour}:00 - ${windowEndHour}:00 (24-hour format)`);
-  console.log(`   Current day: ${currentDay}, Current date: ${currentDate}`);
+  console.log(`⏰ Cron job started at ${cronExecutionTime} UTC`);
+  console.log(`   Server local: ${moment().format("YYYY-MM-DD HH:mm:ss")} (${moment.tz.guess()})`);
 
   try {
     // Log cron start
     await AgentCronLogSchema.create({
       status: "cron_started",
-      cronWindow: `${windowStartHour}:00 - ${windowEndHour}:00`,
+      cronWindow: `UTC hour ${cronExecutionHour}:00`,
       cronExecutionTime: cronExecutionTime,
       cronExecutionHour: cronExecutionHour,
-      message: `Cron job started at ${cronExecutionTime}`,
+      message: `Cron job started at ${cronExecutionTime} UTC`,
     });
 
     const allOrgs = await Organization.find();
@@ -304,19 +550,46 @@ const handleTaskAgentCronJob = async () => {
     let totalAgentsTriggered = 0;
     let totalAgentsSkipped = 0;
 
+    const businessDayFrequencies = [
+      "Every Business Day",
+      "every business day",
+      "Business Day",
+      "business day",
+      "BusinessDay",
+    ];
+    const businessHourFrequencies = [
+      "Every Business Hour",
+      "every business hour",
+      "Business Hour",
+      "business hour",
+      "BusinessHour",
+    ];
+
     for (const org of allOrgs) {
       // Find active agents with scheduling configured
       let activeAgents = await AgentModel.find({
         isAgent: true,
         active: true,
         organization: org._id,
-        frequency: { $in: ["Daily", "Weekly", "Monthly", "Hourly", "hourly"] },
+        frequency: {
+          $in: [
+            "Daily",
+            "Weekly",
+            "Monthly",
+            "Hourly",
+            "hourly",
+            ...businessDayFrequencies,
+            ...businessHourFrequencies,
+          ],
+        },
         $or: [
           { frequency: "Daily", scheduleTime: { $ne: null } },
+          { frequency: { $in: businessDayFrequencies }, scheduleTime: { $ne: null } },
           { frequency: "Weekly", dayTime: { $ne: null } },
           { frequency: "Monthly", dayTime: { $ne: null } },
           { frequency: "Hourly" },
           { frequency: "hourly" },
+          { frequency: { $in: businessHourFrequencies } },
         ],
       });
 
@@ -325,14 +598,8 @@ const handleTaskAgentCronJob = async () => {
       // Sort agents by scheduleTime ascending so earliest runs first (e.g. 4:00 → 6:00 → 8:00)
       // getScheduleSortKey converts "HH:mm" to minutes; agents without scheduleTime sort last
       activeAgents = activeAgents.sort((a, b) => {
-        const keyA =
-          a.frequency === "Hourly" || a.frequency === "hourly"
-            ? -1
-            : getScheduleSortKey(a.scheduleTime);
-        const keyB =
-          b.frequency === "Hourly" || b.frequency === "hourly"
-            ? -1
-            : getScheduleSortKey(b.scheduleTime);
+        const keyA = isHourlyLikeFrequency(a.frequency) ? -1 : getScheduleSortKey(a.scheduleTime);
+        const keyB = isHourlyLikeFrequency(b.frequency) ? -1 : getScheduleSortKey(b.scheduleTime);
         if (keyA !== keyB) return keyA - keyB;
         return String(a._id).localeCompare(String(b._id)); // stable order when same time
       });
@@ -348,25 +615,29 @@ const handleTaskAgentCronJob = async () => {
         console.log(`      Frequency: ${agent.frequency}`);
         console.log(`      scheduleTime: ${agent.scheduleTime || "N/A"}`);
         console.log(`      dayTime: ${agent.dayTime || "N/A"}`);
+        console.log(`      timezone: ${agent.timezone || "UTC"} → ${getIANATimezone(agent.timezone)}`);
 
-        const { shouldTrigger, skipReason } = shouldTriggerAgent(
-          agent,
+        const {
+          shouldTrigger,
+          skipReason,
+          agentTimezone,
           currentHour,
           windowStartHour,
           windowEndHour,
-          currentDay,
-          currentDate
-        );
+          targetHour,
+        } = shouldTriggerAgent(agent);
 
         // Parse agent's scheduled hour for logging
-        const agentScheduledHour = parseScheduleHour(agent.scheduleTime);
+        const agentScheduledHour =
+          targetHour != null ? targetHour : parseScheduleHour(agent.scheduleTime);
         const windowCheckResult = shouldTrigger ? "IN_WINDOW" : "OUT_OF_WINDOW";
+        const cronWindow = `${windowStartHour}:00 - ${windowEndHour}:00 ${agentTimezone}`;
 
         // Log that agent was selected/checked with detailed timing info
         const logStatus = shouldTrigger ? "selected" : "skipped";
         const logMessage = shouldTrigger
-          ? `Agent SELECTED: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00) | Cron ran at: ${cronExecutionTime} (${cronExecutionHour}:00) | Window: ${windowStartHour}:00-${windowEndHour}:00`
-          : `Agent SKIPPED: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00) | Cron ran at: ${cronExecutionTime} (${cronExecutionHour}:00) | Window: ${windowStartHour}:00-${windowEndHour}:00 | Reason: ${skipReason}`;
+          ? `Agent SELECTED: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00 ${agentTimezone}) | Local now: ${currentHour}:00 | Cron UTC: ${cronExecutionTime}`
+          : `Agent SKIPPED: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00 ${agentTimezone}) | Local now: ${currentHour}:00 | Cron UTC: ${cronExecutionTime} | Reason: ${skipReason}`;
 
         await AgentCronLogSchema.create({
           organization: org._id,
@@ -376,7 +647,8 @@ const handleTaskAgentCronJob = async () => {
           frequency: agent.frequency,
           dayTime: agent.dayTime,
           scheduleTime: agent.scheduleTime,
-          cronWindow: `${windowStartHour}:00 - ${windowEndHour}:00`,
+          timezone: agentTimezone,
+          cronWindow,
           cronExecutionTime: cronExecutionTime,
           cronExecutionHour: cronExecutionHour,
           agentScheduledHour: agentScheduledHour,
@@ -403,14 +675,15 @@ const handleTaskAgentCronJob = async () => {
               frequency: agent.frequency,
               dayTime: agent.dayTime,
               scheduleTime: agent.scheduleTime,
+              timezone: agentTimezone,
               apiUrl: pythonServerUri,
               sessionId: session_id,
-              cronWindow: `${windowStartHour}:00 - ${windowEndHour}:00`,
+              cronWindow,
               cronExecutionTime: cronExecutionTime,
               cronExecutionHour: cronExecutionHour,
               agentScheduledHour: agentScheduledHour,
               windowCheckResult: "IN_WINDOW",
-              message: `API called for agent: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00) | Cron ran at: ${cronExecutionTime} | URL: ${pythonServerUri}`,
+              message: `API called for agent: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00 ${agentTimezone}) | Cron UTC: ${cronExecutionTime} | URL: ${pythonServerUri}`,
             });
 
             // Fire API call
@@ -434,14 +707,15 @@ const handleTaskAgentCronJob = async () => {
                   frequency: agent.frequency,
                   dayTime: agent.dayTime,
                   scheduleTime: agent.scheduleTime,
+                  timezone: agentTimezone,
                   apiUrl: pythonServerUri,
                   sessionId: session_id,
-                  cronWindow: `${windowStartHour}:00 - ${windowEndHour}:00`,
+                  cronWindow,
                   cronExecutionTime: cronExecutionTime,
                   cronExecutionHour: cronExecutionHour,
                   agentScheduledHour: agentScheduledHour,
                   windowCheckResult: "IN_WINDOW",
-                  message: `API call successful for agent: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00) | Cron ran at: ${cronExecutionTime} | Status: ${response.status}`,
+                  message: `API call successful for agent: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00 ${agentTimezone}) | Cron UTC: ${cronExecutionTime} | Status: ${response.status}`,
                 });
               })
               .catch(async (err) => {
@@ -461,14 +735,15 @@ const handleTaskAgentCronJob = async () => {
                   frequency: agent.frequency,
                   dayTime: agent.dayTime,
                   scheduleTime: agent.scheduleTime,
+                  timezone: agentTimezone,
                   apiUrl: pythonServerUri,
                   sessionId: session_id,
-                  cronWindow: `${windowStartHour}:00 - ${windowEndHour}:00`,
+                  cronWindow,
                   cronExecutionTime: cronExecutionTime,
                   cronExecutionHour: cronExecutionHour,
                   agentScheduledHour: agentScheduledHour,
                   windowCheckResult: "IN_WINDOW",
-                  message: `API call failed for agent: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00) | Cron ran at: ${cronExecutionTime} | Error: ${errorMessage}`,
+                  message: `API call failed for agent: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00 ${agentTimezone}) | Cron UTC: ${cronExecutionTime} | Error: ${errorMessage}`,
                 });
               });
 
@@ -483,25 +758,21 @@ const handleTaskAgentCronJob = async () => {
               organization: org._id,
               agent: agent._id,
               agentName: agent.name,
-              agentName: agent.name,
               status: "failure",
               frequency: agent.frequency,
               dayTime: agent.dayTime,
               scheduleTime: agent.scheduleTime,
-              cronWindow: `${windowStartHour}:00 - ${windowEndHour}:00`,
+              timezone: agentTimezone,
+              cronWindow,
               cronExecutionTime: cronExecutionTime,
               cronExecutionHour: cronExecutionHour,
               agentScheduledHour: agentScheduledHour,
               windowCheckResult: "IN_WINDOW",
-              message: `Error triggering agent: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00) | Cron ran at: ${cronExecutionTime} | Error: ${errorMessage}`,
+              message: `Error triggering agent: ${agent.name} | Scheduled: ${agent.scheduleTime} (${agentScheduledHour}:00 ${agentTimezone}) | Cron UTC: ${cronExecutionTime} | Error: ${errorMessage}`,
             });
           }
         } else {
           console.log(`   ⏭️  SKIPPED: ${skipReason}`);
-
-          // Log skipped agent with reason (this is already logged above, but keeping for consistency)
-          // The skip log was already created in the previous block, so we don't need to duplicate it
-
           totalAgentsSkipped++;
         }
       }
@@ -510,13 +781,13 @@ const handleTaskAgentCronJob = async () => {
     // Log cron completion with summary
     await AgentCronLogSchema.create({
       status: "cron_completed",
-      cronWindow: `${windowStartHour}:00 - ${windowEndHour}:00`,
+      cronWindow: `UTC hour ${cronExecutionHour}:00`,
       cronExecutionTime: cronExecutionTime,
       cronExecutionHour: cronExecutionHour,
       totalAgentsChecked,
       totalAgentsTriggered,
       totalAgentsSkipped,
-      message: `Cron completed at ${cronExecutionTime}: ${totalAgentsTriggered} triggered, ${totalAgentsSkipped} skipped out of ${totalAgentsChecked} checked`,
+      message: `Cron completed at ${cronExecutionTime} UTC: ${totalAgentsTriggered} triggered, ${totalAgentsSkipped} skipped out of ${totalAgentsChecked} checked`,
     });
 
     console.log(
@@ -528,10 +799,10 @@ const handleTaskAgentCronJob = async () => {
 
     await AgentCronLogSchema.create({
       status: "failure",
-      cronWindow: `${windowStartHour}:00 - ${windowEndHour}:00`,
+      cronWindow: `UTC hour ${cronExecutionHour}:00`,
       cronExecutionTime: cronExecutionTime,
       cronExecutionHour: cronExecutionHour,
-      message: `Cron job error at ${cronExecutionTime}: ${err.message}`,
+      message: `Cron job error at ${cronExecutionTime} UTC: ${err.message}`,
     });
   }
 };

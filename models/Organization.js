@@ -70,6 +70,14 @@ const orgSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    telnyx_voice_assistant_id: {
+      type: String,
+      default: "",
+    },
+    telnyx_texml_app_id: {
+      type: String,
+      default: "",
+    },
     tenant_isolation: {
       type: String,
     },

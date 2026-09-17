@@ -232,6 +232,8 @@ exports.getOrg = async (req, res) => {
       twilioAuthToken,
       telnyx_api_key,
       telnyx_public_key,
+      telnyx_voice_assistant_id,
+      telnyx_texml_app_id,
       tenant_isolation,
       industry,
     } = org;
@@ -271,6 +273,8 @@ exports.getOrg = async (req, res) => {
       twilioAuthToken,
       telnyx_api_key,
       telnyx_public_key,
+      telnyx_voice_assistant_id,
+      telnyx_texml_app_id,
       tenant_isolation,
       industry,
     };
@@ -432,6 +436,10 @@ exports.upsertTwilioCredentials = async (req, res) => {
     req.body.telnyx_api_key ?? req.body.telnyxApiKey ?? null;
   const telnyxPublicKey =
     req.body.telnyx_public_key ?? req.body.telnyxPublicKey ?? null;
+  const telnyxVoiceAssistantId =
+    req.body.telnyx_voice_assistant_id ?? req.body.telnyxVoiceAssistantId ?? null;
+  const telnyxTexmlAppId =
+    req.body.telnyx_texml_app_id ?? req.body.telnyxTexmlAppId ?? null;
 
   try {
     if (!orgId) {
@@ -441,11 +449,13 @@ exports.upsertTwilioCredentials = async (req, res) => {
       twilioAccountSid == null &&
       twilioAuthToken == null &&
       telnyxApiKey == null &&
-      telnyxPublicKey == null
+      telnyxPublicKey == null &&
+      telnyxVoiceAssistantId == null &&
+      telnyxTexmlAppId == null
     ) {
       return res.status(400).json({
         message:
-          "At least one of account_sid, auth_token, telnyx_api_key, or telnyx_public_key is required",
+          "At least one of account_sid, auth_token, telnyx_api_key, telnyx_public_key, telnyx_voice_assistant_id, or telnyx_texml_app_id is required",
       });
     }
 
@@ -459,6 +469,10 @@ exports.upsertTwilioCredentials = async (req, res) => {
     if (twilioAuthToken != null) update.twilioAuthToken = String(twilioAuthToken).trim();
     if (telnyxApiKey != null) update.telnyx_api_key = String(telnyxApiKey).trim();
     if (telnyxPublicKey != null) update.telnyx_public_key = String(telnyxPublicKey).trim();
+    if (telnyxVoiceAssistantId != null)
+      update.telnyx_voice_assistant_id = String(telnyxVoiceAssistantId).trim();
+    if (telnyxTexmlAppId != null)
+      update.telnyx_texml_app_id = String(telnyxTexmlAppId).trim();
 
     const updatedOrg = await Organization.findByIdAndUpdate(orgId, update, { new: true });
 
@@ -470,6 +484,8 @@ exports.upsertTwilioCredentials = async (req, res) => {
         twilioAuthToken: updatedOrg.twilioAuthToken,
         telnyx_api_key: updatedOrg.telnyx_api_key,
         telnyx_public_key: updatedOrg.telnyx_public_key,
+        telnyx_voice_assistant_id: updatedOrg.telnyx_voice_assistant_id,
+        telnyx_texml_app_id: updatedOrg.telnyx_texml_app_id,
         twilioConfig: updatedOrg.twilioConfig,
       },
     });

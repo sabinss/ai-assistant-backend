@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon index",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node cronJob/taskAgentJob.15min.test.js",
     "prod": "node index.js"
   },
   "author": "Lokendra Jargha",

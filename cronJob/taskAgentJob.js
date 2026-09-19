@@ -121,6 +121,45 @@ const isBusinessHourFrequency = (frequency) => {
   return f === "every business hour" || f === "business hour" || f === "businesshour";
 };
 
+const is15MinuteFrequency = (frequency) => {
+  const f = normalizeFrequency(frequency);
+  return (
+    f === "15min" ||
+    f === "15 min" ||
+    f === "every 15 minutes" ||
+    f === "every 15 mins" ||
+    f === "Every 15 min"
+  );
+};
+
+/**
+ * Parse "HH:mm" to minutes since midnight. Returns null if invalid.
+ */
+const parseTimeToMinutes = (timeStr) => {
+  if (timeStr == null || timeStr === "") return null;
+  const match = String(timeStr)
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return hours * 60 + minutes;
+};
+
+/**
+ * Inclusive same-day HH:mm window check against nowLocal (minute precision).
+ * Does not support overnight windows (from > to).
+ */
+const isTimeInWindow = (nowLocal, fromTime, toTime) => {
+  const currentMinutes = nowLocal.hour() * 60 + nowLocal.minute();
+  const fromMinutes = parseTimeToMinutes(fromTime);
+  const toMinutes = parseTimeToMinutes(toTime);
+  if (fromMinutes == null || toMinutes == null) return false;
+  if (fromMinutes > toMinutes) return false; // overnight not supported
+  return currentMinutes >= fromMinutes && currentMinutes <= toMinutes;
+};
+
 const isHourlyLikeFrequency = (frequency) => {
   const f = normalizeFrequency(frequency);
   return f === "hourly" || isBusinessHourFrequency(frequency);
@@ -219,11 +258,16 @@ const shouldTriggerDailyLike = ({
 /**
  * Check if agent should be triggered using the agent's own timezone.
  * scheduleTime / dayTime are interpreted in agent.timezone (EST, IST, America/New_York, etc.).
+ * @param {object} agent
+ * @param {object} [options]
+ * @param {import('moment').Moment} [options.nowLocal] - optional override for tests
  */
-const shouldTriggerAgent = (agent) => {
-  const { frequency, dayTime, scheduleTime, lastTriggeredAt, timezone } = agent;
+const shouldTriggerAgent = (agent, options = {}) => {
+  const { frequency, dayTime, scheduleTime, lastTriggeredAt, timezone, fromTime, toTime } = agent;
   const agentTimezone = getIANATimezone(timezone);
-  const nowLocal = moment.tz(agentTimezone);
+  const nowLocal = options.nowLocal
+    ? options.nowLocal.clone().tz(agentTimezone)
+    : moment.tz(agentTimezone);
   const currentHour = nowLocal.hour();
   const currentDay = nowLocal.isoWeekday(); // 1-7 (Mon-Sun)
   const currentDate = nowLocal.date(); // 1-31
@@ -235,6 +279,55 @@ const shouldTriggerAgent = (agent) => {
     return {
       shouldTrigger: false,
       skipReason: "Missing frequency",
+      agentTimezone,
+      currentHour,
+      windowStartHour,
+      windowEndHour,
+    };
+  }
+
+  // Every 15 Minutes — poll via */5 cron; throttle with lastTriggeredAt + fromTime/toTime window
+  if (is15MinuteFrequency(frequency)) {
+    if (!fromTime || !toTime) {
+      return {
+        shouldTrigger: false,
+        skipReason: "Missing fromTime or toTime for 15min frequency",
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+      };
+    }
+
+    if (!isTimeInWindow(nowLocal, fromTime, toTime)) {
+      return {
+        shouldTrigger: false,
+        skipReason: `Outside time window in ${agentTimezone} (local ${nowLocal.format("HH:mm")}; allowed ${fromTime}-${toTime})`,
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+      };
+    }
+
+    if (lastTriggeredAt) {
+      const lastTriggeredLocal = moment(lastTriggeredAt).tz(agentTimezone);
+      const nextAllowedTime = lastTriggeredLocal.clone().add(15, "minutes");
+      if (nextAllowedTime.isAfter(nowLocal)) {
+        return {
+          shouldTrigger: false,
+          skipReason: `15min throttle: next allowed at ${nextAllowedTime.format("HH:mm:ss")} (${agentTimezone}); last ran ${lastTriggeredLocal.format("HH:mm:ss")}`,
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
+        };
+      }
+    }
+
+    return {
+      shouldTrigger: true,
+      skipReason: null,
       agentTimezone,
       currentHour,
       windowStartHour,
@@ -615,7 +708,9 @@ const handleTaskAgentCronJob = async () => {
         console.log(`      Frequency: ${agent.frequency}`);
         console.log(`      scheduleTime: ${agent.scheduleTime || "N/A"}`);
         console.log(`      dayTime: ${agent.dayTime || "N/A"}`);
-        console.log(`      timezone: ${agent.timezone || "UTC"} → ${getIANATimezone(agent.timezone)}`);
+        console.log(
+          `      timezone: ${agent.timezone || "UTC"} → ${getIANATimezone(agent.timezone)}`
+        );
 
         const {
           shouldTrigger,
@@ -808,46 +903,86 @@ const handleTaskAgentCronJob = async () => {
 };
 
 /**
- * Trigger every agent with an Hourly frequency, regardless of lastTriggeredAt.
- * Invoked every 5 minutes by `index.js`.
+ * Trigger Realtime agents every tick, and 15min agents when shouldTriggerAgent allows.
+ * Invoked every 5 minutes by index.js (cron: every 5 minutes).
  */
+const FIFTEEN_MIN_FREQUENCIES = [
+  "15min",
+  "15 min",
+  "Every 15 Minutes",
+  "every 15 minutes",
+  "Every 15 Mins",
+  "every 15 mins",
+];
+
 const handleHourlyTaskAgentCronJob = async () => {
   const now = moment();
   const cronExecutionTime = now.format("YYYY-MM-DD HH:mm:ss");
 
-  console.log(`⏰ Hourly-frequency cron job started at ${cronExecutionTime}`);
+  console.log(`⏰ 5-minute agent cron job started at ${cronExecutionTime}`);
 
   try {
     await AgentCronLogSchema.create({
       status: "cron_started",
       cronExecutionTime: cronExecutionTime,
-      message: `Hourly-frequency cron job started at ${cronExecutionTime}`,
+      message: `5-minute agent cron job started at ${cronExecutionTime}`,
     });
 
     const allOrgs = await Organization.find();
     let totalAgentsChecked = 0;
     let totalAgentsTriggered = 0;
+    let totalAgentsSkipped = 0;
 
     for (const org of allOrgs) {
       const activeAgents = await AgentModel.find({
         isAgent: true,
         active: true,
         organization: org._id,
-        frequency: { $in: ["Realtime", "realtime"] },
+        frequency: {
+          $in: ["Realtime", "realtime", ...FIFTEEN_MIN_FREQUENCIES],
+        },
       });
 
       if (activeAgents.length === 0) continue;
 
-      console.log(`🏢 Org ${org._id}: Found ${activeAgents.length} hourly agents`);
+      console.log(`🏢 Org ${org._id}: Found ${activeAgents.length} realtime/15min agents`);
 
       for (const agent of activeAgents) {
         totalAgentsChecked++;
+
+        const is15Min = is15MinuteFrequency(agent.frequency);
+
+        if (is15Min) {
+          const { shouldTrigger, skipReason, agentTimezone } = shouldTriggerAgent(agent);
+          console.log(`\n   Checking 15min agent: ${agent.name || agent._id}`);
+          console.log(
+            `      fromTime: ${agent.fromTime || "N/A"} | toTime: ${agent.toTime || "N/A"}`
+          );
+          console.log(`      Timezone: ${agentTimezone}`);
+          console.log(`      lastTriggeredAt: ${agent.lastTriggeredAt || "Never"}`);
+
+          if (!shouldTrigger) {
+            totalAgentsSkipped++;
+            console.log(`   ⏭️  SKIPPED: ${skipReason}`);
+            await AgentCronLogSchema.create({
+              organization: org._id,
+              agent: agent._id,
+              agentName: agent.name,
+              status: "skipped",
+              frequency: agent.frequency,
+              timezone: agentTimezone,
+              cronExecutionTime: cronExecutionTime,
+              message: `Skipped 15min agent: ${agent.name} | Reason: ${skipReason} | Cron ran at: ${cronExecutionTime}`,
+            });
+            continue;
+          }
+        }
 
         try {
           const session_id = Math.floor(100000 + Math.random() * 900000).toString();
           const pythonServerUri = `${process.env.AI_AGENT_SERVER_URI}/ask/agent?agent_name=${encodeURIComponent(agent.name)}&org_id=${org._id}&query='run'&session_id=${session_id}`;
 
-          console.log(`   🚀 TRIGGERING hourly agent: ${agent.name}`);
+          console.log(`   🚀 TRIGGERING ${is15Min ? "15min" : "realtime"} agent: ${agent.name}`);
           console.log(`      Python API URL: ${pythonServerUri}`);
           console.log(`      Session ID: ${session_id}`);
 
@@ -860,10 +995,10 @@ const handleHourlyTaskAgentCronJob = async () => {
             apiUrl: pythonServerUri,
             sessionId: session_id,
             cronExecutionTime: cronExecutionTime,
-            message: `API called for hourly agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | URL: ${pythonServerUri}`,
+            message: `API called for ${is15Min ? "15min" : "realtime"} agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | URL: ${pythonServerUri}`,
           });
 
-          // Fire API call
+          // Fire API call — update lastTriggeredAt only after success
           axios
             .get(pythonServerUri)
             .then(async (response) => {
@@ -883,7 +1018,7 @@ const handleHourlyTaskAgentCronJob = async () => {
                 apiUrl: pythonServerUri,
                 sessionId: session_id,
                 cronExecutionTime: cronExecutionTime,
-                message: `API call successful for hourly agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | Status: ${response.status}`,
+                message: `API call successful for ${is15Min ? "15min" : "realtime"} agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | Status: ${response.status}`,
               });
             })
             .catch(async (err) => {
@@ -903,7 +1038,7 @@ const handleHourlyTaskAgentCronJob = async () => {
                 apiUrl: pythonServerUri,
                 sessionId: session_id,
                 cronExecutionTime: cronExecutionTime,
-                message: `API call failed for hourly agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | Error: ${errorMessage}`,
+                message: `API call failed for ${is15Min ? "15min" : "realtime"} agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | Error: ${errorMessage}`,
               });
             });
 
@@ -911,7 +1046,7 @@ const handleHourlyTaskAgentCronJob = async () => {
         } catch (error) {
           const errorMessage = error?.message || "Unknown error";
 
-          console.error(`   ❌ Failed to trigger hourly agent: ${agent.name}`);
+          console.error(`   ❌ Failed to trigger agent: ${agent.name}`);
           console.error(`      Error: ${errorMessage}`);
 
           await AgentCronLogSchema.create({
@@ -921,7 +1056,7 @@ const handleHourlyTaskAgentCronJob = async () => {
             status: "failure",
             frequency: agent.frequency,
             cronExecutionTime: cronExecutionTime,
-            message: `Error triggering hourly agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | Error: ${errorMessage}`,
+            message: `Error triggering ${is15Min ? "15min" : "realtime"} agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | Error: ${errorMessage}`,
           });
         }
       }
@@ -932,22 +1067,32 @@ const handleHourlyTaskAgentCronJob = async () => {
       cronExecutionTime: cronExecutionTime,
       totalAgentsChecked,
       totalAgentsTriggered,
-      message: `Hourly-frequency cron completed at ${cronExecutionTime}: ${totalAgentsTriggered} triggered out of ${totalAgentsChecked} checked`,
+      totalAgentsSkipped,
+      message: `5-minute agent cron completed at ${cronExecutionTime}: ${totalAgentsTriggered} triggered, ${totalAgentsSkipped} skipped out of ${totalAgentsChecked} checked`,
     });
 
     console.log(
-      `\n✅ Hourly-frequency cron job completed: ${totalAgentsTriggered} triggered out of ${totalAgentsChecked} checked`
+      `\n✅ 5-minute agent cron job completed: ${totalAgentsTriggered} triggered, ${totalAgentsSkipped} skipped out of ${totalAgentsChecked} checked`
     );
   } catch (err) {
-    console.error("❌ Hourly-frequency cron job error:", err.message);
+    console.error("❌ 5-minute agent cron job error:", err.message);
     console.error(err);
 
     await AgentCronLogSchema.create({
       status: "failure",
       cronExecutionTime: cronExecutionTime,
-      message: `Hourly-frequency cron job error at ${cronExecutionTime}: ${err.message}`,
+      message: `5-minute agent cron job error at ${cronExecutionTime}: ${err.message}`,
     });
   }
 };
 
-module.exports = { handleTaskAgentCronJob, handleHourlyTaskAgentCronJob };
+module.exports = {
+  handleTaskAgentCronJob,
+  handleHourlyTaskAgentCronJob,
+  // Exported for unit tests
+  shouldTriggerAgent,
+  is15MinuteFrequency,
+  isTimeInWindow,
+  parseTimeToMinutes,
+  normalizeFrequency,
+};

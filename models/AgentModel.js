@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const agentModel = new mongoose.Schema(
   {
@@ -18,9 +18,17 @@ const agentModel = new mongoose.Schema(
       default: false,
     },
     frequency: {
+      // e.g. Daily, Weekly, Monthly, Hourly, Realtime, Every Business Day,
+      // Every Business Hour, 15min (Every 15 Minutes)
       type: String,
     },
     dayTime: {
+      type: String,
+    },
+    fromTime: {
+      type: String,
+    },
+    toTime: {
       type: String,
     },
     scheduleTime: {
@@ -29,7 +37,7 @@ const agentModel = new mongoose.Schema(
     },
     timezone: {
       type: String,
-      default: 'UTC', // e.g., "America/New_York", "Asia/Kolkata", "Europe/London"
+      default: "UTC", // e.g., "America/New_York", "Asia/Kolkata", "Europe/London"
     },
     lastTriggeredAt: {
       type: Date,
@@ -37,7 +45,7 @@ const agentModel = new mongoose.Schema(
     },
     organization: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Organization',
+      ref: "Organization",
       required: true,
     },
     active: {
@@ -46,7 +54,7 @@ const agentModel = new mongoose.Schema(
     agentInstructions: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'AgentTask', // Reference to AgentTask
+        ref: "AgentTask", // Reference to AgentTask
       },
     ],
     batch_process_enabled: {
@@ -67,4 +75,4 @@ const agentModel = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model('Agent', agentModel);
+module.exports = mongoose.model("Agent", agentModel);

@@ -142,5 +142,137 @@ test("17:00 with null lastTriggeredAt → true", () => {
   assert.strictEqual(result.shouldTrigger, true);
 });
 
+console.log("\n=== businessDays (Mon–Fri only) ===");
+// 2026-03-17 = Tuesday, 2026-03-21 = Saturday, 2026-03-22 = Sunday
+test("businessDays=true on Tuesday inside window → true", () => {
+  const result = shouldTriggerAgent(baseAgent({ businessDays: true }), {
+    nowLocal: atLocal("09:00", "2026-03-17"),
+  });
+  assert.strictEqual(result.shouldTrigger, true);
+});
+test("businessDays=true on Saturday inside window → false", () => {
+  const result = shouldTriggerAgent(baseAgent({ businessDays: true }), {
+    nowLocal: atLocal("09:00", "2026-03-21"),
+  });
+  assert.strictEqual(result.shouldTrigger, false);
+});
+test("businessDays=true on Sunday inside window → false", () => {
+  const result = shouldTriggerAgent(baseAgent({ businessDays: true }), {
+    nowLocal: atLocal("10:00", "2026-03-22"),
+  });
+  assert.strictEqual(result.shouldTrigger, false);
+});
+test("businessDays=false on Saturday inside window → true", () => {
+  const result = shouldTriggerAgent(baseAgent({ businessDays: false }), {
+    nowLocal: atLocal("09:00", "2026-03-21"),
+  });
+  assert.strictEqual(result.shouldTrigger, true);
+});
+test("businessDays=true on Tuesday outside window → false", () => {
+  const result = shouldTriggerAgent(baseAgent({ businessDays: true }), {
+    nowLocal: atLocal("08:59", "2026-03-17"),
+  });
+  assert.strictEqual(result.shouldTrigger, false);
+});
+
+console.log("\n=== Daily + businessDays (no from/to check) ===");
+test("Daily businessDays=true on Tuesday with scheduleTime → true", () => {
+  const result = shouldTriggerAgent(
+    {
+      frequency: "Daily",
+      timezone: TZ,
+      scheduleTime: "09:00",
+      businessDays: true,
+      lastTriggeredAt: null,
+      fromTime: "00:00",
+      toTime: "00:01", // should be ignored for Daily
+    },
+    { nowLocal: atLocal("09:00", "2026-03-17") }
+  );
+  assert.strictEqual(result.shouldTrigger, true);
+});
+test("Daily businessDays=true on Saturday → false", () => {
+  const result = shouldTriggerAgent(
+    {
+      frequency: "Daily",
+      timezone: TZ,
+      scheduleTime: "09:00",
+      businessDays: true,
+      lastTriggeredAt: null,
+    },
+    { nowLocal: atLocal("09:00", "2026-03-21") }
+  );
+  assert.strictEqual(result.shouldTrigger, false);
+});
+test("Daily businessDays=false on Saturday → true", () => {
+  const result = shouldTriggerAgent(
+    {
+      frequency: "Daily",
+      timezone: TZ,
+      scheduleTime: "09:00",
+      businessDays: false,
+      lastTriggeredAt: null,
+    },
+    { nowLocal: atLocal("09:00", "2026-03-21") }
+  );
+  assert.strictEqual(result.shouldTrigger, true);
+});
+
+console.log("\n=== Hourly + businessDays + from/to ===");
+test("Hourly businessDays=true weekday inside window → true", () => {
+  const result = shouldTriggerAgent(
+    {
+      frequency: "Hourly",
+      timezone: TZ,
+      businessDays: true,
+      fromTime: "09:00",
+      toTime: "17:00",
+      lastTriggeredAt: null,
+    },
+    { nowLocal: atLocal("10:00", "2026-03-17") }
+  );
+  assert.strictEqual(result.shouldTrigger, true);
+});
+test("Hourly businessDays=true on Saturday → false", () => {
+  const result = shouldTriggerAgent(
+    {
+      frequency: "Hourly",
+      timezone: TZ,
+      businessDays: true,
+      fromTime: "09:00",
+      toTime: "17:00",
+      lastTriggeredAt: null,
+    },
+    { nowLocal: atLocal("10:00", "2026-03-21") }
+  );
+  assert.strictEqual(result.shouldTrigger, false);
+});
+test("Hourly outside from/to window → false", () => {
+  const result = shouldTriggerAgent(
+    {
+      frequency: "Hourly",
+      timezone: TZ,
+      businessDays: false,
+      fromTime: "09:00",
+      toTime: "17:00",
+      lastTriggeredAt: null,
+    },
+    { nowLocal: atLocal("08:30", "2026-03-17") }
+  );
+  assert.strictEqual(result.shouldTrigger, false);
+});
+test("Hourly missing from/to → false", () => {
+  const result = shouldTriggerAgent(
+    {
+      frequency: "Hourly",
+      timezone: TZ,
+      businessDays: false,
+      lastTriggeredAt: null,
+    },
+    { nowLocal: atLocal("10:00", "2026-03-17") }
+  );
+  assert.strictEqual(result.shouldTrigger, false);
+});
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

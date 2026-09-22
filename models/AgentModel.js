@@ -18,8 +18,7 @@ const agentModel = new mongoose.Schema(
       default: false,
     },
     frequency: {
-      // e.g. Daily, Weekly, Monthly, Hourly, Realtime, Every Business Day,
-      // Every Business Hour, 15min (Every 15 Minutes)
+      // e.g. Daily, Weekly, Monthly, Hourly, Realtime, 15min (Every 15 Minutes)
       type: String,
     },
     dayTime: {
@@ -50,6 +49,10 @@ const agentModel = new mongoose.Schema(
     },
     active: {
       type: Boolean,
+    },
+    businessDays: {
+      type: Boolean,
+      default: false,
     },
     agentInstructions: [
       {

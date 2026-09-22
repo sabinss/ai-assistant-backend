@@ -903,6 +903,10 @@ exports.updateOrgAgentInstructions = async (req, res) => {
       return res.status(400).json({ message: "Organization id required" });
     }
 
+    if (Object.prototype.hasOwnProperty.call(req.body, "businessDays")) {
+      agentData.businessDays = Boolean(req.body.businessDays);
+    }
+
     // Find the agent by id and update its fields
     const agent = await AgentModel.findOneAndUpdate(
       { _id: _id, organization: req.user.organization },
@@ -1055,6 +1059,13 @@ exports.createOrgAgentInstructions = async (req, res) => {
     if (!req.user.organization) {
       res.status(400).json({ message: "Organization id required" });
     }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "businessDays")) {
+      agentData.businessDays = Boolean(req.body.businessDays);
+    } else if (agentData.businessDays === undefined) {
+      agentData.businessDays = false;
+    }
+
     const agent = new AgentModel({
       ...agentData,
       organization: req.user.organization,

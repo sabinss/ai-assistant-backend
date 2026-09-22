@@ -101,25 +101,12 @@ const isHourInWindow = (targetHour, windowStartHour, windowEndHour) => {
   return targetHour >= windowStartHour || targetHour <= windowEndHour;
 };
 
-const BUSINESS_HOUR_START = 9; // 9 AM inclusive
-const BUSINESS_HOUR_END = 17; // 5 PM inclusive
-
 const normalizeFrequency = (frequency) =>
   String(frequency || "")
     .trim()
     .toLowerCase()
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ");
-
-const isBusinessDayFrequency = (frequency) => {
-  const f = normalizeFrequency(frequency);
-  return f === "every business day" || f === "business day" || f === "businessday";
-};
-
-const isBusinessHourFrequency = (frequency) => {
-  const f = normalizeFrequency(frequency);
-  return f === "every business hour" || f === "business hour" || f === "businesshour";
-};
 
 const is15MinuteFrequency = (frequency) => {
   const f = normalizeFrequency(frequency);
@@ -162,13 +149,13 @@ const isTimeInWindow = (nowLocal, fromTime, toTime) => {
 
 const isHourlyLikeFrequency = (frequency) => {
   const f = normalizeFrequency(frequency);
-  return f === "hourly" || isBusinessHourFrequency(frequency);
+  return f === "hourly";
 };
 
 const isWeekend = (isoWeekday) => isoWeekday === 6 || isoWeekday === 7; // Sat / Sun
 
 /**
- * Shared once-per-day schedule check (Daily / Business Day).
+ * Shared once-per-day schedule check (Daily).
  */
 const shouldTriggerDailyLike = ({
   scheduleTime,
@@ -263,7 +250,8 @@ const shouldTriggerDailyLike = ({
  * @param {import('moment').Moment} [options.nowLocal] - optional override for tests
  */
 const shouldTriggerAgent = (agent, options = {}) => {
-  const { frequency, dayTime, scheduleTime, lastTriggeredAt, timezone, fromTime, toTime } = agent;
+  const { frequency, dayTime, scheduleTime, lastTriggeredAt, timezone, fromTime, toTime, businessDays } =
+    agent;
   const agentTimezone = getIANATimezone(timezone);
   const nowLocal = options.nowLocal
     ? options.nowLocal.clone().tz(agentTimezone)
@@ -288,6 +276,18 @@ const shouldTriggerAgent = (agent, options = {}) => {
 
   // Every 15 Minutes — poll via */5 cron; throttle with lastTriggeredAt + fromTime/toTime window
   if (is15MinuteFrequency(frequency)) {
+    // When businessDays is enabled, only Mon–Fri (agent timezone)
+    if (businessDays && isWeekend(currentDay)) {
+      return {
+        shouldTrigger: false,
+        skipReason: `Weekend in ${agentTimezone} — businessDays agents do not run Sat/Sun`,
+        agentTimezone,
+        currentHour,
+        windowStartHour,
+        windowEndHour,
+      };
+    }
+
     if (!fromTime || !toTime) {
       return {
         shouldTrigger: false,
@@ -335,77 +335,20 @@ const shouldTriggerAgent = (agent, options = {}) => {
     };
   }
 
-  // Every Business Day — same as Daily, but Mon–Fri only (agent timezone)
-  if (isBusinessDayFrequency(frequency)) {
-    if (isWeekend(currentDay)) {
-      return {
-        shouldTrigger: false,
-        skipReason: `Weekend in ${agentTimezone} — Business Day agents do not run Sat/Sun`,
-        agentTimezone,
-        currentHour,
-        windowStartHour,
-        windowEndHour,
-      };
-    }
-    return shouldTriggerDailyLike({
-      scheduleTime,
-      lastTriggeredAt,
-      agentTimezone,
-      nowLocal,
-      currentHour,
-      windowStartHour,
-      windowEndHour,
-      label: "Every Business Day",
-    });
-  }
-
-  // Every Business Hour — once per hour, Mon–Fri, 9 AM–5 PM local
-  if (isBusinessHourFrequency(frequency)) {
-    if (isWeekend(currentDay)) {
-      return {
-        shouldTrigger: false,
-        skipReason: `Weekend in ${agentTimezone} — Business Hour agents do not run Sat/Sun`,
-        agentTimezone,
-        currentHour,
-        windowStartHour,
-        windowEndHour,
-      };
-    }
-    if (currentHour < BUSINESS_HOUR_START || currentHour > BUSINESS_HOUR_END) {
-      return {
-        shouldTrigger: false,
-        skipReason: `Outside business hours in ${agentTimezone} (local ${currentHour}:00; allowed ${BUSINESS_HOUR_START}:00-${BUSINESS_HOUR_END}:00)`,
-        agentTimezone,
-        currentHour,
-        windowStartHour,
-        windowEndHour,
-      };
-    }
-    if (lastTriggeredAt) {
-      const lastRunLocal = moment(lastTriggeredAt).tz(agentTimezone);
-      if (lastRunLocal.isSame(nowLocal, "hour")) {
+  switch (freq) {
+    case "daily": {
+      // businessDays=true → Mon–Fri only; otherwise all days (existing Daily behavior)
+      // No fromTime/toTime check for Daily
+      if (businessDays && isWeekend(currentDay)) {
         return {
           shouldTrigger: false,
-          skipReason: `Already triggered this business hour at ${lastRunLocal.format("HH:mm:ss")} (${agentTimezone})`,
+          skipReason: `Weekend in ${agentTimezone} — businessDays Daily agents do not run Sat/Sun`,
           agentTimezone,
           currentHour,
           windowStartHour,
           windowEndHour,
         };
       }
-    }
-    return {
-      shouldTrigger: true,
-      skipReason: null,
-      agentTimezone,
-      currentHour,
-      windowStartHour,
-      windowEndHour,
-    };
-  }
-
-  switch (freq) {
-    case "daily": {
       return shouldTriggerDailyLike({
         scheduleTime,
         lastTriggeredAt,
@@ -579,6 +522,40 @@ const shouldTriggerAgent = (agent, options = {}) => {
     }
 
     case "hourly": {
+      // businessDays=true → Mon–Fri only; always enforce fromTime/toTime window
+      if (businessDays && isWeekend(currentDay)) {
+        return {
+          shouldTrigger: false,
+          skipReason: `Weekend in ${agentTimezone} — businessDays Hourly agents do not run Sat/Sun`,
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
+        };
+      }
+
+      if (!fromTime || !toTime) {
+        return {
+          shouldTrigger: false,
+          skipReason: "Missing fromTime or toTime for Hourly frequency",
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
+        };
+      }
+
+      if (!isTimeInWindow(nowLocal, fromTime, toTime)) {
+        return {
+          shouldTrigger: false,
+          skipReason: `Outside time window in ${agentTimezone} (local ${nowLocal.format("HH:mm")}; allowed ${fromTime}-${toTime})`,
+          agentTimezone,
+          currentHour,
+          windowStartHour,
+          windowEndHour,
+        };
+      }
+
       // Trigger at most once per calendar hour in the agent's timezone
       if (lastTriggeredAt) {
         const lastRunLocal = moment(lastTriggeredAt).tz(agentTimezone);
@@ -617,7 +594,7 @@ const shouldTriggerAgent = (agent, options = {}) => {
 
 /**
  * Main cron job handler — invoked each hour by `index.js` (`0 * * * *`).
- * Handles Daily / Weekly / Monthly / Hourly / Business Day / Business Hour agents.
+ * Handles Daily / Weekly / Monthly / Hourly agents.
  * Each agent's scheduleTime/dayTime is evaluated in that agent's timezone.
  */
 const handleTaskAgentCronJob = async () => {
@@ -643,21 +620,6 @@ const handleTaskAgentCronJob = async () => {
     let totalAgentsTriggered = 0;
     let totalAgentsSkipped = 0;
 
-    const businessDayFrequencies = [
-      "Every Business Day",
-      "every business day",
-      "Business Day",
-      "business day",
-      "BusinessDay",
-    ];
-    const businessHourFrequencies = [
-      "Every Business Hour",
-      "every business hour",
-      "Business Hour",
-      "business hour",
-      "BusinessHour",
-    ];
-
     for (const org of allOrgs) {
       // Find active agents with scheduling configured
       let activeAgents = await AgentModel.find({
@@ -665,24 +627,14 @@ const handleTaskAgentCronJob = async () => {
         active: true,
         organization: org._id,
         frequency: {
-          $in: [
-            "Daily",
-            "Weekly",
-            "Monthly",
-            "Hourly",
-            "hourly",
-            ...businessDayFrequencies,
-            ...businessHourFrequencies,
-          ],
+          $in: ["Daily", "Weekly", "Monthly", "Hourly", "hourly"],
         },
         $or: [
           { frequency: "Daily", scheduleTime: { $ne: null } },
-          { frequency: { $in: businessDayFrequencies }, scheduleTime: { $ne: null } },
           { frequency: "Weekly", dayTime: { $ne: null } },
           { frequency: "Monthly", dayTime: { $ne: null } },
           { frequency: "Hourly" },
           { frequency: "hourly" },
-          { frequency: { $in: businessHourFrequencies } },
         ],
       });
 
@@ -708,6 +660,9 @@ const handleTaskAgentCronJob = async () => {
         console.log(`      Frequency: ${agent.frequency}`);
         console.log(`      scheduleTime: ${agent.scheduleTime || "N/A"}`);
         console.log(`      dayTime: ${agent.dayTime || "N/A"}`);
+        console.log(
+          `      fromTime: ${agent.fromTime || "N/A"} | toTime: ${agent.toTime || "N/A"} | businessDays: ${!!agent.businessDays}`
+        );
         console.log(
           `      timezone: ${agent.timezone || "UTC"} → ${getIANATimezone(agent.timezone)}`
         );
@@ -956,7 +911,7 @@ const handleHourlyTaskAgentCronJob = async () => {
           const { shouldTrigger, skipReason, agentTimezone } = shouldTriggerAgent(agent);
           console.log(`\n   Checking 15min agent: ${agent.name || agent._id}`);
           console.log(
-            `      fromTime: ${agent.fromTime || "N/A"} | toTime: ${agent.toTime || "N/A"}`
+            `      fromTime: ${agent.fromTime || "N/A"} | toTime: ${agent.toTime || "N/A"} | businessDays: ${!!agent.businessDays}`
           );
           console.log(`      Timezone: ${agentTimezone}`);
           console.log(`      lastTriggeredAt: ${agent.lastTriggeredAt || "Never"}`);

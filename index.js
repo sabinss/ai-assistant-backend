@@ -273,7 +273,9 @@ app.get("/api/test-cron", async (req, res) => {
   }
 });
 
-// Agent cron jobs — set ENABLE_CRON=false in .env to disable (e.g. local)
+// Agent cron jobs
+console.log("📅 Scheduling agent crons: hourly (0 * * * *) and every 5 minutes (*/5 * * * *)");
+
 // Run every 1 hour at minute 0 (0:00, 1:00, 2:00, 3:00, ...)
 const cronTrigger = "0 * * * *";
 cron.schedule(cronTrigger, async () => {
@@ -286,11 +288,15 @@ cron.schedule(cronTrigger, async () => {
   }
 });
 
-// Run every 5 minutes
+// Run every 5 minutes — Realtime + 15min agents
 const fiveMinuteCronTrigger = "*/5 * * * *";
 cron.schedule(fiveMinuteCronTrigger, async () => {
   console.log(`⏰ Running 5-minute cron job at ${new Date().toISOString()}`);
-  await handleHourlyTaskAgentCronJob();
+  try {
+    await handleHourlyTaskAgentCronJob();
+  } catch (err) {
+    console.log("❌ 5-minute cron job error", err);
+  }
 });
 
 app.listen(port, () => {

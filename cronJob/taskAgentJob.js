@@ -110,13 +110,8 @@ const normalizeFrequency = (frequency) =>
 
 const is15MinuteFrequency = (frequency) => {
   const f = normalizeFrequency(frequency);
-  return (
-    f === "15min" ||
-    f === "15 min" ||
-    f === "every 15 minutes" ||
-    f === "every 15 mins" ||
-    f === "Every 15 min"
-  );
+  // Matches: 15min, 15 min, every 15 min, every 15 minutes, every 15 mins, etc.
+  return /^(every\s+)?15\s*mins?(utes)?$/.test(f);
 };
 
 /**
@@ -861,15 +856,6 @@ const handleTaskAgentCronJob = async () => {
  * Trigger Realtime agents every tick, and 15min agents when shouldTriggerAgent allows.
  * Invoked every 5 minutes by index.js (cron: every 5 minutes).
  */
-const FIFTEEN_MIN_FREQUENCIES = [
-  "15min",
-  "15 min",
-  "Every 15 Minutes",
-  "every 15 minutes",
-  "Every 15 Mins",
-  "every 15 mins",
-];
-
 const handleHourlyTaskAgentCronJob = async () => {
   const now = moment();
   const cronExecutionTime = now.format("YYYY-MM-DD HH:mm:ss");
@@ -893,9 +879,11 @@ const handleHourlyTaskAgentCronJob = async () => {
         isAgent: true,
         active: true,
         organization: org._id,
-        frequency: {
-          $in: ["Realtime", "realtime", ...FIFTEEN_MIN_FREQUENCIES],
-        },
+        $or: [
+          { frequency: { $in: ["Realtime", "realtime"] } },
+          // Case-insensitive match for 15min / Every 15 Minutes / etc.
+          { frequency: { $regex: /^(every\s+)?15\s*mins?(utes)?$/i } },
+        ],
       });
 
       if (activeAgents.length === 0) continue;

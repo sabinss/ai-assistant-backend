@@ -50,6 +50,12 @@ test("recognizes Every 15 Minutes", () => {
 test("recognizes 15 min", () => {
   assert.strictEqual(is15MinuteFrequency("15 min"), true);
 });
+test("recognizes Every 15 min (singular)", () => {
+  assert.strictEqual(is15MinuteFrequency("Every 15 min"), true);
+});
+test("recognizes every 15 min lowercase", () => {
+  assert.strictEqual(is15MinuteFrequency("every 15 min"), true);
+});
 test("rejects Daily", () => {
   assert.strictEqual(is15MinuteFrequency("Daily"), false);
 });

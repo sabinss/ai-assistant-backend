@@ -307,11 +307,14 @@ const shouldTriggerAgent = (agent, options = {}) => {
 
     if (lastTriggeredAt) {
       const lastTriggeredLocal = moment(lastTriggeredAt).tz(agentTimezone);
-      const nextAllowedTime = lastTriggeredLocal.clone().add(15, "minutes");
-      if (nextAllowedTime.isAfter(nowLocal)) {
+      // Compare at minute precision so API latency (e.g. lastTriggeredAt=09:00:30)
+      // does not miss the 09:15 cron tick and slip to 09:20 (~20 min gap).
+      const nextAllowedTime = lastTriggeredLocal.clone().startOf("minute").add(15, "minutes");
+      const nowMinute = nowLocal.clone().startOf("minute");
+      if (nextAllowedTime.isAfter(nowMinute)) {
         return {
           shouldTrigger: false,
-          skipReason: `15min throttle: next allowed at ${nextAllowedTime.format("HH:mm:ss")} (${agentTimezone}); last ran ${lastTriggeredLocal.format("HH:mm:ss")}`,
+          skipReason: `15min throttle: next allowed at ${nextAllowedTime.format("HH:mm")} (${agentTimezone}); last ran ${lastTriggeredLocal.format("HH:mm:ss")}`,
           agentTimezone,
           currentHour,
           windowStartHour,

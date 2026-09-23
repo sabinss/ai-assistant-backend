@@ -126,6 +126,23 @@ test("09:15 → true", () => {
   assert.strictEqual(result.shouldTrigger, true);
 });
 
+// Regression: API success a few seconds after the cron tick must not push the
+// next run from :15 to :20 (QA saw ~20 min gaps).
+test("lastTriggeredAt 09:00:45 + cron 09:15:00 → true (not wait until 09:20)", () => {
+  const last = moment.tz("2026-03-17 09:00:45", "YYYY-MM-DD HH:mm:ss", TZ).toDate();
+  const result = shouldTriggerAgent(baseAgent({ lastTriggeredAt: last }), {
+    nowLocal: atLocal("09:15"),
+  });
+  assert.strictEqual(result.shouldTrigger, true);
+});
+test("lastTriggeredAt 09:00:45 + cron 09:10:00 → false", () => {
+  const last = moment.tz("2026-03-17 09:00:45", "YYYY-MM-DD HH:mm:ss", TZ).toDate();
+  const result = shouldTriggerAgent(baseAgent({ lastTriggeredAt: last }), {
+    nowLocal: atLocal("09:10"),
+  });
+  assert.strictEqual(result.shouldTrigger, false);
+});
+
 console.log("\n=== After execution lastTriggeredAt = 09:15 ===");
 test("09:20 → false", () => {
   const last = atLocal("09:15").toDate();

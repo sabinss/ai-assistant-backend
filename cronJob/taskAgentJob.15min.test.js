@@ -267,7 +267,7 @@ test("Hourly outside from/to window → false", () => {
   );
   assert.strictEqual(result.shouldTrigger, false);
 });
-test("Hourly missing from/to → false", () => {
+test("Hourly missing from/to → true (window optional)", () => {
   const result = shouldTriggerAgent(
     {
       frequency: "Hourly",
@@ -277,7 +277,7 @@ test("Hourly missing from/to → false", () => {
     },
     { nowLocal: atLocal("10:00", "2026-03-17") }
   );
-  assert.strictEqual(result.shouldTrigger, false);
+  assert.strictEqual(result.shouldTrigger, true);
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

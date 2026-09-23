@@ -517,7 +517,7 @@ const shouldTriggerAgent = (agent, options = {}) => {
     }
 
     case "hourly": {
-      // businessDays=true → Mon–Fri only; always enforce fromTime/toTime window
+      // businessDays=true → Mon–Fri only
       if (businessDays && isWeekend(currentDay)) {
         return {
           shouldTrigger: false,
@@ -529,26 +529,18 @@ const shouldTriggerAgent = (agent, options = {}) => {
         };
       }
 
-      if (!fromTime || !toTime) {
-        return {
-          shouldTrigger: false,
-          skipReason: "Missing fromTime or toTime for Hourly frequency",
-          agentTimezone,
-          currentHour,
-          windowStartHour,
-          windowEndHour,
-        };
-      }
-
-      if (!isTimeInWindow(nowLocal, fromTime, toTime)) {
-        return {
-          shouldTrigger: false,
-          skipReason: `Outside time window in ${agentTimezone} (local ${nowLocal.format("HH:mm")}; allowed ${fromTime}-${toTime})`,
-          agentTimezone,
-          currentHour,
-          windowStartHour,
-          windowEndHour,
-        };
+      // fromTime/toTime are optional: only enforce when both are configured
+      if (fromTime && toTime) {
+        if (!isTimeInWindow(nowLocal, fromTime, toTime)) {
+          return {
+            shouldTrigger: false,
+            skipReason: `Outside time window in ${agentTimezone} (local ${nowLocal.format("HH:mm")}; allowed ${fromTime}-${toTime})`,
+            agentTimezone,
+            currentHour,
+            windowStartHour,
+            windowEndHour,
+          };
+        }
       }
 
       // Trigger at most once per calendar hour in the agent's timezone

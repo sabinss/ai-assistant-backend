@@ -38,10 +38,27 @@ exports.getActivityCompanies = async (req, res) => {
     }
 
     const org_id = req.user.organization.toString();
+    // const sql_query = `
+    //   SELECT DISTINCT m."to", m.company_name, m.company_id
+    //   FROM db${org_id}.messages m
+    //   WHERE m."type" = 'SMS' AND m.direction = 'outbound'
+    // `;
+
     const sql_query = `
-      SELECT DISTINCT m."to", m.company_name, m.company_id
+          SELECT
+          m.company_id,
+          m.company_name,
+          d.dealstage,
+          m."to" , 
+          MAX(m.updated_at) AS latest_updated_at
       FROM db${org_id}.messages m
-      WHERE m."type" = 'SMS' AND m.direction = 'outbound'
+      JOIN db${org_id}.deals d
+          ON d.company_id = m.company_id
+      WHERE m."type" = 'SMS'
+        AND m.direction = 'outbound'
+        AND d.dealstage NOT IN ('skipped', 'open')
+      GROUP BY m.company_id, m.company_name, d.dealstage, m."to" 
+      ORDER BY latest_updated_at DESC;
     `;
 
     const resultSet = await runOrgSqlQuery(org_id, sql_query);

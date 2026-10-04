@@ -75,11 +75,8 @@ exports.getActivityCompanyById = async (req, res) => {
     const org_id = req.user.organization.toString();
     const companyId = escapeSqlLiteral(inside);
     const sql_query = `
-      SELECT DISTINCT m."to", m.company_name, m.company_id
-      FROM db${org_id}.messages m
-      WHERE m."type" = 'SMS'
-        AND m.direction = 'outbound'
-        AND m.company_id = '${companyId}'
+     select *  from   db${org_id}.messages m  where m."type" ='SMS' 
+     and m.company_id ='${companyId}' order by m.updated_at ASC
     `;
 
     const resultSet = await runOrgSqlQuery(org_id, sql_query);

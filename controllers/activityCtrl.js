@@ -34,7 +34,8 @@ const getSqlErrorMessage = (error) => {
   if (sqlBody?.detail) {
     return typeof sqlBody.detail === "string" ? sqlBody.detail : JSON.stringify(sqlBody.detail);
   }
-  if (sqlBody?.error) return typeof sqlBody.error === "string" ? sqlBody.error : JSON.stringify(sqlBody.error);
+  if (sqlBody?.error)
+    return typeof sqlBody.error === "string" ? sqlBody.error : JSON.stringify(sqlBody.error);
   if (sqlBody?.message) return sqlBody.message;
   if (error?.code === "ECONNREFUSED") {
     return `Cannot reach AI_AGENT_SERVER_URI (${process.env.AI_AGENT_SERVER_URI || "not set"}). SQL service is not running or the URL is missing a port.`;
@@ -112,20 +113,27 @@ exports.getActivityCompanies = async (req, res) => {
     // `;
 
     const sql_query = `
-          SELECT
-          m.company_id,
-          m.company_name,
-          d.dealstage,
-          m."to" , 
-          MAX(m.updated_at) AS latest_updated_at
-      FROM db${org_id}.messages m
-      JOIN db${org_id}.deals d
-          ON d.company_id = m.company_id
-      WHERE m."type" = 'SMS'
-        AND m.direction = 'outbound'
-        AND d.dealstage NOT IN ('Skipped', 'Open')
-      GROUP BY m.company_id, m.company_name, d.dealstage, m."to" 
-      ORDER BY latest_updated_at DESC;
+        SELECT
+    m.company_id,
+    m.company_name,
+    d.dealstage,
+    c.phone_number AS "to",
+    MAX(m.updated_at) AS latest_updated_at,
+    BOOL_OR(m.direction = 'inbound') AS has_inbound_message
+FROM db${org_id}.messages m
+JOIN db${org_id}.companies c
+    ON c.company_id = m.company_id
+JOIN db${org_id}.deals d
+    ON d.company_id = m.company_id
+WHERE m."type" = 'SMS'
+  AND d.dealstage NOT IN ('Skipped', 'Open')
+GROUP BY
+    m.company_id,
+    m.company_name,
+    d.dealstage,
+    c.phone_number
+ORDER BY latest_updated_at DESC NULLS LAST
+limit 50
     `;
 
     const resultSet = await runOrgSqlQuery(org_id, sql_query);

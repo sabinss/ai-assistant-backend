@@ -5,6 +5,82 @@ const moment = require("moment-timezone");
 const AgentModel = require("../models/AgentModel");
 const AgentCronLogSchema = require("../models/AgentCronLogSchema");
 
+const AGENT_API_TIMEOUT_MS = 120000;
+let fiveMinuteCronRunning = false;
+const inFlightAgentIds = new Set();
+
+const getAxiosErrorMessage = (err) =>
+  err.response
+    ? `Status ${err.response.status}: ${err.response.statusText} - ${JSON.stringify(err.response.data)}`
+    : err.message || "Unknown error";
+
+const triggerPythonAgent = async ({
+  agent,
+  org,
+  pythonServerUri,
+  session_id,
+  is15Min,
+  cronExecutionTime,
+}) => {
+  const agentId = String(agent._id);
+  if (inFlightAgentIds.has(agentId)) {
+    console.log(`   ⏭️  SKIPPED in-flight: ${agent.name} (previous /ask/agent still running)`);
+    await AgentCronLogSchema.create({
+      organization: org._id,
+      agent: agent._id,
+      agentName: agent.name,
+      status: "skipped",
+      frequency: agent.frequency,
+      cronExecutionTime: cronExecutionTime,
+      message: `Skipped ${is15Min ? "15min" : "realtime"} agent: ${agent.name} | Reason: previous API call still in flight | Cron ran at: ${cronExecutionTime}`,
+    });
+    return { skippedInFlight: true };
+  }
+
+  inFlightAgentIds.add(agentId);
+  try {
+    const response = await axios.get(pythonServerUri, { timeout: AGENT_API_TIMEOUT_MS });
+    console.log(`   ✅ Agent API call successful: ${agent.name}`);
+    console.log(`      Response Status: ${response.status}`);
+
+    await AgentModel.findByIdAndUpdate(agent._id, {
+      lastTriggeredAt: new Date(),
+    });
+
+    await AgentCronLogSchema.create({
+      organization: org._id,
+      agent: agent._id,
+      agentName: agent.name,
+      status: "success",
+      frequency: agent.frequency,
+      apiUrl: pythonServerUri,
+      sessionId: session_id,
+      cronExecutionTime: cronExecutionTime,
+      message: `API call successful for ${is15Min ? "15min" : "realtime"} agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | Status: ${response.status}`,
+    });
+    return { ok: true };
+  } catch (err) {
+    const errorMessage = getAxiosErrorMessage(err);
+    console.error(`   ❌ Agent API call failed: ${agent.name}`);
+    console.error(`      Error: ${errorMessage}`);
+
+    await AgentCronLogSchema.create({
+      organization: org._id,
+      agent: agent._id,
+      agentName: agent.name,
+      status: "failure",
+      frequency: agent.frequency,
+      apiUrl: pythonServerUri,
+      sessionId: session_id,
+      cronExecutionTime: cronExecutionTime,
+      message: `API call failed for ${is15Min ? "15min" : "realtime"} agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | Error: ${errorMessage}`,
+    });
+    return { ok: false };
+  } finally {
+    inFlightAgentIds.delete(agentId);
+  }
+};
+
 /**
  * Map timezone abbreviations to IANA timezone names
  */
@@ -852,6 +928,12 @@ const handleTaskAgentCronJob = async () => {
  * Invoked every 5 minutes by index.js (cron: every 5 minutes).
  */
 const handleHourlyTaskAgentCronJob = async () => {
+  if (fiveMinuteCronRunning) {
+    console.log("⏸️  Skipping 5-minute cron — previous tick still running");
+    return;
+  }
+  fiveMinuteCronRunning = true;
+
   const now = moment();
   const cronExecutionTime = now.format("YYYY-MM-DD HH:mm:ss");
 
@@ -936,51 +1018,20 @@ const handleHourlyTaskAgentCronJob = async () => {
             message: `API called for ${is15Min ? "15min" : "realtime"} agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | URL: ${pythonServerUri}`,
           });
 
-          // Fire API call — update lastTriggeredAt only after success
-          axios
-            .get(pythonServerUri)
-            .then(async (response) => {
-              console.log(`   ✅ Agent API call successful: ${agent.name}`);
-              console.log(`      Response Status: ${response.status}`);
+          const result = await triggerPythonAgent({
+            agent,
+            org,
+            pythonServerUri,
+            session_id,
+            is15Min,
+            cronExecutionTime,
+          });
 
-              await AgentModel.findByIdAndUpdate(agent._id, {
-                lastTriggeredAt: new Date(),
-              });
-
-              await AgentCronLogSchema.create({
-                organization: org._id,
-                agent: agent._id,
-                agentName: agent.name,
-                status: "success",
-                frequency: agent.frequency,
-                apiUrl: pythonServerUri,
-                sessionId: session_id,
-                cronExecutionTime: cronExecutionTime,
-                message: `API call successful for ${is15Min ? "15min" : "realtime"} agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | Status: ${response.status}`,
-              });
-            })
-            .catch(async (err) => {
-              const errorMessage = err.response
-                ? `Status ${err.response.status}: ${err.response.statusText} - ${JSON.stringify(err.response.data)}`
-                : err.message || "Unknown error";
-
-              console.error(`   ❌ Agent API call failed: ${agent.name}`);
-              console.error(`      Error: ${errorMessage}`);
-
-              await AgentCronLogSchema.create({
-                organization: org._id,
-                agent: agent._id,
-                agentName: agent.name,
-                status: "failure",
-                frequency: agent.frequency,
-                apiUrl: pythonServerUri,
-                sessionId: session_id,
-                cronExecutionTime: cronExecutionTime,
-                message: `API call failed for ${is15Min ? "15min" : "realtime"} agent: ${agent.name} | Cron ran at: ${cronExecutionTime} | Error: ${errorMessage}`,
-              });
-            });
-
-          totalAgentsTriggered++;
+          if (result.skippedInFlight) {
+            totalAgentsSkipped++;
+          } else {
+            totalAgentsTriggered++;
+          }
         } catch (error) {
           const errorMessage = error?.message || "Unknown error";
 
@@ -1021,6 +1072,8 @@ const handleHourlyTaskAgentCronJob = async () => {
       cronExecutionTime: cronExecutionTime,
       message: `5-minute agent cron job error at ${cronExecutionTime}: ${err.message}`,
     });
+  } finally {
+    fiveMinuteCronRunning = false;
   }
 };
 

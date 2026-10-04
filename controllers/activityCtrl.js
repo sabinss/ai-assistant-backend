@@ -8,23 +8,45 @@ const axiosInstance = axios.create({
 
 const escapeSqlLiteral = (value) => String(value).replace(/'/g, "''");
 
+const getSqlErrorMessage = (error) => {
+  const sqlBody = error?.response?.data;
+  const metadataError = sqlBody?.result?.metadata?.error;
+  if (metadataError) return metadataError;
+  if (sqlBody?.error) return typeof sqlBody.error === "string" ? sqlBody.error : JSON.stringify(sqlBody.error);
+  if (sqlBody?.message) return sqlBody.message;
+  if (error?.code === "ECONNREFUSED") {
+    return `Cannot reach AI_AGENT_SERVER_URI (${process.env.AI_AGENT_SERVER_URI || "not set"}). SQL service is not running or the URL is missing a port.`;
+  }
+  return error?.message || "Unknown SQL error";
+};
+
 const runOrgSqlQuery = async (org_id, sql_query) => {
   const session_id = Math.floor(1000 + Math.random() * 9000);
+  const baseUri = process.env.AI_AGENT_SERVER_URI;
+  if (!baseUri) {
+    throw new Error("AI_AGENT_SERVER_URI is not configured");
+  }
+
   const url =
-    process.env.AI_AGENT_SERVER_URI +
+    baseUri +
     `/run-sql-query?sql_query=${encodeURIComponent(
       sql_query
     )}&session_id=${session_id}&org_id=${org_id}`;
-  const response = await axiosInstance.post(url, {}, { timeout: 300000 });
-  /**
-   * console in json structure
-   */
-  console.log("ActivityCtrl: runOrgSqlQuery response1", response?.data?.result ?? []);
-  console.log(
-    "ActivityCtrl: runOrgSqlQuery response2",
-    JSON.stringify(response?.data?.result?.result_set ?? [], null, 2)
-  );
-  return response?.data?.result?.result_set ?? [];
+
+  try {
+    const response = await axiosInstance.post(url, {}, { timeout: 300000 });
+    const result = response?.data?.result;
+    if (result?.metadata?.status === "error" || result?.metadata?.status === "FAILED") {
+      throw new Error(result?.metadata?.error || result?.metadata?.message || "SQL query failed");
+    }
+    return result?.result_set ?? [];
+  } catch (error) {
+    const details = getSqlErrorMessage(error);
+    if (error?.response?.data) {
+      console.error("ActivityCtrl SQL error body:", JSON.stringify(error.response.data));
+    }
+    throw new Error(details);
+  }
 };
 
 /**
@@ -68,7 +90,7 @@ exports.getActivityCompanies = async (req, res) => {
   } catch (error) {
     console.error("Error fetching activity companies:", error.message);
     return res.status(500).json({
-      message: "Internal Server Error",
+      message: "Failed to fetch activity companies",
       error: error.message,
     });
   }
@@ -103,7 +125,7 @@ exports.getActivityCompanyById = async (req, res) => {
   } catch (error) {
     console.error("Error fetching activity company by id:", error.message);
     return res.status(500).json({
-      message: "Internal Server Error",
+      message: "Failed to fetch activity company messages",
       error: error.message,
     });
   }

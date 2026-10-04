@@ -16,6 +16,14 @@ const runOrgSqlQuery = async (org_id, sql_query) => {
       sql_query
     )}&session_id=${session_id}&org_id=${org_id}`;
   const response = await axiosInstance.post(url, {}, { timeout: 300000 });
+  /**
+   * console in json structure
+   */
+  console.log("ActivityCtrl: runOrgSqlQuery response1", response?.data?.result ?? []);
+  console.log(
+    "ActivityCtrl: runOrgSqlQuery response2",
+    JSON.stringify(response?.data?.result?.result_set ?? [], null, 2)
+  );
   return response?.data?.result?.result_set ?? [];
 };
 

@@ -56,7 +56,7 @@ exports.getActivityCompanies = async (req, res) => {
           ON d.company_id = m.company_id
       WHERE m."type" = 'SMS'
         AND m.direction = 'outbound'
-        AND d.dealstage NOT IN ('skipped', 'open')
+        AND d.dealstage NOT IN ('Skipped', 'Open')
       GROUP BY m.company_id, m.company_name, d.dealstage, m."to" 
       ORDER BY latest_updated_at DESC;
     `;

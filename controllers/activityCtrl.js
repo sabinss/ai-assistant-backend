@@ -1,23 +1,52 @@
 const axios = require("axios");
+const http = require("http");
+const https = require("https");
+
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  maxSockets: 10,
+  maxFreeSockets: 5,
+  timeout: 60000,
+});
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 10,
+  maxFreeSockets: 5,
+  timeout: 60000,
+});
 
 const axiosInstance = axios.create({
-  timeout: 300000,
+  timeout: 60000,
   maxRedirects: 5,
+  httpAgent,
+  httpsAgent,
   validateStatus: (status) => status >= 200 && status < 300,
 });
 
 const escapeSqlLiteral = (value) => String(value).replace(/'/g, "''");
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const getSqlErrorMessage = (error) => {
   const sqlBody = error?.response?.data;
   const metadataError = sqlBody?.result?.metadata?.error;
   if (metadataError) return metadataError;
+  if (sqlBody?.detail) {
+    return typeof sqlBody.detail === "string" ? sqlBody.detail : JSON.stringify(sqlBody.detail);
+  }
   if (sqlBody?.error) return typeof sqlBody.error === "string" ? sqlBody.error : JSON.stringify(sqlBody.error);
   if (sqlBody?.message) return sqlBody.message;
   if (error?.code === "ECONNREFUSED") {
     return `Cannot reach AI_AGENT_SERVER_URI (${process.env.AI_AGENT_SERVER_URI || "not set"}). SQL service is not running or the URL is missing a port.`;
   }
   return error?.message || "Unknown SQL error";
+};
+
+const isTransientSqlError = (error) => {
+  const message = `${getSqlErrorMessage(error)} ${error?.code || ""}`;
+  return /too many open files|Max retries exceeded|ECONNRESET|ECONNREFUSED|ETIMEDOUT|socket hang up/i.test(
+    message
+  );
 };
 
 const runOrgSqlQuery = async (org_id, sql_query) => {
@@ -33,20 +62,36 @@ const runOrgSqlQuery = async (org_id, sql_query) => {
       sql_query
     )}&session_id=${session_id}&org_id=${org_id}`;
 
-  try {
-    const response = await axiosInstance.post(url, {}, { timeout: 300000 });
-    const result = response?.data?.result;
-    if (result?.metadata?.status === "error" || result?.metadata?.status === "FAILED") {
-      throw new Error(result?.metadata?.error || result?.metadata?.message || "SQL query failed");
+  const maxAttempts = 3;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await axiosInstance.post(url, {}, { timeout: 60000 });
+      const result = response?.data?.result;
+      if (result?.metadata?.status === "error" || result?.metadata?.status === "FAILED") {
+        throw new Error(result?.metadata?.error || result?.metadata?.message || "SQL query failed");
+      }
+      return result?.result_set ?? [];
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts && isTransientSqlError(error)) {
+        const waitMs = 1500 * attempt;
+        console.warn(
+          `ActivityCtrl SQL attempt ${attempt}/${maxAttempts} failed (will retry in ${waitMs}ms):`,
+          getSqlErrorMessage(error)
+        );
+        await sleep(waitMs);
+        continue;
+      }
+      if (error?.response?.data) {
+        console.error("ActivityCtrl SQL error body:", JSON.stringify(error.response.data));
+      }
+      throw new Error(getSqlErrorMessage(error));
     }
-    return result?.result_set ?? [];
-  } catch (error) {
-    const details = getSqlErrorMessage(error);
-    if (error?.response?.data) {
-      console.error("ActivityCtrl SQL error body:", JSON.stringify(error.response.data));
-    }
-    throw new Error(details);
   }
+
+  throw new Error(getSqlErrorMessage(lastError));
 };
 
 /**

@@ -156,6 +156,71 @@ ORDER BY latest_updated_at DESC NULLS last limit 50;
 };
 
 /**
+ * POST /activity/company/archive
+ * Forwards archive flag update to agentic AI /deals/archive
+ * Body: deal_id, dealname, dealstage, company_id, archive
+ */
+exports.updateCompanyArchive = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const { deal_id, dealname, dealstage, company_id, archive } = req.body || {};
+
+    if (
+      deal_id == null ||
+      dealname == null ||
+      dealstage == null ||
+      company_id == null ||
+      typeof archive !== "boolean"
+    ) {
+      return res.status(400).json({
+        message: "deal_id, dealname, dealstage, company_id, and archive (boolean) are required",
+      });
+    }
+
+    const baseUri = process.env.AI_AGENT_SERVER_URI;
+    if (!baseUri) {
+      return res.status(500).json({ message: "AI_AGENT_SERVER_URI is not configured" });
+    }
+
+    const tenant_id = req.user.organization.toString();
+    const payload = {
+      tenant_id,
+      deal_id,
+      dealname,
+      dealstage,
+      company_id,
+      archive,
+    };
+
+    const url = `${baseUri}/deals/archive`;
+    const response = await axiosInstance.post(url, payload, {
+      timeout: 60000,
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+    });
+
+    return res.status(200).json({
+      message: "Company archive updated successfully",
+      data: response?.data ?? null,
+      success: true,
+    });
+  } catch (error) {
+    const details = getSqlErrorMessage(error);
+    console.error("Error updating company archive:", details);
+    if (error?.response?.data) {
+      console.error("Archive API error body:", JSON.stringify(error.response.data));
+    }
+    return res.status(error?.response?.status || 500).json({
+      message: "Failed to update company archive",
+      error: details,
+      success: false,
+    });
+  }
+};
+
+/**
  * GET /activity/company/:inside
  * Same query filtered by company_id = :inside
  */

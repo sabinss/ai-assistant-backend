@@ -196,6 +196,8 @@ exports.updateCompanyArchive = async (req, res) => {
     };
 
     const url = `${baseUri}/deals/archive`;
+    console.log("Update company archive", url);
+    console.log("Payload", payload);
     const response = await axiosInstance.post(url, payload, {
       timeout: 60000,
       headers: { "Content-Type": "application/json", Accept: "application/json" },

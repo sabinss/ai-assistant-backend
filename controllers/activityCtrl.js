@@ -124,10 +124,10 @@ exports.getActivityCompanies = async (req, res) => {
     MAX(m.updated_at) AS latest_updated_at,
     case when d.dealstage in ('booking_req','got_sysmptoms','insurance_qns','billing_qns','got_issue') then true end as Need_Reply,
     BOOL_OR(m.direction = 'inbound') AS has_inbound_message
-FROM db6a25ff0de327bc35c7697231.messages m
-JOIN db6a25ff0de327bc35c7697231.companies c
+FROM db${org_id}.messages m
+JOIN db${org_id}.companies c
     ON c.company_id = m.company_id
-JOIN db6a25ff0de327bc35c7697231.deals d
+JOIN db${org_id}.deals d
     ON d.company_id = m.company_id
 WHERE m."type" = 'SMS'
   AND d.dealstage NOT IN ('Skipped', 'Open')

@@ -8,5 +8,6 @@ module.exports = (app) => {
     authUser,
     ctl.updateCompanyArchive
   );
+  app.post(`${process.env.APP_URL}/activity/call/sms`, authUser, ctl.triggerSendSmsAgent);
   app.get(`${process.env.APP_URL}/activity/company/:inside`, authUser, ctl.getActivityCompanyById);
 };

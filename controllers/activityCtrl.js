@@ -1,6 +1,7 @@
 const axios = require("axios");
 const http = require("http");
 const https = require("https");
+const AgentModel = require("../models/AgentModel");
 
 const httpAgent = new http.Agent({
   keepAlive: true,
@@ -217,6 +218,76 @@ exports.updateCompanyArchive = async (req, res) => {
     return res.status(error?.response?.status || 500).json({
       message: "Failed to update company archive",
       error: details,
+      success: false,
+    });
+  }
+};
+
+/**
+ * POST /activity/call/sms
+ * Body: { message, phoneNumber }
+ * Find org's Send_SMS agent and trigger /ask/agent with message + to query params
+ */
+exports.triggerSendSmsAgent = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const { message, phoneNumber } = req.body || {};
+    if (!message || !phoneNumber) {
+      return res.status(400).json({
+        message: "message and phoneNumber are required",
+      });
+    }
+
+    const org_id = req.user.organization.toString();
+    const agent = await AgentModel.findOne({
+      organization: org_id,
+      isAgent: true,
+      active: true,
+      name: { $regex: /^send[_\s-]?sms$/i },
+    });
+
+    if (!agent) {
+      return res.status(404).json({
+        message: "Send_SMS agent not found for this organization",
+      });
+    }
+
+    const session_id = Math.floor(100000 + Math.random() * 900000);
+    const agent_name = encodeURIComponent(agent.name);
+    const pythonServerUri =
+      `${process.env.AI_AGENT_SERVER_URI}/ask/agent` +
+      `?agent_name=${agent_name}` +
+      `&org_id=${org_id}` +
+      `&query='run'` +
+      `&session_id=${session_id}` +
+      `&message=${encodeURIComponent(message)}` +
+      `&to=${encodeURIComponent(phoneNumber)}`;
+
+    console.log("Triggering Send_SMS agent:", pythonServerUri);
+    axios.get(pythonServerUri).catch((err) => {
+      console.error(
+        "Send_SMS agent API call failed:",
+        err?.response?.data || err.message
+      );
+    });
+
+    return res.status(200).json({
+      message: "Agent triggered successfully",
+      agent: {
+        _id: agent._id,
+        name: agent.name,
+      },
+      session_id,
+      success: true,
+    });
+  } catch (error) {
+    console.error("Error triggering Send_SMS agent:", error.message);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
       success: false,
     });
   }

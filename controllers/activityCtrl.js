@@ -34,7 +34,8 @@ const getSqlErrorMessage = (error) => {
   if (sqlBody?.detail) {
     return typeof sqlBody.detail === "string" ? sqlBody.detail : JSON.stringify(sqlBody.detail);
   }
-  if (sqlBody?.error) return typeof sqlBody.error === "string" ? sqlBody.error : JSON.stringify(sqlBody.error);
+  if (sqlBody?.error)
+    return typeof sqlBody.error === "string" ? sqlBody.error : JSON.stringify(sqlBody.error);
   if (sqlBody?.message) return sqlBody.message;
   if (error?.code === "ECONNREFUSED") {
     return `Cannot reach AI_AGENT_SERVER_URI (${process.env.AI_AGENT_SERVER_URI || "not set"}). SQL service is not running or the URL is missing a port.`;
@@ -137,24 +138,35 @@ exports.getActivityCompanies = async (req, res) => {
 
     const org_id = req.user.organization.toString();
 
-    const groupedQuery = `
-      SELECT
-          m.company_id,
-          m.company_name,
-          d.dealstage,
-          m."to" ,
-          MAX(m.updated_at) AS latest_updated_at
-      FROM db${org_id}.messages m
-      JOIN db${org_id}.deals d
-          ON d.company_id = m.company_id
-      WHERE m."type" = 'SMS'
-        AND m.direction = 'outbound'
-        AND d.dealstage NOT IN ('Skipped', 'Open')
-      GROUP BY m.company_id, m.company_name, d.dealstage, m."to"
+    const sql_query = `
+ SELECT
+    m.company_id,
+    m.company_name,
+    d.dealstage,
+    c.phone_number AS "to",
+    d.dealname,
+    d.deal_id,
+    d.handed_off,
+    MAX(m.updated_at) AS latest_updated_at,
+    case when d.dealstage in ('booking_req','got_symptoms','insurance_qns','billing_qns','got_issue') then true end as Need_Reply,
+    BOOL_OR(m.direction = 'inbound') AS has_inbound_message
+FROM db${org_id}.messages m
+JOIN db${org_id}.companies c
+    ON c.company_id = m.company_id
+JOIN db${org_id}.deals d
+    ON d.company_id = m.company_id
+WHERE m."type" = 'SMS'
+  AND d.dealstage NOT IN ('Skipped', 'Open')
+GROUP BY
+    m.company_id,
+    m.company_name,
+    d.dealstage,
+    c.phone_number,
+    d.deal_id,
+    d.dealname,
+    d.handed_off
+ORDER BY latest_updated_at DESC NULLS last limit 50;
     `;
-
-    const dataQuery = `${groupedQuery} ORDER BY latest_updated_at DESC LIMIT ${limit} OFFSET ${offset};`;
-    const countQuery = `SELECT COUNT(*) AS total FROM (${groupedQuery}) AS sub;`;
 
     const [resultSet, countResultSet] = await Promise.all([
       runOrgSqlQuery(org_id, dataQuery),
@@ -172,6 +184,73 @@ exports.getActivityCompanies = async (req, res) => {
     return res.status(500).json({
       message: "Failed to fetch activity companies",
       error: error.message,
+    });
+  }
+};
+
+/**
+ * POST /activity/company/archive
+ * Forwards archive flag update to agentic AI /deals/archive
+ * Body: deal_id, dealname, dealstage, company_id, archive
+ */
+exports.updateCompanyArchive = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const { deal_id, dealname, dealstage, company_id, archive } = req.body || {};
+
+    if (
+      deal_id == null ||
+      dealname == null ||
+      dealstage == null ||
+      company_id == null ||
+      typeof archive !== "boolean"
+    ) {
+      return res.status(400).json({
+        message: "deal_id, dealname, dealstage, company_id, and archive (boolean) are required",
+      });
+    }
+
+    const baseUri = process.env.AI_AGENT_SERVER_URI;
+    if (!baseUri) {
+      return res.status(500).json({ message: "AI_AGENT_SERVER_URI is not configured" });
+    }
+
+    const tenant_id = req.user.organization.toString();
+    const payload = {
+      tenant_id,
+      deal_id,
+      dealname,
+      dealstage,
+      company_id,
+      archive,
+    };
+
+    const url = `${baseUri}/deals/archive`;
+    console.log("Update company archive", url);
+    console.log("Payload", payload);
+    const response = await axiosInstance.post(url, payload, {
+      timeout: 60000,
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+    });
+
+    return res.status(200).json({
+      message: "Company archive updated successfully",
+      data: response?.data ?? null,
+      success: true,
+    });
+  } catch (error) {
+    const details = getSqlErrorMessage(error);
+    console.error("Error updating company archive:", details);
+    if (error?.response?.data) {
+      console.error("Archive API error body:", JSON.stringify(error.response.data));
+    }
+    return res.status(error?.response?.status || 500).json({
+      message: "Failed to update company archive",
+      error: details,
+      success: false,
     });
   }
 };

@@ -3,5 +3,10 @@ const authUser = require("../middleware/authUser")["authenticate"];
 
 module.exports = (app) => {
   app.get(`${process.env.APP_URL}/activity/company`, authUser, ctl.getActivityCompanies);
+  app.post(
+    `${process.env.APP_URL}/activity/company/archive`,
+    authUser,
+    ctl.updateCompanyArchive
+  );
   app.get(`${process.env.APP_URL}/activity/company/:inside`, authUser, ctl.getActivityCompanyById);
 };

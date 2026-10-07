@@ -166,7 +166,7 @@ GROUP BY
     d.deal_id,
     d.dealname,
     d.handed_off
-ORDER BY latest_updated_at DESC NULLS last limit 50;
+ORDER BY latest_updated_at DESC NULLS last;
     `;
 
     const [resultSet, countResultSet] = await Promise.all([
@@ -301,10 +301,7 @@ exports.triggerSendSmsAgent = async (req, res) => {
 
     console.log("Triggering Send_SMS agent:", pythonServerUri);
     axios.get(pythonServerUri).catch((err) => {
-      console.error(
-        "Send_SMS agent API call failed:",
-        err?.response?.data || err.message
-      );
+      console.error("Send_SMS agent API call failed:", err?.response?.data || err.message);
     });
 
     return res.status(200).json({

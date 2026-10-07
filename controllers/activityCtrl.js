@@ -139,40 +139,13 @@ exports.getActivityCompanies = async (req, res) => {
 
     const org_id = req.user.organization.toString();
 
-    const groupedQuery = `
- SELECT
-    m.company_id,
-    m.company_name,
-    d.dealstage,
-    c.phone_number AS "to",
-    d.dealname,
-    d.deal_id,
-    d.handed_off,
-    MAX(m.updated_at) AS latest_updated_at,
-    case when d.dealstage in ('booking_req','got_symptoms','insurance_qns','billing_qns','got_issue') then true end as Need_Reply,
-    BOOL_OR(m.direction = 'inbound') AS has_inbound_message
-FROM db${org_id}.messages m
-JOIN db${org_id}.companies c
-    ON c.company_id = m.company_id
-JOIN db${org_id}.deals d
-    ON d.company_id = m.company_id
-WHERE m."type" = 'SMS'
-  AND d.dealstage NOT IN ('Skipped', 'Open')
-GROUP BY
-    m.company_id,
-    m.company_name,
-    d.dealstage,
-    c.phone_number,
-    d.deal_id,
-    d.dealname,
-    d.handed_off
+    const dataQuery = `
+      SELECT * FROM db${org_id}.sms_activities
+      ORDER BY latest_updated_at DESC NULLS LAST
+      LIMIT ${limit} OFFSET ${offset}
     `;
 
-    const dataQuery = `${groupedQuery}
-ORDER BY latest_updated_at DESC NULLS last
-LIMIT ${limit} OFFSET ${offset}`;
-
-    const countQuery = `SELECT COUNT(*) AS total FROM (${groupedQuery}) AS activity_companies`;
+    const countQuery = `SELECT COUNT(*) AS total FROM db${org_id}.sms_activities`;
 
     const [resultSet, countResultSet] = await Promise.all([
       runOrgSqlQuery(org_id, dataQuery),
@@ -189,6 +162,45 @@ LIMIT ${limit} OFFSET ${offset}`;
     console.error("Error fetching activity companies:", error.message);
     return res.status(500).json({
       message: "Failed to fetch activity companies",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /activity/count
+ * Aggregate counts for the org's SMS activities.
+ */
+exports.getActivityCount = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const org_id = req.user.organization.toString();
+
+    const countQuery = `
+      SELECT
+        count(*) AS total_cnt,
+        count(*) FILTER (WHERE handed_off) AS total_handed_off_cnt,
+        count(*) FILTER (WHERE need_reply) AS total_need_reply_cnt,
+        count(*) FILTER (WHERE has_inbound_message) AS total_has_inbound_msg_cnt
+      FROM db${org_id}.sms_activities
+    `;
+
+    const resultSet = await runOrgSqlQuery(org_id, countQuery);
+    const row = resultSet?.[0] || {};
+
+    return res.status(200).json({
+      total_cnt: parseInt(row.total_cnt, 10) || 0,
+      total_handed_off_cnt: parseInt(row.total_handed_off_cnt, 10) || 0,
+      total_need_reply_cnt: parseInt(row.total_need_reply_cnt, 10) || 0,
+      total_has_inbound_msg_cnt: parseInt(row.total_has_inbound_msg_cnt, 10) || 0,
+    });
+  } catch (error) {
+    console.error("Error fetching activity count:", error.message);
+    return res.status(500).json({
+      message: "Failed to fetch activity count",
       error: error.message,
     });
   }

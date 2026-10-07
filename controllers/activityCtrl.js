@@ -139,7 +139,7 @@ exports.getActivityCompanies = async (req, res) => {
 
     const org_id = req.user.organization.toString();
 
-    const sql_query = `
+    const groupedQuery = `
  SELECT
     m.company_id,
     m.company_name,
@@ -166,15 +166,20 @@ GROUP BY
     d.deal_id,
     d.dealname,
     d.handed_off
-ORDER BY latest_updated_at DESC NULLS last;
     `;
+
+    const dataQuery = `${groupedQuery}
+ORDER BY latest_updated_at DESC NULLS last
+LIMIT ${limit} OFFSET ${offset}`;
+
+    const countQuery = `SELECT COUNT(*) AS total FROM (${groupedQuery}) AS activity_companies`;
 
     const [resultSet, countResultSet] = await Promise.all([
       runOrgSqlQuery(org_id, dataQuery),
       runOrgSqlQuery(org_id, countQuery),
     ]);
 
-    const totalRecords = parseInt(countResultSet?.[0]?.total) || 0;
+    const totalRecords = parseInt(countResultSet?.[0]?.total, 10) || 0;
 
     return res.status(200).json({
       data: Array.isArray(resultSet) ? resultSet : [],
@@ -351,16 +356,16 @@ exports.getActivityCompanyById = async (req, res) => {
       SELECT * FROM db${org_id}.messages m
       WHERE ${whereClause}
       ORDER BY m.updated_at ASC
-      LIMIT ${limit} OFFSET ${offset};
+      LIMIT ${limit} OFFSET ${offset}
     `;
-    const countQuery = `SELECT COUNT(*) AS total FROM db${org_id}.messages m WHERE ${whereClause};`;
+    const countQuery = `SELECT COUNT(*) AS total FROM db${org_id}.messages m WHERE ${whereClause}`;
 
     const [resultSet, countResultSet] = await Promise.all([
       runOrgSqlQuery(org_id, dataQuery),
       runOrgSqlQuery(org_id, countQuery),
     ]);
 
-    const totalRecords = parseInt(countResultSet?.[0]?.total) || 0;
+    const totalRecords = parseInt(countResultSet?.[0]?.total, 10) || 0;
 
     return res.status(200).json({
       data: Array.isArray(resultSet) ? resultSet : [],

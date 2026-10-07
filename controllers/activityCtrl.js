@@ -96,6 +96,32 @@ const runOrgSqlQuery = async (org_id, sql_query) => {
   throw new Error(getSqlErrorMessage(lastError));
 };
 
+const parsePagination = (req, defaultLimit = 10) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || defaultLimit;
+  if (page < 1) {
+    return { error: "Page number must be greater than 0" };
+  }
+  if (limit < 1 || limit > 100) {
+    return { error: "Limit must be between 1 and 100" };
+  }
+  return { page, limit, offset: (page - 1) * limit };
+};
+
+const buildPagination = (page, limit, totalRecords) => {
+  const totalPages = Math.ceil(totalRecords / limit);
+  return {
+    currentPage: page,
+    totalPages,
+    totalRecords,
+    limit,
+    hasNextPage: page < totalPages,
+    hasPrevPage: page > 1,
+    nextPage: page < totalPages ? page + 1 : null,
+    prevPage: page > 1 ? page - 1 : null,
+  };
+};
+
 /**
  * GET /activity/company
  * Distinct outbound SMS recipients / companies for the org.
@@ -106,12 +132,12 @@ exports.getActivityCompanies = async (req, res) => {
       return res.status(400).json({ message: "Organization id required" });
     }
 
+    const { error, page, limit, offset } = parsePagination(req);
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+
     const org_id = req.user.organization.toString();
-    // const sql_query = `
-    //   SELECT DISTINCT m."to", m.company_name, m.company_id
-    //   FROM db${org_id}.messages m
-    //   WHERE m."type" = 'SMS' AND m.direction = 'outbound'
-    // `;
 
     const sql_query = `
  SELECT
@@ -140,12 +166,19 @@ GROUP BY
     d.deal_id,
     d.dealname,
     d.handed_off
-ORDER BY latest_updated_at DESC NULLS last limit 50;
+ORDER BY latest_updated_at DESC NULLS last;
     `;
 
-    const resultSet = await runOrgSqlQuery(org_id, sql_query);
+    const [resultSet, countResultSet] = await Promise.all([
+      runOrgSqlQuery(org_id, dataQuery),
+      runOrgSqlQuery(org_id, countQuery),
+    ]);
+
+    const totalRecords = parseInt(countResultSet?.[0]?.total) || 0;
+
     return res.status(200).json({
       data: Array.isArray(resultSet) ? resultSet : [],
+      pagination: buildPagination(page, limit, totalRecords),
     });
   } catch (error) {
     console.error("Error fetching activity companies:", error.message);
@@ -268,10 +301,7 @@ exports.triggerSendSmsAgent = async (req, res) => {
 
     console.log("Triggering Send_SMS agent:", pythonServerUri);
     axios.get(pythonServerUri).catch((err) => {
-      console.error(
-        "Send_SMS agent API call failed:",
-        err?.response?.data || err.message
-      );
+      console.error("Send_SMS agent API call failed:", err?.response?.data || err.message);
     });
 
     return res.status(200).json({
@@ -308,16 +338,33 @@ exports.getActivityCompanyById = async (req, res) => {
       return res.status(400).json({ message: "company id (inside) is required" });
     }
 
+    const { error, page, limit, offset } = parsePagination(req);
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+
     const org_id = req.user.organization.toString();
     const companyId = escapeSqlLiteral(inside);
-    const sql_query = `
-     select *  from   db${org_id}.messages m  where m."type" ='SMS' 
-     and m.company_id ='${companyId}' order by m.updated_at ASC
-    `;
 
-    const resultSet = await runOrgSqlQuery(org_id, sql_query);
+    const whereClause = `m."type" = 'SMS' AND m.company_id = '${companyId}'`;
+    const dataQuery = `
+      SELECT * FROM db${org_id}.messages m
+      WHERE ${whereClause}
+      ORDER BY m.updated_at ASC
+      LIMIT ${limit} OFFSET ${offset};
+    `;
+    const countQuery = `SELECT COUNT(*) AS total FROM db${org_id}.messages m WHERE ${whereClause};`;
+
+    const [resultSet, countResultSet] = await Promise.all([
+      runOrgSqlQuery(org_id, dataQuery),
+      runOrgSqlQuery(org_id, countQuery),
+    ]);
+
+    const totalRecords = parseInt(countResultSet?.[0]?.total) || 0;
+
     return res.status(200).json({
       data: Array.isArray(resultSet) ? resultSet : [],
+      pagination: buildPagination(page, limit, totalRecords),
     });
   } catch (error) {
     console.error("Error fetching activity company by id:", error.message);

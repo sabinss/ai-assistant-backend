@@ -351,6 +351,41 @@ exports.triggerSendSmsAgent = async (req, res) => {
 };
 
 /**
+ * GET /activity/company/customer/:id
+ * Fetch company row from companies table by company_id
+ */
+exports.getActivityCompanyCustomer = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: "company id is required" });
+    }
+
+    const org_id = req.user.organization.toString();
+    const companyId = escapeSqlLiteral(id);
+    const sql_query = `
+      SELECT * FROM db${org_id}.companies
+      WHERE company_id = '${companyId}'
+    `;
+
+    const resultSet = await runOrgSqlQuery(org_id, sql_query);
+    return res.status(200).json({
+      data: Array.isArray(resultSet) ? resultSet : [],
+    });
+  } catch (error) {
+    console.error("Error fetching activity company customer:", error.message);
+    return res.status(500).json({
+      message: "Failed to fetch activity company customer",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * GET /activity/company/:inside
  * Same query filtered by company_id = :inside
  */

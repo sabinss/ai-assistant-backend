@@ -9,6 +9,11 @@ module.exports = (app) => {
     ctl.updateCompanyArchive
   );
   app.post(`${process.env.APP_URL}/activity/call/sms`, authUser, ctl.triggerSendSmsAgent);
+  app.get(
+    `${process.env.APP_URL}/activity/company/customer/:id`,
+    authUser,
+    ctl.getActivityCompanyCustomer
+  );
   app.get(`${process.env.APP_URL}/activity/company/:inside`, authUser, ctl.getActivityCompanyById);
   app.get(`${process.env.APP_URL}/activity/email`, authUser, ctl.getActivityEmails);
   app.get(`${process.env.APP_URL}/activity/email/:inside`, authUser, ctl.getActivityEmailById);

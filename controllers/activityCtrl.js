@@ -217,6 +217,45 @@ LIMIT ${limit} OFFSET ${offset}`;
 };
 
 /**
+ * GET /activity/count
+ * Aggregate counts for the org's SMS activities.
+ */
+exports.getActivityCount = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const org_id = req.user.organization.toString();
+
+    const countQuery = `
+      SELECT
+        count(*) AS total_cnt,
+        count(*) FILTER (WHERE handed_off) AS total_handed_off_cnt,
+        count(*) FILTER (WHERE need_reply) AS total_need_reply_cnt,
+        count(*) FILTER (WHERE has_inbound_message) AS total_has_inbound_msg_cnt
+      FROM db${org_id}.sms_activities
+    `;
+
+    const resultSet = await runOrgSqlQuery(org_id, countQuery);
+    const row = resultSet?.[0] || {};
+
+    return res.status(200).json({
+      total_cnt: parseInt(row.total_cnt, 10) || 0,
+      total_handed_off_cnt: parseInt(row.total_handed_off_cnt, 10) || 0,
+      total_need_reply_cnt: parseInt(row.total_need_reply_cnt, 10) || 0,
+      total_has_inbound_msg_cnt: parseInt(row.total_has_inbound_msg_cnt, 10) || 0,
+    });
+  } catch (error) {
+    console.error("Error fetching activity count:", error.message);
+    return res.status(500).json({
+      message: "Failed to fetch activity count",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * POST /activity/company/archive
  * Forwards archive flag update to agentic AI /deals/archive
  * Body: deal_id, dealname, dealstage, company_id, archive
@@ -346,6 +385,41 @@ exports.triggerSendSmsAgent = async (req, res) => {
       message: "Internal server error",
       error: error.message,
       success: false,
+    });
+  }
+};
+
+/**
+ * GET /activity/company/customer/:id
+ * Fetch company row from companies table by company_id
+ */
+exports.getActivityCompanyCustomer = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: "company id is required" });
+    }
+
+    const org_id = req.user.organization.toString();
+    const companyId = escapeSqlLiteral(id);
+    const sql_query = `
+      SELECT * FROM db${org_id}.companies
+      WHERE company_id = '${companyId}'
+    `;
+
+    const resultSet = await runOrgSqlQuery(org_id, sql_query);
+    return res.status(200).json({
+      data: Array.isArray(resultSet) ? resultSet : [],
+    });
+  } catch (error) {
+    console.error("Error fetching activity company customer:", error.message);
+    return res.status(500).json({
+      message: "Failed to fetch activity company customer",
+      error: error.message,
     });
   }
 };

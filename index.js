@@ -17,6 +17,7 @@ const { googleOauthHandler } = require("./controllers/session.controller");
 const { handleTaskAgentCronJob, handleHourlyTaskAgentCronJob } = require("./cronJob/taskAgentJob");
 const webhookRoute = require("./webhook");
 const { handleInboundSms, handleInboundTelnyxSms } = require("./controllers/smsWebhookCtrl");
+const { handleTelnyxVoiceBrief } = require("./controllers/voiceWebhookCtrl");
 const Organization = require("./models/Organization");
 const User = require("./models/User");
 // Keep raw request bytes for webhook signature verification (e.g. Telnyx Ed25519 checks),
@@ -87,6 +88,9 @@ app.post("/api/webhook/send-twilio/:orgId", handleInboundSms);
 
 // Telnyx inbound SMS (per org) → SMS_Reply_Agent
 app.post("/api/webhook/send-telnyx/:orgId", handleInboundTelnyxSms);
+
+// Telnyx inbound voice call (per org) → call brief from the AI agent
+app.post("/api/webhook/telnyx-voice/:orgId", handleTelnyxVoiceBrief);
 
 const processedMessages = new Set(); // Use Redis or DB for production
 const sessions = new Map(); // In-memory map: { senderNumber => sessionId }

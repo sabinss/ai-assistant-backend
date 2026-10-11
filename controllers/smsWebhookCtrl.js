@@ -443,5 +443,6 @@ async function handleInboundTelnyxSms(req, res) {
 module.exports = {
   handleInboundSms,
   handleInboundTelnyxSms,
+  isValidTelnyxRequest,
   SMS_REPLY_AGENT_NAME,
 };

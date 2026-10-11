@@ -256,6 +256,41 @@ exports.getActivityCount = async (req, res) => {
 };
 
 /**
+ * GET /activity/email/count
+ * Aggregate counts for the org's email activities.
+ */
+exports.getEmailActivityCount = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const org_id = req.user.organization.toString();
+
+    const countQuery = `
+      SELECT
+        count(*) AS total_cnt,
+        count(*) FILTER (WHERE has_inbound_message = TRUE) AS total_received_cnt
+      FROM db${org_id}.email_activities
+    `;
+
+    const resultSet = await runOrgSqlQuery(org_id, countQuery);
+    const row = resultSet?.[0] || {};
+
+    return res.status(200).json({
+      total_cnt: parseInt(row.total_cnt, 10) || 0,
+      total_received_cnt: parseInt(row.total_received_cnt, 10) || 0,
+    });
+  } catch (error) {
+    console.error("Error fetching email activity count:", error.message);
+    return res.status(500).json({
+      message: "Failed to fetch email activity count",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * POST /activity/company/archive
  * Forwards archive flag update to agentic AI /deals/archive
  * Body: deal_id, dealname, dealstage, company_id, archive

@@ -139,13 +139,62 @@ exports.getActivityCompanies = async (req, res) => {
 
     const org_id = req.user.organization.toString();
 
-    const dataQuery = `
-      SELECT * FROM db${org_id}.sms_activities
-      ORDER BY latest_updated_at DESC NULLS LAST
-      LIMIT ${limit} OFFSET ${offset}
+    const flagFilters = ["has_inbound_message", "need_reply", "handed_off"].filter(
+      (flag) => String(req.query[flag]).toLowerCase() === "true"
+    );
+
+    if (flagFilters.length > 0) {
+      const whereClause = flagFilters.map((flag) => `${flag} = TRUE`).join(" AND ");
+      const flagDataQuery = `SELECT * FROM db${org_id}.sms_activities WHERE ${whereClause} LIMIT ${limit} OFFSET ${offset}`;
+      const flagCountQuery = `SELECT COUNT(*) AS total FROM db${org_id}.sms_activities WHERE ${whereClause}`;
+
+      const [flagResultSet, flagCountResultSet] = await Promise.all([
+        runOrgSqlQuery(org_id, flagDataQuery),
+        runOrgSqlQuery(org_id, flagCountQuery),
+      ]);
+
+      const flagTotal = parseInt(flagCountResultSet?.[0]?.total, 10) || 0;
+
+      return res.status(200).json({
+        data: Array.isArray(flagResultSet) ? flagResultSet : [],
+        pagination: buildPagination(page, limit, flagTotal),
+      });
+    }
+
+    const groupedQuery = `
+ SELECT
+    m.company_id,
+    m.company_name,
+    d.dealstage,
+    c.phone_number AS "to",
+    d.dealname,
+    d.deal_id,
+    d.handed_off,
+    MAX(m.updated_at) AS latest_updated_at,
+    case when d.dealstage in ('booking_req','got_symptoms','insurance_qns','billing_qns','got_issue') then true end as Need_Reply,
+    BOOL_OR(m.direction = 'inbound') AS has_inbound_message
+FROM db${org_id}.messages m
+JOIN db${org_id}.companies c
+    ON c.company_id = m.company_id
+JOIN db${org_id}.deals d
+    ON d.company_id = m.company_id
+WHERE m."type" = 'SMS'
+  AND d.dealstage NOT IN ('Skipped', 'Open')
+GROUP BY
+    m.company_id,
+    m.company_name,
+    d.dealstage,
+    c.phone_number,
+    d.deal_id,
+    d.dealname,
+    d.handed_off
     `;
 
-    const countQuery = `SELECT COUNT(*) AS total FROM db${org_id}.sms_activities`;
+    const dataQuery = `${groupedQuery}
+ORDER BY latest_updated_at DESC NULLS last
+LIMIT ${limit} OFFSET ${offset}`;
+
+    const countQuery = `SELECT COUNT(*) AS total FROM (${groupedQuery}) AS activity_companies`;
 
     const [resultSet, countResultSet] = await Promise.all([
       runOrgSqlQuery(org_id, dataQuery),
@@ -201,6 +250,41 @@ exports.getActivityCount = async (req, res) => {
     console.error("Error fetching activity count:", error.message);
     return res.status(500).json({
       message: "Failed to fetch activity count",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /activity/email/count
+ * Aggregate counts for the org's email activities.
+ */
+exports.getEmailActivityCount = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const org_id = req.user.organization.toString();
+
+    const countQuery = `
+      SELECT
+        count(*) AS total_cnt,
+        count(*) FILTER (WHERE has_inbound_message = TRUE) AS total_received_cnt
+      FROM db${org_id}.email_activities
+    `;
+
+    const resultSet = await runOrgSqlQuery(org_id, countQuery);
+    const row = resultSet?.[0] || {};
+
+    return res.status(200).json({
+      total_cnt: parseInt(row.total_cnt, 10) || 0,
+      total_received_cnt: parseInt(row.total_received_cnt, 10) || 0,
+    });
+  } catch (error) {
+    console.error("Error fetching email activity count:", error.message);
+    return res.status(500).json({
+      message: "Failed to fetch email activity count",
       error: error.message,
     });
   }
@@ -341,6 +425,41 @@ exports.triggerSendSmsAgent = async (req, res) => {
 };
 
 /**
+ * GET /activity/company/customer/:id
+ * Fetch company row from companies table by company_id
+ */
+exports.getActivityCompanyCustomer = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: "company id is required" });
+    }
+
+    const org_id = req.user.organization.toString();
+    const companyId = escapeSqlLiteral(id);
+    const sql_query = `
+      SELECT * FROM db${org_id}.companies
+      WHERE company_id = '${companyId}'
+    `;
+
+    const resultSet = await runOrgSqlQuery(org_id, sql_query);
+    return res.status(200).json({
+      data: Array.isArray(resultSet) ? resultSet : [],
+    });
+  } catch (error) {
+    console.error("Error fetching activity company customer:", error.message);
+    return res.status(500).json({
+      message: "Failed to fetch activity company customer",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * GET /activity/company/:inside
  * Same query filtered by company_id = :inside
  */
@@ -387,6 +506,99 @@ exports.getActivityCompanyById = async (req, res) => {
     console.error("Error fetching activity company by id:", error.message);
     return res.status(500).json({
       message: "Failed to fetch activity company messages",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /activity/email
+ * Rows from email_activities for the org (paginated).
+ */
+exports.getActivityEmails = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const { error, page, limit, offset } = parsePagination(req);
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+
+    const org_id = req.user.organization.toString();
+
+    const baseQuery = `SELECT * FROM db${org_id}.email_activities`;
+    const dataQuery = `${baseQuery} LIMIT ${limit} OFFSET ${offset}`;
+    const countQuery = `SELECT COUNT(*) AS total FROM db${org_id}.email_activities`;
+
+    const [resultSet, countResultSet] = await Promise.all([
+      runOrgSqlQuery(org_id, dataQuery),
+      runOrgSqlQuery(org_id, countQuery),
+    ]);
+
+    const totalRecords = parseInt(countResultSet?.[0]?.total, 10) || 0;
+
+    return res.status(200).json({
+      data: Array.isArray(resultSet) ? resultSet : [],
+      pagination: buildPagination(page, limit, totalRecords),
+    });
+  } catch (error) {
+    console.error("Error fetching activity emails:", error.message);
+    return res.status(500).json({
+      message: "Failed to fetch activity emails",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /activity/email/:inside
+ * Email messages filtered by company_id = :inside
+ */
+exports.getActivityEmailById = async (req, res) => {
+  try {
+    if (!req.user?.organization) {
+      return res.status(400).json({ message: "Organization id required" });
+    }
+
+    const { inside } = req.params;
+    if (!inside) {
+      return res.status(400).json({ message: "company id (inside) is required" });
+    }
+
+    const { error, page, limit, offset } = parsePagination(req);
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+
+    const org_id = req.user.organization.toString();
+    const companyId = escapeSqlLiteral(inside);
+
+    const whereClause = `m."type" = 'Email' AND m.company_id = '${companyId}'`;
+    const dataQuery = `
+      SELECT * FROM db${org_id}.messages m
+      WHERE ${whereClause}
+      ORDER BY m.updated_at ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    const countQuery = `SELECT COUNT(*) AS total FROM db${org_id}.messages m WHERE ${whereClause}`;
+
+    const [resultSet, countResultSet] = await Promise.all([
+      runOrgSqlQuery(org_id, dataQuery),
+      runOrgSqlQuery(org_id, countQuery),
+    ]);
+
+    const totalRecords = parseInt(countResultSet?.[0]?.total, 10) || 0;
+
+    return res.status(200).json({
+      data: Array.isArray(resultSet) ? resultSet : [],
+      pagination: buildPagination(page, limit, totalRecords),
+    });
+  } catch (error) {
+    console.error("Error fetching activity email by id:", error.message);
+    return res.status(500).json({
+      message: "Failed to fetch activity email messages",
       error: error.message,
     });
   }

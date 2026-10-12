@@ -369,7 +369,8 @@ exports.triggerSendSmsAgent = async (req, res) => {
       return res.status(400).json({ message: "Organization id required" });
     }
 
-    const { message, phoneNumber } = req.body || {};
+    const { message, phoneNumber: to } = req.body || {};
+
     if (!message || !phoneNumber) {
       return res.status(400).json({
         message: "message and phoneNumber are required",

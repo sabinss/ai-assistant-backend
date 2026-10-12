@@ -360,7 +360,8 @@ exports.updateCompanyArchive = async (req, res) => {
 /**
  * POST /activity/call/sms
  * Body: { message, phoneNumber }
- * Find org's Send_SMS agent and trigger /ask/agent with message + to query params
+ * Find org's Send_SMS agent and trigger /ask/agent with query:
+ *   send Message : {message} to {phoneNumber}
  */
 exports.triggerSendSmsAgent = async (req, res) => {
   try {
@@ -390,15 +391,13 @@ exports.triggerSendSmsAgent = async (req, res) => {
     }
 
     const session_id = Math.floor(100000 + Math.random() * 900000);
-    const agent_name = encodeURIComponent(agent.name);
+    const query = `send Message : ${message} to ${phoneNumber}`;
     const pythonServerUri =
       `${process.env.AI_AGENT_SERVER_URI}/ask/agent` +
-      `?agent_name=${agent_name}` +
+      `?agent_name=${encodeURIComponent(agent.name)}` +
       `&org_id=${org_id}` +
-      `&query='run'` +
-      `&session_id=${session_id}` +
-      `&message=${encodeURIComponent(message)}` +
-      `&to=${encodeURIComponent(phoneNumber)}`;
+      `&query=${encodeURIComponent(query)}` +
+      `&session_id=${session_id}`;
 
     console.log("Triggering Send_SMS agent:", pythonServerUri);
     axios.get(pythonServerUri).catch((err) => {

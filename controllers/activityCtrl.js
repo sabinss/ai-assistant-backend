@@ -369,7 +369,10 @@ exports.triggerSendSmsAgent = async (req, res) => {
       return res.status(400).json({ message: "Organization id required" });
     }
 
-    const { message, phoneNumber: to } = req.body || {};
+    const { message, to } = req.body || {};
+    console.log("to", to);
+    console.log("message", message);
+    let phoneNumber = to;
 
     if (!message || !phoneNumber) {
       return res.status(400).json({

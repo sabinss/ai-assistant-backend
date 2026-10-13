@@ -232,6 +232,7 @@ async function forwardInboundSmsToAgent({ orgId, from, to, body, messageSid, pro
 
   // Save inbound + load thread context (agent repo / Messages table).
   let historyText = "(no prior messages)";
+  let companyId = null;
   try {
     const inboundRes = await axios.post(`${agentBase}/sms/inbound`, {
       org_id: orgId,
@@ -241,6 +242,7 @@ async function forwardInboundSmsToAgent({ orgId, from, to, body, messageSid, pro
       message_sid: messageSid,
     });
     const history = inboundRes.data?.history || [];
+    companyId = inboundRes.data?.company_id || null;
     if (history.length) {
       historyText = history
         .map((row) => {
@@ -256,6 +258,7 @@ async function forwardInboundSmsToAgent({ orgId, from, to, body, messageSid, pro
 
   const question = [
     "You are handling an inbound SMS reply.",
+    `Company ID: ${companyId || "unknown"}`,
     `Our SMS number: ${to}`,
     `Customer phone: ${from}`,
     "",

@@ -1378,14 +1378,19 @@ exports.organizationActionCenter = async (req, res) => {
   }
 };
 
-// Industry -> dashboard query configs (table + optional WHERE)
+// Industry -> dashboard query configs (table + optional WHERE builder)
 const INDUSTRY_DASHBOARD_QUERIES = {
   "dental clinic": [
     { key: "dentalDashboard", table: "dental_dashboard" },
     {
       key: "scoredCompanies",
       table: "scored_companies",
-      where: "urgency IN ('Very High', 'High')",
+      // urgency=Very High → Very High; otherwise High
+      getWhere: (req) => {
+        const urgency =
+          String(req.query.urgency || "").trim() === "Very High" ? "Very High" : "High";
+        return `urgency='${urgency}'`;
+      },
     },
   ],
 };
@@ -1397,16 +1402,17 @@ exports.getOrganizationDashboardData = async (req, res) => {
       return res.status(400).json({ message: "industry query param is required" });
     }
 
-    const queries = INDUSTRY_DASHBOARD_QUERIES[industry];
-    if (!queries) {
+    const queryConfigs = INDUSTRY_DASHBOARD_QUERIES[industry];
+    if (!queryConfigs) {
       return res.status(200).json({});
     }
 
     const org_id = req.user.organization.toString();
-    const runQuery = async ({ table, where }) => {
+    const runQuery = async ({ table, where, getWhere }) => {
       const session_id = Math.floor(1000 + Math.random() * 9000);
-      const sql_query = where
-        ? `SELECT * FROM db${org_id}.${table} WHERE ${where}`
+      const resolvedWhere = typeof getWhere === "function" ? getWhere(req) : where;
+      const sql_query = resolvedWhere
+        ? `SELECT * FROM db${org_id}.${table} WHERE ${resolvedWhere}`
         : `SELECT * FROM db${org_id}.${table}`;
       console.log("sql_query", sql_query);
       const url =
@@ -1425,9 +1431,8 @@ exports.getOrganizationDashboardData = async (req, res) => {
       return Array.isArray(resultSet) ? resultSet : [];
     };
 
-    const results = await Promise.all(queries.map((q) => runQuery(q)));
-    const data = Object.fromEntries(queries.map((q, i) => [q.key, results[i]]));
-    // console.log("Dental clinic dashboard data", JSON.stringify(data, null, 2));
+    const results = await Promise.all(queryConfigs.map((q) => runQuery(q)));
+    const data = Object.fromEntries(queryConfigs.map((q, i) => [q.key, results[i]]));
     return res.status(200).json(data);
   } catch (error) {
     console.error("Error fetching organization dashboard data:", error);

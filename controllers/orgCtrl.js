@@ -1383,14 +1383,9 @@ const INDUSTRY_DASHBOARD_QUERIES = {
   "dental clinic": [
     { key: "dentalDashboard", table: "dental_dashboard" },
     {
-      key: "scoredCompaniesVeryHigh",
+      key: "scoredCompanies",
       table: "scored_companies",
-      where: "urgency='Very High'",
-    },
-    {
-      key: "scoredCompaniesHigh",
-      table: "scored_companies",
-      where: "urgency='High'",
+      where: "urgency IN ('Very High', 'High')",
     },
   ],
 };
@@ -1432,7 +1427,7 @@ exports.getOrganizationDashboardData = async (req, res) => {
 
     const results = await Promise.all(queries.map((q) => runQuery(q)));
     const data = Object.fromEntries(queries.map((q, i) => [q.key, results[i]]));
-    console.log("Dental clinic dashboard data", JSON.stringify(data, null, 2));
+    // console.log("Dental clinic dashboard data", JSON.stringify(data, null, 2));
     return res.status(200).json(data);
   } catch (error) {
     console.error("Error fetching organization dashboard data:", error);

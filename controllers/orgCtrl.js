@@ -1378,9 +1378,12 @@ exports.organizationActionCenter = async (req, res) => {
   }
 };
 
-// Industry -> table that holds its dashboard data
+// Industry -> { response key: table } that hold its dashboard data
 const INDUSTRY_DASHBOARD_TABLES = {
-  "dental clinic": "scored_companies",
+  "dental clinic": {
+    dentalDashboard: "dental_dashboard",
+    scoredCompanies: "scored_companies",
+  },
 };
 
 exports.getOrganizationDashboardData = async (req, res) => {
@@ -1390,30 +1393,36 @@ exports.getOrganizationDashboardData = async (req, res) => {
       return res.status(400).json({ message: "industry query param is required" });
     }
 
-    const table = INDUSTRY_DASHBOARD_TABLES[industry];
-    if (!table) {
-      return res.status(200).json({ data: [] });
+    const tables = INDUSTRY_DASHBOARD_TABLES[industry];
+    if (!tables) {
+      return res.status(200).json({});
     }
 
     const org_id = req.user.organization.toString();
-    const session_id = Math.floor(1000 + Math.random() * 9000);
-    const sql_query = `SELECT * FROM db${org_id}.${table}`;
-    const url =
-      process.env.AI_AGENT_SERVER_URI +
-      `/run-sql-query?sql_query=${encodeURIComponent(
-        sql_query
-      )}&session_id=${session_id}&org_id=${org_id}`;
-    const response = await axiosInstance.post(url, {}, { timeout: 300000 });
-    const resultSet = response?.data?.result?.result_set;
-    if (!Array.isArray(resultSet)) {
-      console.warn(
-        `Dashboard data: result_set missing/null for industry ${industry}. SQL response:`,
-        JSON.stringify(response?.data)
-      );
-    }
-    // if found console in json format
-    console.log(`resultSet for industry ${industry} ${table}`, JSON.stringify(resultSet, null, 2));
-    return res.status(200).json({ data: Array.isArray(resultSet) ? resultSet : [] });
+    const runQuery = async (table) => {
+      const session_id = Math.floor(1000 + Math.random() * 9000);
+      const sql_query = `SELECT * FROM db${org_id}.${table}`;
+      const url =
+        process.env.AI_AGENT_SERVER_URI +
+        `/run-sql-query?sql_query=${encodeURIComponent(
+          sql_query
+        )}&session_id=${session_id}&org_id=${org_id}`;
+      const response = await axiosInstance.post(url, {}, { timeout: 300000 });
+      const resultSet = response?.data?.result?.result_set;
+      if (!Array.isArray(resultSet)) {
+        console.warn(
+          `Dashboard data: result_set missing/null for industry ${industry} ${table}. SQL response:`,
+          JSON.stringify(response?.data)
+        );
+      }
+      return Array.isArray(resultSet) ? resultSet : [];
+    };
+
+    const keys = Object.keys(tables);
+    const results = await Promise.all(keys.map((key) => runQuery(tables[key])));
+    const data = Object.fromEntries(keys.map((key, i) => [key, results[i]]));
+    console.log("Dental clinic dashboard data", JSON.stringify(data, null, 2));
+    return res.status(200).json(data);
   } catch (error) {
     console.error("Error fetching organization dashboard data:", error);
     return res.status(500).json({ message: "Internal Server Error", error: error.message });

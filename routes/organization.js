@@ -52,6 +52,11 @@ module.exports = (app) => {
   );
   app.get(`${process.env.APP_URL}/customers/`, ctl.getCustomerDetail);
   app.get(`${process.env.APP_URL}/organization/`, authUser, permissonCheck, ctl.getOrg);
+  app.get(
+    `${process.env.APP_URL}/organization/dashboard/data`,
+    authUser,
+    ctl.getOrganizationDashboardData
+  );
 
   app.get(
     `${process.env.APP_URL}/organization/google-users`,

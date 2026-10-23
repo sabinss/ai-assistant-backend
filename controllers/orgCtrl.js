@@ -432,14 +432,11 @@ exports.upsertTwilioCredentials = async (req, res) => {
     req.body.twilioAccountSid ?? req.body.account_sid ?? req.body.accountSid ?? null;
   const twilioAuthToken =
     req.body.twilioAuthToken ?? req.body.auth_token ?? req.body.authToken ?? null;
-  const telnyxApiKey =
-    req.body.telnyx_api_key ?? req.body.telnyxApiKey ?? null;
-  const telnyxPublicKey =
-    req.body.telnyx_public_key ?? req.body.telnyxPublicKey ?? null;
+  const telnyxApiKey = req.body.telnyx_api_key ?? req.body.telnyxApiKey ?? null;
+  const telnyxPublicKey = req.body.telnyx_public_key ?? req.body.telnyxPublicKey ?? null;
   const telnyxVoiceAssistantId =
     req.body.telnyx_voice_assistant_id ?? req.body.telnyxVoiceAssistantId ?? null;
-  const telnyxTexmlAppId =
-    req.body.telnyx_texml_app_id ?? req.body.telnyxTexmlAppId ?? null;
+  const telnyxTexmlAppId = req.body.telnyx_texml_app_id ?? req.body.telnyxTexmlAppId ?? null;
 
   try {
     if (!orgId) {
@@ -471,8 +468,7 @@ exports.upsertTwilioCredentials = async (req, res) => {
     if (telnyxPublicKey != null) update.telnyx_public_key = String(telnyxPublicKey).trim();
     if (telnyxVoiceAssistantId != null)
       update.telnyx_voice_assistant_id = String(telnyxVoiceAssistantId).trim();
-    if (telnyxTexmlAppId != null)
-      update.telnyx_texml_app_id = String(telnyxTexmlAppId).trim();
+    if (telnyxTexmlAppId != null) update.telnyx_texml_app_id = String(telnyxTexmlAppId).trim();
 
     const updatedOrg = await Organization.findByIdAndUpdate(orgId, update, { new: true });
 
@@ -1379,5 +1375,47 @@ exports.organizationActionCenter = async (req, res) => {
   } catch (err) {
     console.error("organizationActionCenter error", err?.message);
     res.status(500).json({ message: "Internal server error", error: err.message });
+  }
+};
+
+// Industry -> table that holds its dashboard data
+const INDUSTRY_DASHBOARD_TABLES = {
+  "dental clinic": "scored_companies",
+};
+
+exports.getOrganizationDashboardData = async (req, res) => {
+  try {
+    const industry = (req.query.industry || "").trim().toLowerCase();
+    if (!industry) {
+      return res.status(400).json({ message: "industry query param is required" });
+    }
+
+    const table = INDUSTRY_DASHBOARD_TABLES[industry];
+    if (!table) {
+      return res.status(200).json({ data: [] });
+    }
+
+    const org_id = req.user.organization.toString();
+    const session_id = Math.floor(1000 + Math.random() * 9000);
+    const sql_query = `SELECT * FROM db${org_id}.${table}`;
+    const url =
+      process.env.AI_AGENT_SERVER_URI +
+      `/run-sql-query?sql_query=${encodeURIComponent(
+        sql_query
+      )}&session_id=${session_id}&org_id=${org_id}`;
+    const response = await axiosInstance.post(url, {}, { timeout: 300000 });
+    const resultSet = response?.data?.result?.result_set;
+    if (!Array.isArray(resultSet)) {
+      console.warn(
+        `Dashboard data: result_set missing/null for industry ${industry}. SQL response:`,
+        JSON.stringify(response?.data)
+      );
+    }
+    // if found console in json format
+    console.log(`resultSet for industry ${industry} ${table}`, JSON.stringify(resultSet, null, 2));
+    return res.status(200).json({ data: Array.isArray(resultSet) ? resultSet : [] });
+  } catch (error) {
+    console.error("Error fetching organization dashboard data:", error);
+    return res.status(500).json({ message: "Internal Server Error", error: error.message });
   }
 };

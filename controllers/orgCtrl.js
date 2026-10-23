@@ -1413,6 +1413,7 @@ exports.getOrganizationDashboardData = async (req, res) => {
       const sql_query = where
         ? `SELECT * FROM db${org_id}.${table} WHERE ${where}`
         : `SELECT * FROM db${org_id}.${table}`;
+      console.log("sql_query", sql_query);
       const url =
         process.env.AI_AGENT_SERVER_URI +
         `/run-sql-query?sql_query=${encodeURIComponent(

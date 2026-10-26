@@ -1,8 +1,11 @@
 const axios = require("axios");
 const { isValidTelnyxRequest } = require("./smsWebhookCtrl");
 
-// Telnyx waits 1.5 s for the brief. Keep a margin for the network.
-const AGENT_TIMEOUT_MS = 1200;
+// Telnyx waits for the brief for the time in the assistant's
+// dynamic_variables_webhook_timeout_ms (we set 10000, the Telnyx maximum).
+// The agent server can ask a custom agent for the brief. That takes more
+// than 1 s. Keep a margin for the network.
+const AGENT_TIMEOUT_MS = 9500;
 
 /**
  * Telnyx AI assistant dynamic variables webhook (per org).

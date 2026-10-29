@@ -5,6 +5,18 @@ const { isValidTelnyxRequest } = require("./smsWebhookCtrl");
 // for an org. The Telnyx tool waits 20 s, so stop 1 s before that.
 const QUERY_TOOL_TIMEOUT_MS = 19000;
 
+// The pilot tools answer in less than 10 s. The agent stops at 9 s.
+const PILOT_TOOL_TIMEOUT_MS = 9500;
+
+// Pilot webhook tools (the ?tool= value) and their AI agent routes.
+// The Telnyx tool sends the caller's number in the x-caller-phone header
+// ({{telnyx_end_user_target}}), so the assistant cannot change it.
+const PILOT_TOOL_ROUTES = {
+  recent_messages: "/voice/tools/recent-messages",
+  open_slots: "/voice/tools/open-slots",
+  book_appointment: "/voice/tools/book-appointment",
+};
+
 // Placeholder brief from the legal advice agent. The webhook returns it as
 // is. Later, the webhook builds the brief from our exposed API calls.
 const LEGAL_ADVICE_AGENT_BRIEF = {
@@ -35,6 +47,10 @@ const LEGAL_ADVICE_AGENT_BRIEF = {
  * - During a call, when the assistant calls the query_database webhook
  *   tool. The URL has ?tool=query_database, and the body has the question.
  *
+ * - During a call, when the assistant calls a pilot webhook tool
+ *   (recent_messages, open_slots, book_appointment). The URL has the
+ *   ?tool= value, and the AI agent runs the tool.
+ *
  * The call start and ask_legal_advice_agent get the same brief.
  * query_database goes to the AI agent, which runs the org's database query.
  * Telnyx signs all of these requests.
@@ -49,6 +65,10 @@ async function handleTelnyxVoiceBrief(req, res) {
 
   if (req.query.tool === "query_database") {
     return handleQueryDatabaseTool(req, res, orgId);
+  }
+
+  if (PILOT_TOOL_ROUTES[req.query.tool]) {
+    return handlePilotTool(req, res, orgId, req.query.tool);
   }
 
   console.log("[Voice] Voice webhook", {
@@ -90,6 +110,41 @@ async function handleQueryDatabaseTool(req, res, orgId) {
     return res.json(agentRes.data);
   } catch (err) {
     console.error("[Voice] query_database tool failed", { orgId, error: err.message });
+    return res.json({ ok: false, error: "The records cannot be reached now." });
+  }
+}
+
+/**
+ * Send a pilot tool call to the AI agent and return the result. The caller
+ * phone comes from the x-caller-phone header, not from the assistant. On any
+ * failure, return a clear error, so the call goes on.
+ */
+async function handlePilotTool(req, res, orgId, tool) {
+  const body = {
+    ...(req.body || {}),
+    caller_phone: req.headers["x-caller-phone"] || "",
+  };
+  console.log("[Voice] Pilot tool called", {
+    orgId,
+    tool,
+    callControlId: req.headers["x-telnyx-call-control-id"] || "none",
+    callerPhone: body.caller_phone || "none",
+  });
+
+  const agentBase = process.env.AI_AGENT_SERVER_URI;
+  if (!agentBase) {
+    console.error("[Voice] AI_AGENT_SERVER_URI is not set", { orgId });
+    return res.json({ ok: false, error: "The records cannot be reached now." });
+  }
+
+  try {
+    const agentRes = await axios.post(`${agentBase}${PILOT_TOOL_ROUTES[tool]}`, body, {
+      params: { org_id: orgId },
+      timeout: PILOT_TOOL_TIMEOUT_MS,
+    });
+    return res.json(agentRes.data);
+  } catch (err) {
+    console.error("[Voice] Pilot tool failed", { orgId, tool, error: err.message });
     return res.json({ ok: false, error: "The records cannot be reached now." });
   }
 }

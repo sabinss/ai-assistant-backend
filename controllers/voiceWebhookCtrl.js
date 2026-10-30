@@ -1,5 +1,11 @@
 const axios = require("axios");
+const Organization = require("../models/Organization");
 const { isValidTelnyxRequest } = require("./smsWebhookCtrl");
+
+// Telnyx waits about 1.5 s for the dynamic variables. The AI agent stops its
+// history lookup at 1 s.
+const KNOWN_FACTS_TIMEOUT_MS = 1200;
+const NO_HISTORY = "No prior history with this customer.";
 
 // The query_database tool takes about 4 s, and about 7 s on the first call
 // for an org. The Telnyx tool waits 20 s, so stop 1 s before that.
@@ -17,32 +23,13 @@ const PILOT_TOOL_ROUTES = {
   book_appointment: "/voice/tools/book-appointment",
 };
 
-// Placeholder brief from the legal advice agent. The webhook returns it as
-// is. Later, the webhook builds the brief from our exposed API calls.
-const LEGAL_ADVICE_AGENT_BRIEF = {
-  call_goal:
-    "Response to Call from a lead to get legal service from Free Injury Legal Advice. " +
-    "Generally provide some common legal answers not specific like lawyer.",
-  opening_line:
-    "Hi, this is the virtual assistant for Free Injury Legal Advice, how can I help you?",
-  stop_rule:
-    "End the call once a date/time is confirmed, or the lead says they're not interested. " +
-    "When either condition is met: thank them for their time, say goodbye, and immediately " +
-    "call the hangup tool in the same turn. Do not wait for the lead to speak again. " +
-    "Do not continue the conversation after saying goodbye.",
-  known_facts: "NA",
-  questions_to_ask: "What day and time works best for a call with our lawyer?",
-};
-
 /**
  * Telnyx AI assistant webhook (per org).
  * URL: POST /api/webhook/telnyx-voice/:orgId
  *
- * Telnyx calls this URL two ways:
+ * Telnyx calls this URL these ways:
  * - When an inbound call starts (the assistant's dynamic variables webhook).
  *   The body has data.event_type "assistant.initialization".
- * - During a call, when the assistant calls the ask_legal_advice_agent
- *   webhook tool. The body has the caller's question.
  *
  * - During a call, when the assistant calls the query_database webhook
  *   tool. The URL has ?tool=query_database, and the body has the question.
@@ -51,8 +38,10 @@ const LEGAL_ADVICE_AGENT_BRIEF = {
  *   (recent_messages, open_slots, book_appointment). The URL has the
  *   ?tool= value, and the AI agent runs the tool.
  *
- * The call start and ask_legal_advice_agent get the same brief.
- * query_database goes to the AI agent, which runs the org's database query.
+ * The call start gets one dynamic_prompt variable: the org's
+ * email_reply_prompt and the caller's known facts. The generic prompt stays
+ * on the Telnyx assistant. query_database goes to the AI agent, which runs
+ * the org's database query.
  * Telnyx signs all of these requests.
  */
 async function handleTelnyxVoiceBrief(req, res) {
@@ -78,9 +67,50 @@ async function handleTelnyxVoiceBrief(req, res) {
       req.body?.data?.payload?.call_control_id ||
       req.headers["x-telnyx-call-control-id"] ||
       "none",
-    question: req.body?.question || "",
   });
-  return res.json({ dynamic_variables: LEGAL_ADVICE_AGENT_BRIEF });
+  const dynamicPrompt = await buildDynamicPrompt(req, orgId);
+  return res.json({ dynamic_variables: { dynamic_prompt: dynamicPrompt } });
+}
+
+/**
+ * Join the org's email_reply_prompt and the caller's known facts from the AI
+ * agent. On any failure, send the prompt with no facts, so the call starts.
+ */
+async function buildDynamicPrompt(req, orgId) {
+  const [org, knownFacts] = await Promise.all([
+    Organization.findById(orgId)
+      .select("email_reply_prompt")
+      .lean()
+      .catch((err) => {
+        console.error("[Voice] Org prompt lookup failed", { orgId, error: err.message });
+        return null;
+      }),
+    fetchKnownFacts(req, orgId),
+  ]);
+  const parts = [];
+  const instructions = (org?.email_reply_prompt || "").trim();
+  if (instructions) parts.push(instructions);
+  parts.push(`## Known facts\n${knownFacts}`);
+  return parts.join("\n\n");
+}
+
+async function fetchKnownFacts(req, orgId) {
+  const agentBase = process.env.AI_AGENT_SERVER_URI;
+  if (!agentBase) {
+    console.error("[Voice] AI_AGENT_SERVER_URI is not set", { orgId });
+    return NO_HISTORY;
+  }
+
+  try {
+    const agentRes = await axios.post(`${agentBase}/voice/known-facts`, req.body || {}, {
+      params: { org_id: orgId },
+      timeout: KNOWN_FACTS_TIMEOUT_MS,
+    });
+    return agentRes.data?.known_facts || NO_HISTORY;
+  } catch (err) {
+    console.error("[Voice] Known facts lookup failed", { orgId, error: err.message });
+    return NO_HISTORY;
+  }
 }
 
 /**

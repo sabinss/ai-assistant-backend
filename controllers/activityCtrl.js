@@ -517,6 +517,8 @@ exports.getActivityCompanyById = async (req, res) => {
 /**
  * GET /activity/email
  * Rows from email_activities for the org (paginated).
+ * Default: all rows.
+ * ?has_inbound_message=true → received only (WHERE has_inbound_message = TRUE)
  */
 exports.getActivityEmails = async (req, res) => {
   try {
@@ -531,9 +533,18 @@ exports.getActivityEmails = async (req, res) => {
 
     const org_id = req.user.organization.toString();
 
-    const baseQuery = `SELECT * FROM db${org_id}.email_activities`;
-    const dataQuery = `${baseQuery} LIMIT ${limit} OFFSET ${offset}`;
-    const countQuery = `SELECT COUNT(*) AS total FROM db${org_id}.email_activities`;
+    // Default = all; received = has_inbound_message=true
+    const flagFilters = ["has_inbound_message"].filter(
+      (flag) => String(req.query[flag]).toLowerCase() === "true"
+    );
+
+    const whereClause =
+      flagFilters.length > 0
+        ? ` WHERE ${flagFilters.map((flag) => `${flag} = TRUE`).join(" AND ")}`
+        : "";
+
+    const dataQuery = `SELECT * FROM db${org_id}.email_activities${whereClause} LIMIT ${limit} OFFSET ${offset}`;
+    const countQuery = `SELECT COUNT(*) AS total FROM db${org_id}.email_activities${whereClause}`;
 
     const [resultSet, countResultSet] = await Promise.all([
       runOrgSqlQuery(org_id, dataQuery),

@@ -1452,6 +1452,7 @@ exports.getOrganizationDashboardData = async (req, res) => {
 
     const results = await Promise.all(queryConfigs.map((q) => runQuery(q)));
     const data = Object.fromEntries(queryConfigs.map((q, i) => [q.key, results[i]]));
+    console.log("Result=".JSON.stringify(data, null, 2));
     return res.status(200).json(data);
   } catch (error) {
     console.error("Error fetching organization dashboard data:", error);

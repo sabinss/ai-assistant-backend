@@ -1378,6 +1378,30 @@ exports.organizationActionCenter = async (req, res) => {
   }
 };
 
+/**
+ * Build WHERE for scored_companies from ?urgency=
+ * - Very High / High → urgency column
+ * - Health → value_realisation_score IN (100, 75)
+ * - Might be leaving / Drifting away → churn_risk_score IN (100, 75)
+ * - May want treatment → expansion_opp_score IN (100, 75)
+ * Default → urgency='High'
+ */
+const getScoredCompaniesWhere = (req) => {
+  const filter = String(req.query.urgency || "")
+    .trim()
+    .toLowerCase();
+
+  if (filter === "very high") return "urgency='Very High'";
+  if (filter === "health") return "value_realisation_score IN (100, 75)";
+  if (filter === "might be leaving" || filter === "drifting away") {
+    return "churn_risk_score IN (100, 75)";
+  }
+  if (filter === "may want treatment") return "expansion_opp_score IN (100, 75)";
+
+  // High (default) and any unknown urgency value
+  return "urgency='High'";
+};
+
 // Industry -> dashboard query configs (table + optional WHERE builder)
 const INDUSTRY_DASHBOARD_QUERIES = {
   "dental clinic": [
@@ -1385,12 +1409,7 @@ const INDUSTRY_DASHBOARD_QUERIES = {
     {
       key: "scoredCompanies",
       table: "scored_companies",
-      // urgency=Very High → Very High; otherwise High
-      getWhere: (req) => {
-        const urgency =
-          String(req.query.urgency || "").trim() === "Very High" ? "Very High" : "High";
-        return `urgency='${urgency}'`;
-      },
+      getWhere: getScoredCompaniesWhere,
     },
   ],
 };
